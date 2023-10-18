@@ -6,7 +6,8 @@ optimize the generation parameters from the LSTM reference model
 input: .csv dataframe with parents and children's utterances, segmented into turns
 ouput: .csv with the generated tokens as an additional column
 
-TO DO: note this is still the top-down search of the optimal para, we stil need to inporate an objective func to optimize theese two 
+TO DO: 1. integrate gpu settings
+    2. note this is still the top-down search of the optimal para, we stil need to inporate an objective func to optimize theese two 
         OR
       integrate the Bayesian search for hyperpara optimization: first get the whole pipeline
 
@@ -15,28 +16,34 @@ TO DO: note this is still the top-down search of the optimal para, we stil need 
 """
 import pandas as pd
 import torch
-from generation_util import *
+from generation_util import loadLSTMLMCheckpoint
 import os 
 import numpy as np
-
-
+import sys
+import argparse
 
 def parseArgs(argv):
     # Run parameters
     parser = argparse.ArgumentParser(description='Generate tokens from decoder models')
     parser.add_argument('--ModelPath', type=str, default = 'checkpoints',
-                        help='Path to the pretrained language model')
+                        help='Path to the pretrained language model; even choose whether to use best checkpoint or not')
     
-    parser.add_argument('--DataPath', type=str, default = 'prompt.csv',
-                        help='Path to the parent-child utterance file.')
+    parser.add_argument('--DictPath', type=str, default = 'bin_data/dict.txt',
+                        help='Path to the dictionary data')
+    
+    parser.add_argument('--DataPath', type=str, default = 'Prompt_AE.csv',
+                        help='Path to the parent-child utterance file')
     
     parser.add_argument('--OutputPath', type=str, default = 'generated',
                         help='Path to the generation output.')
     
-    parser.add_argument('--k_list', type=bool, default = [1,2,3,4,5],
+    parser.add_argument('--para', type=str, default = 'top-k',
+                        help='Tested hyperparameters, either top-k or temp')
+    
+    parser.add_argument('--k_list', type=bool, default = [3],
                         help='a list of top-k candidates for optimization')
     
-    parser.add_argument('--temp_list', type=bool, default = [0.1,0.2,0.3,0.4,0.5],
+    parser.add_argument('--temp_list', type=bool, default = [0.01,1,10],
                         help='a list of temperature parameters for optimization')
     
     
@@ -54,14 +61,18 @@ def parseArgs(argv):
 
 
 '''
-revise beam search
-'''
-def generate(seed_text,beam_width,length,word_dict,task):
+add temperature parameter to the model generation
+'''  
+
+
+  
+def generate(seed_text,beam_width,temp,length,word_dict,task,model):
     
     '''
     input: one string sequence
     output: generated string
     '''
+    pad_idx = task.source_dictionary.pad()
     outputs = [[seed_text, 0.0]]  
     generated_tokens = []
     
@@ -93,14 +104,27 @@ def generate(seed_text,beam_width,length,word_dict,task):
             sequences_inputs = torch.nn.utils.rnn.pad_sequence(input_sequences, batch_first=True, padding_value=pad_idx).t()
             
             # Compute output & probabilities; shape of the last layer: (sequence_length, batch_size, vocabulary_size)
-            output_ts, _ = model(sequences_inputs)
             
-            sorted_values, sorted_indices = torch.topk(output_ts, k=beam_width, dim=-1)
+            with torch.no_grad():
+                output_ts, _ = model(sequences_inputs)
+                
+                # add the temperature para    
+                scaled_logits = output_ts / temp     #!!! something wrong here
+                
+                '''
+                # note here we need to apply the softmax layer here in order to get the normalized prob distr
+                sorted_values, sorted_indices = torch.topk(output_ts_updated, k=beam_width, dim=-1)
+                
+                '''
+                softmax_output = torch.nn.functional.softmax(scaled_logits, dim=-1)
             
+            
+            sorted_values, sorted_indices = torch.topk(softmax_output, k=beam_width, dim=-1)
             '''
             sorted_values = sorted_values.to('cuda:0')
             sorted_indices = sorted_indices.to('cuda:0')
             '''
+            
             indices = sorted_indices.tolist()[-1][-1]     # ends in this line
             
             # use word probability to 
@@ -144,6 +168,9 @@ def generate(seed_text,beam_width,length,word_dict,task):
     
 
 
+'''
+perform Bayesian search on hyperparameters
+'''
 
 
 def main(argv):
@@ -152,18 +179,20 @@ def main(argv):
     
     
     # path to the training set(input) 
-    pathQuantizedUnits = output_path + '/Prompt.csv'
+    DictPath = args.DictPath
    
-    pathLSTMCheckpoint = model_path + '/checkpoint_best.pt'
+    ModelPath = args.ModelPath
+    pathLSTMCheckpoint = ModelPath + '/checkpoint_best.pt'
     # this is for model path
-    pathData = model_path + '/data-bin'
-    
-    
+    DataPath = args.DataPath
+    k_list = args.k_list
+    temp_list = args.temp_list
+    OutputPath = args.OutputPath
     
     # Load input file
-    print(f"Reading dictionary from {pathData}")
+    print(f"Reading dictionary from {DictPath}")
     word_dict = {}
-    with open(pathData + '/dict.txt', 'r') as f:
+    with open(DictPath, 'r') as f:
         for line in f:
         
             non_empty_lines = [line for line in line.split("\n") if line.strip() != ""]
@@ -175,8 +204,8 @@ def main(argv):
     # Load LSTM model
     print("")
     print(f"Loading LSTM model from {pathLSTMCheckpoint}...")
-    print(f"Path data {pathData}")
-    model, task = loadLSTMLMCheckpoint(pathLSTMCheckpoint, pathData)
+    
+    model, task = loadLSTMLMCheckpoint(pathLSTMCheckpoint, ModelPath)
     model.eval()
     print("Model loaded !")
     
@@ -184,33 +213,50 @@ def main(argv):
     # Run and save outputs
     print("")
     print("Loading prompt data from {pathQuantizedUnits}...")
-    prompt = pd.read_csv()
-    print(f"Found {len(input_file_seqs)} sequences!")
+    prompt = pd.read_csv(DataPath).head(5)
     
     
-     # Run and save outputs
-    generated_lst = []
+    
+    # experiment on different beam sizes
     print("Generating tokens from the prompts and saving results...")
-    for seed_text in prompt[''].tolist():
-        try:
-            generated = generate(seed_text,beam_width,length)
-        except:
-            generated = 'NA'
-    prompt['reference_generated'] = generated_lst
-    prompt.to_csv()
+    for k in k_list:
+        
+        for temp in temp_list:
+         # Run and save outputs
+            generated_lst = []
+           
+            n = 0
+            while n < prompt.shape[0]:
+                
+                # keep the length of generated tokens simialr as ground truth
+                length = len(prompt['text_cleaned'].tolist()[n].split())
+                
+                try:
+                    generated = generate(prompt['prompt_cleaned'].tolist()[n],k,temp,length,word_dict,task,model)
+                    
+                    
+                except:
+                    generated = 'NA'
+                    
+                generated_lst.append(generated)
+                n += 1
+        
+            prompt['reference_generated_' + str(k)+'_'+str(temp)] = generated_lst
+        
+    # create a directory if there's no such path
+    if not os.path.exists(OutputPath):
+        os.makedirs(OutputPath)
+        
+    prompt.to_csv(OutputPath + '/generated.csv')
     print("Finished generation!")
 
-
-    print("Done all in {:4f} s.".format(time() - start_time))
-        
+   
     
     
 if __name__ == "__main__":
     args = sys.argv[1:]
     main(args)
     
-    
-
 
 
 
