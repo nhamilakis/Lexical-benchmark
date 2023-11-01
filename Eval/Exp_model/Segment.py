@@ -103,9 +103,10 @@ def get_data(DataPath,ReferencePath):
     # as we always wish to truncate the largest one, just assure the left can be truncated from the larger distribution
     # reserve the lines with exactly similar length
     frame_repo = ref[~ref['length'].isin(expected_distr.keys())]
+    material = pd.DataFrame()
     for key in expected_distr: 
         selected_frame = ref[ref['length']==key].iloc[:min(expected_distr[key],ref[ref['length']==key].shape[0])]
-        
+        material = pd.concat([material,selected_frame])
         
         # put the additional rows in the datastore
         if ref[ref['length']==key].shape[0] > expected_distr[key]:
@@ -116,10 +117,20 @@ def get_data(DataPath,ReferencePath):
         else:
             if expected_distr[key] - ref[ref['length']==key].shape[0] > 0:
                 data_store[key] = expected_distr[key] - ref[ref['length']==key].shape[0]
+                
     # make up for the distribution by truncating the existing sequences
+    frame_repo = frame_repo.sort_values(by='length')
+    start_index = 0
     
-    
-    
+    for key in data_store: 
+        # truncate the input sequences
+        selected_frame = frame_repo.iloc[start_index:start_index + data_store[key]]
+        start_index += data_store[key]
+        
+        # concatenate the rest of the dataframes
+        
+        
+        
     return None
     
 
