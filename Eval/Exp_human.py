@@ -4,15 +4,10 @@ get freq of CDI receptive vocab from CHILDES children's utterances and also fitn
 
 input: 1.CHILDES transcript; 2.CDI data
 output: 1.normalized words' frequency in CDI, based on children's utterances in CHILDES; 2. figures of accumulator and CDI
-
- 
 """
-
-
-
 import numpy as np
 import os
-from util import clean_text, chunk_list, get_freq
+from util import clean_text, get_freq
 import pandas as pd
 import argparse
 import sys
@@ -24,35 +19,26 @@ def parseArgs(argv):
     # Run parameters
     parser = argparse.ArgumentParser(description='Investigate CHILDES corpus')
     
-    parser.add_argument('--TextPath', type=str, default = 'CHILDES/BE',
+    parser.add_argument('--TextPath', type=str, default = 'CHILDES/AE',
                         help='root Path to the CHILDES transcripts; one of the variables to invetigate')
     
-    parser.add_argument('--OutputPath', type=str, default = 'Output/BE',
+    parser.add_argument('--OutputPath', type=str, default = 'Output/AE',
                         help='Path to the freq output.')
     
-    parser.add_argument('--Chunksize_range', type=list, default = [0.5],
-                        help='a list of the smallest size for each chunk in hours')
-    
-    parser.add_argument('--condition', type=str, default = 'comprehension',
+    parser.add_argument('--condition', type=str, default = 'production',
                         help='comprehension mode for caregivers; production mode for children output')
     
-    parser.add_argument('--threshold_range', type=list, default = [600],
+    parser.add_argument('--threshold_range', type=list, default = [400],
                         help='threshold to decide knowing a productive word or not, one of the variable to invetigate')
     
-    parser.add_argument('--eval_path', type=str, default = 'Output/BE/production/cleaned_CDI/Oxford_CDI',
+    parser.add_argument('--eval_path', type=str, default = 'Output/AE/production/cleaned_CDI/WS',
                         help='path to the evaluation material; one of the variables to invetigate')
-    
-    parser.add_argument('--freq_type', type=str, default = 'cum',
-                        help='cumulative freq(cum) or raw fequency(raw)')
-    
-    parser.add_argument('--mode', type=str, default = 'month',
-                        help='different chunk modes: by fixed chunks or by month')
     
     return parser.parse_args(argv)
 
 
 
-def load_data(TextPath,output_dir,file,lang,condition):
+def load_data(TextPath,output_dir,file,lang,condition): 
     
     '''
     load and data in the corpus 
@@ -90,7 +76,7 @@ def load_data(TextPath,output_dir,file,lang,condition):
 def count_by_month(OutputPath,file_stat_sorted):
     
     '''
-    aggregate by month
+    get transcript info by month
     '''
     
     month_lst = list(set(file_stat_sorted['month'].tolist()))
@@ -113,12 +99,10 @@ def count_by_month(OutputPath,file_stat_sorted):
         # flatten and write the concatenated transcripts
         text_concat = [item for sublist in text_lst for item in sublist]
         
-        # print out the text files
-
+        # get the concatenated transcripts by month
         with open(OutputPath + '/Transcript_by_month/transcript_' + str(end_month) + '.txt', 'w', encoding="utf8") as f:
             for line in text_concat:
                 f.write(line + '\n')  
-        
         
         # get the number of tokens
         word_lst = ' '.join(text_concat)
@@ -140,95 +124,20 @@ def count_by_month(OutputPath,file_stat_sorted):
     if not os.path.exists(OutputPath + '/month'):
         os.makedirs(OutputPath + '/month') 
     
-    # add cumulative one
-    group_stat['token_num_cum'] = group_stat['token_num'].cumsum()
-    group_stat['hypothesized'] = group_stat['end_month'] * 30 * 10000
-     
-    group_stat['weight_factor'] = group_stat['hypothesized'] / group_stat['token_num_cum']
     group_stat.to_csv(OutputPath + '/month/Stat_chunk.csv')
     return group_stat
   
 
 
-
-def get_chunks(OutputPath,file_stat_sorted,Chunksize):
-    
-    word_chunk = Chunksize * 60 * 180
-    # cumulative sums of the token numbers
-    file_stat_sorted['Cumu_token_num'] = file_stat_sorted['token_num'].cumsum()
-    
-    # prune the chunk that is less than standard
-    chunks = chunk_list(file_stat_sorted['Cumu_token_num'].tolist(),word_chunk)
-    print('Get {} chunks altogether!'.format(str(len(chunks))))
-    # concatenate transcripts and get the meta dataframe
-    group_stat = pd.DataFrame()
-    n = 0
-    
-    for chunk in chunks:
-        
-        selected_stat = file_stat_sorted[file_stat_sorted['Cumu_token_num'].isin(chunk)]
-        
-        # read and concatenate the transcripts
-        text_lst = []
-        word = []
-        for path in selected_stat['path'].tolist():
-            with open(path, encoding="utf8") as f:
-                file = f.readlines()
-                text_lst.append(file)
-            
-        # flatten and write the concatenated transcripts
-        text_concat = [item for sublist in text_lst for item in sublist]
-        
-        group = str(Chunksize) + '_' + str(n)
-        if not os.path.exists(OutputPath + '/' + str(Chunksize)):
-            os.makedirs(OutputPath + '/' + str(Chunksize)) 
-            
-        with open(OutputPath + '/' + str(Chunksize) + '/' + group + '.txt', 'w', encoding="utf8") as f:
-            for line in text_concat:
-                f.write(line + '\n')  
-                result = line.split(' ')
-                for j in result:
-                    cleaned_word = j.strip()
-                    if len(cleaned_word) > 0:  
-                        word.append(cleaned_word)
-    
-        # path and filenames are connected by "," respectively
-        paths = ','.join(selected_stat['path'].tolist())
-        filenames = ','.join(selected_stat['filename'].tolist())
-        
-        max_month = selected_stat['month'].max()
-        min_month = selected_stat['month'].min()
-        
-        # get the age span in month
-        # get the stat for the con catenated transcripts: token/sent num, token type num, file paths, filenames
-        file_stat = pd.DataFrame([group, paths, filenames, len(text_concat), len(word), len(set(word)),min_month,max_month]).T
-        # add the theoretical number in the corresponding month and cumu token numbers
-        file_stat = file_stat.rename(columns={0: "group", 1: "paths", 2: "files", 3:'sent_num', 4:'token_num', 5:'token_type_num',6:'start_month', 7:'end_month'})
-        group_stat = pd.concat([group_stat,file_stat])         
-        
-        n += 1
-        
-    group_stat['hypothesized'] = group_stat['end_month'] * 30 * 10000
-    group_stat['weight_factor'] = group_stat['hypothesized'] / group_stat['token_num']
-    
-    # print out thet stat frame
-    group_stat.to_csv(OutputPath + '/' + str(Chunksize) + '/Stat_chunk.csv')
-    return group_stat
-  
-
-
-def count_words(OutputPath,Chunksize, group_stat,eval_path, threshold,freq_type,mode):
+def count_words(OutputPath,group_stat,eval_path, threshold):
     
     '''
-    count words in each chunk or month, get the cumulative count afterwards
+    count target words in Wordbank 
     input: word counts in each chunk/month and the stat of the number of true words as well as the true data proportion
-    
     output: a dataframe with each word count        
     the chunks are cumulative as they are first ranked and grouped
     '''
-    # note we use cumulative tken numbers as well to get the learning curve
-    # group_stat['weight_factor'] =  group_stat['hypothesized']/ group_stat['token_num']
-    
+   
     if eval_path.split('/')[-1].split('_')[0] == 'intersection':
         eval_lst = pd.read_csv(eval_path + '/WS.csv')['words'].tolist()
     else:
@@ -243,15 +152,13 @@ def count_words(OutputPath,Chunksize, group_stat,eval_path, threshold,freq_type,
     threshold_frame = pd.DataFrame()
     threshold_frame['word'] = eval_lst
     
-    
+    # loop each month
     for file in group_stat['group'].tolist():
         
         # get word freq list for each file
-        if mode == 'chunk':
-            file_path = OutputPath + '/' + str(Chunksize) + '/' + file + '.txt'
-        else: 
-            text_file = 'transcript_' + file.split('.')[0].split('-')[1]
-            file_path = OutputPath + '/Transcript_by_month/' + text_file + '.txt'  
+        
+        text_file = 'transcript_' + file.split('.')[0].split('-')[1]
+        file_path = OutputPath + '/Transcript_by_month/' + text_file + '.txt'  
             
            
         with open(file_path, encoding="utf8") as f:
@@ -271,23 +178,21 @@ def count_words(OutputPath,Chunksize, group_stat,eval_path, threshold,freq_type,
         freq_lst = []
         for word in eval_lst:
             try: 
-                count = fre_table[fre_table['Word']==word]['Freq'].item()
+                norm_count = fre_table[fre_table['Word']==word]['Norm_freq'].item() * 30 * 10000
                 
             except:
-                count = 0
-            freq_lst.append(count)
+                norm_count = 0
+            freq_lst.append(norm_count)
         freq_frame[file] = freq_lst
         
-        # get cum freq 
-    if freq_type == 'cum':
+    
+        # we use cum freq as the threshold for the word
+    sel_frame = freq_frame.iloc[:,1:]
+    columns = freq_frame.columns[1:]
+    sel_frame = sel_frame.cumsum(axis=1)
             
-        # Get column names       
-        sel_frame = freq_frame.iloc[:,1:]
-        columns = freq_frame.columns[1:]
-        sel_frame = sel_frame.cumsum(axis=1)
-            
-        for col in columns.tolist():
-            freq_frame[col] = sel_frame[col] 
+    for col in columns.tolist():
+        freq_frame[col] = sel_frame[col] 
     
     # get each chunk's scores based on the threshold
     columns = freq_frame.columns[1:]
@@ -295,15 +200,11 @@ def count_words(OutputPath,Chunksize, group_stat,eval_path, threshold,freq_type,
     for col in columns.tolist():
         
         score_lst = []
-        #thre = group_stat[group_stat['group'] == col]['start_month'].item() * threshold
         
         for count in freq_frame[col].tolist():
             
-            # normalize the count for the given month
-            norm_count = group_stat[group_stat['group'] == col]['weight_factor'].item() * count
-            
             # varying thresholds based on the correction factors
-            if norm_count >= threshold:
+            if count >= threshold:
                 score = 1
             else:
                 score = 0
@@ -316,17 +217,17 @@ def count_words(OutputPath,Chunksize, group_stat,eval_path, threshold,freq_type,
     if not os.path.exists(eval_path):
         os.makedirs(eval_path) 
         
-    freq_frame.to_csv(eval_path + '/' + freq_type + '_selected_freq.csv')
+    freq_frame.to_csv(eval_path + '/selected_freq.csv')
     
-    score_frame.to_csv(eval_path + '/'+ freq_type +'_score_' + str(threshold) +'.csv')
+    score_frame.to_csv(eval_path + '/score_' + str(threshold) +'.csv')
     return freq_frame, score_frame
     
 
 
 
 
-def plot_bar(eval_path, group_stat,Chunksize, threshold,freq_type):
-    score_frame = pd.read_csv(eval_path + '/'+ freq_type +'_score_' + str(threshold) +'.csv')
+def plot_bar(eval_path, group_stat,threshold):
+    score_frame = pd.read_csv(eval_path + '/score_' + str(threshold) +'.csv')
     column_list = score_frame.columns.tolist()[2:]
     line_x = []
     for chunk in column_list: 
@@ -374,14 +275,14 @@ def plot_bar(eval_path, group_stat,Chunksize, threshold,freq_type):
     plt.xticks(label_positions, labels)
     plt.xlabel('months')
     plt.ylabel('Proportion of kids')
-    plt.title('CHILDES expressive vocab (threshold = {}; chunksize = {})'.format(threshold,Chunksize))
+    plt.title('CHILDES expressive vocab (threshold = {})'.format(threshold))
     plt.legend()
     
     figure_path = eval_path + '/Figure_backup/'
     if not os.path.exists(figure_path):
         os.makedirs(figure_path) 
         
-    plt.savefig(figure_path + '/Bar_' + str(Chunksize) + '_' + str(threshold) + '.png')
+    plt.savefig(figure_path + '/Bar_' + str(threshold) + '.png')
     plt.show()
 
   
@@ -426,20 +327,13 @@ def calculate_fitness(mean_values, mean_value_CDI):
 
     return fitness
 
-'''
-eval_path = 'Output/AE/production/cleaned_CDI/WS'
-Chunksize = 0.5
-threshold = 100
-freq_type = 'cum'
-OutputPath = 'Output/AE'
-group_stat = pd.read_csv(OutputPath + '/production/month/Stat_chunk.csv')
-'''
 
 
-def compare_curve(eval_path,Chunksize,threshold,freq_type,group_stat):
+
+def compare_curve(eval_path,threshold,group_stat):
     
     sns.set_style('whitegrid') 
-    score_frame = pd.read_csv(eval_path + '/'+ freq_type +'_score_' + str(threshold) +'.csv')
+    score_frame = pd.read_csv(eval_path + '/score_' + str(threshold) +'.csv')
     column_list = score_frame.columns.tolist()[2:]
     
     for chunk in column_list: 
@@ -517,7 +411,7 @@ def compare_curve(eval_path,Chunksize,threshold,freq_type,group_stat):
     figure_path = eval_path + '/Figure_backup/'
     if not os.path.exists(figure_path):
         os.makedirs(figure_path) 
-    plt.savefig(figure_path + '/Curve_' + str(Chunksize) + '_' + str(threshold) + '.png')
+    plt.savefig(figure_path + '/Curve_'+ str(threshold) + '.png')
     plt.show()
     
     
@@ -529,7 +423,7 @@ def compare_curve(eval_path,Chunksize,threshold,freq_type,group_stat):
 def plot_trend(result_frame):
    
     # Create a scatter plot with color mapping
-    plt.scatter(result_frame['Chunksize'].tolist(), result_frame['threshold'].tolist(), c=result_frame['rmse'].tolist(), cmap='viridis')
+    plt.scatter(result_frame['threshold'].tolist(), c=result_frame['rmse'].tolist(), cmap='viridis')
     
     # Set labels and title
     plt.xlabel("Chunksize")
@@ -543,46 +437,27 @@ def plot_trend(result_frame):
     plt.show()
 
 
-def plot_threshold(result_frame, eval_path):
-    eval_path = 'Output/BE/production/cleaned_CDI/Oxford_CDI'
-    result_frame = pd.read_csv(eval_path + '/' + 'Fitness_All.csv')
-    result_frame = result_frame[result_frame['Chunksize'] == 0.5]
-    ax = sns.lineplot(x="threshold", y="rmse", data=result_frame)
-    for line in ax.lines:
-        plt.ylim(0.5,1)
-    # Set labels and title
-    plt.xlabel("threshold")
-    plt.ylabel('rmse')
-    plt.title('Estimated expressive vocabulary size')
-
-    # Show the plot
-    plt.show()
-
-
 
 def main(argv):
     
     # Args parser
     args = parseArgs(argv)
     
-    mode = args.mode
-    freq_type = args.freq_type
     TextPath = args.TextPath
     condition = args.condition
     eval_path = args.eval_path
     OutputPath = args.OutputPath + '/' + condition
 
-    Chunksize_range = args.Chunksize_range
+    
     threshold_range = args.threshold_range
     
     result_frame = pd.DataFrame()
     log_frame = pd.DataFrame()
-    for Chunksize in Chunksize_range:
-        for threshold in threshold_range:
+    
+    for threshold in threshold_range:
     
             # step 1: load and clean transcripts
-            if not os.path.exists(OutputPath + '/stat_per_file.csv'):   
-            #if os.path.exists(OutputPath + '/stat_per_file.csv'):   
+            if not os.path.exists(OutputPath + '/stat_per_file.csv'):     
                 print('Start cleaning transcripts')
                 
                 file_stat = pd.DataFrame()
@@ -602,23 +477,14 @@ def main(argv):
                 print('The file already exists! Skip')
                 file_stat_sorted = pd.read_csv(OutputPath + '/stat_per_file.csv')
                 
-            # step 2: cocnatenate transcripts
-            if mode == 'chunk':
-                chunk_path = OutputPath + '/' + str(Chunksize) + '/Stat_chunk.csv'
+            # step 2: cocnatenate transcripts by month
+            
+            chunk_path = OutputPath + '/month/Stat_chunk.csv'
                 
-            elif mode == 'month':
-                chunk_path = OutputPath + '/month/Stat_chunk.csv'
-                
-            if not os.path.exists(chunk_path):   
-            #if os.path.exists(chunk_path):     
-                
-                if mode == 'chunk':
-                    print('Starting building chunks with the size of {}'.format(str(Chunksize)))
-                    group_stat = get_chunks(OutputPath,file_stat_sorted,Chunksize)
-                    
-                elif mode == 'month':
-                    print('Starting counting by month')
-                    group_stat = count_by_month(OutputPath,file_stat_sorted)
+            if os.path.exists(chunk_path):   
+             
+                print('Starting counting by month')
+                group_stat = count_by_month(OutputPath,file_stat_sorted)
                     
             else:    
                 print('The concatenated chunks already exist! Skip')
@@ -626,10 +492,9 @@ def main(argv):
             
               
             # step 3: get word freq in each chunk(go through this anyway) 
-            score_path = eval_path + '/'+ freq_type +'_score_' + str(threshold) +'.csv'
-               
+            
             print('Starting counting selected evluation words')
-            freq_frame, score_frame = count_words(OutputPath,Chunksize, group_stat,eval_path, threshold,freq_type,mode)
+            freq_frame, score_frame = count_words(OutputPath,group_stat,eval_path, threshold)
             print('Finished counting selected evluation words')
             
             
@@ -637,12 +502,12 @@ def main(argv):
             try:
                 # step 4: plot the developmental bars
                 print('Plotting the developmental bars')
-                plot_bar(eval_path, group_stat,Chunksize, threshold,freq_type)
+                plot_bar(eval_path, group_stat,threshold)
                 
                 # compare and get the best combination of threshold two variables
-                rmse = compare_curve(eval_path,Chunksize,threshold,freq_type,group_stat)
+                rmse = compare_curve(eval_path,threshold,group_stat)
                 
-                temp_frame = pd.DataFrame([Chunksize, threshold, rmse]).T
+                temp_frame = pd.DataFrame([threshold, rmse]).T
                 
                 file_stat = temp_frame.rename(columns={0: "Chunksize", 1: "threshold", 2: "rmse" })
                 
@@ -650,21 +515,21 @@ def main(argv):
                 if not os.path.exists(fitness_dir):
                     os.makedirs(fitness_dir) 
                     
-                file_stat.to_csv(fitness_dir + str(Chunksize) + '_' + str(threshold) + '.csv')
+                file_stat.to_csv(fitness_dir + str(threshold) + '.csv')
                 # save the results in a dataframe
                 result_frame = pd.concat([result_frame,file_stat])
                 
             except:
-                temp_log = pd.DataFrame([Chunksize, threshold]).T
-                log_stat = temp_log.rename(columns={0: "Chunksize", 1: "threshold" })
+                temp_log = pd.DataFrame([threshold]).T
+                log_stat = temp_log.rename(columns={"threshold"})
                 log_frame = pd.concat([log_frame,log_stat])
-                print([Chunksize, threshold])
+                print([threshold])
     
     
     # step 5: plot the developmental bars
     result_frame.to_csv(eval_path + '/Fitness_All.csv')  
     log_frame.to_csv(eval_path + '/Log_All.csv')  
-    plot_trend(result_frame)
+    #plot_trend(result_frame)
     
     
     
