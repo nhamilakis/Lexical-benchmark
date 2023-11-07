@@ -64,13 +64,11 @@ def plot_distr(total_data,label_lst,title):
 
 
 
-
-
-
-# get the entropy distr for each type of distr
+# get the entropy distr for each type 
 month_lst = []
-vocab_size = []
-final_words =[]
+prompt_lst = []
+h_all = []
+prob_all =[]
 strategy_lst = []
 beam_lst = []
 topk_lst = []
@@ -86,14 +84,33 @@ for month in os.listdir(root_path):
                         
                         # load decoding strategy information
                         strategy_lst.append(strategy)
+                        strategy_lst.append(strategy)
                         month_lst.append(month)
                         data = pd.read_csv(root_path + '/' + month+ '/' + prompt_type + '/' + strategy + '/' + file)
-                        # plot distr
-                        h = data['entropy'].tolist()
-                        prob = data['prob'].tolist()
+                        temp_lst.append(file.split('_')[1])
                         
-                        plot_distr(h,'entropy')
-                        plot_distr(prob,'probability')
+                        if strategy == 'beam':
+                            beam_lst.append(file.split('_')[0])
+                            topk_lst.append('0')
+                            
+                        if strategy == 'top-k':
+                            topk_lst.append(file.split('_')[0])
+                            beam_lst.append('0')
+                            
+                        
+                        h_all.append(data['entropy'].tolist())
+                        
+info_frame = pd.DataFrame([month_lst,strategy_lst,beam_lst,topk_lst,temp_lst,h_all]).T
+
+# rename the columns
+info_frame.rename(columns = {0:'month', 1:'decoding', 2:'beam', 3:'topk', 4:'temp',5:'entropy'}, inplace = True)
+
+
+# plot results in differetn conditions
+# compare temperatures in the case of the same beam
+para = 'temp'
+target = info_frame[(info_frame['decoding']=='beam') & (info_frame['beam'])==1]
+
 
 
 
