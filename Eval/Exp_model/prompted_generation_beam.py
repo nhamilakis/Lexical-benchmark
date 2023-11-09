@@ -259,10 +259,9 @@ def generate_topk(seed_text,temp,topk,length,word_dict,task,generate_model):
 
 
 def calculate_entropy(eval_model,sentence):
-    #!!!!
     
     '''
-    a gap between entropy based on the word level to the vhar level   TO DO: check the entropy formula
+    a gap between entropy based on the word level to the vhar level   # bpe tokens
     
     input: the single text string
     output: the calculated entropy score
@@ -276,16 +275,18 @@ def calculate_entropy(eval_model,sentence):
     with torch.no_grad():
             logits = eval_model(input_ids).logits[0]
     
-        # Calculate the probabilities
+    # Calculate the probabilities
     probabilities = torch.nn.functional.softmax(logits, dim=-1)
     
     # Calculate entropy
     entropy = -torch.sum(probabilities * torch.log2(probabilities))
     
-
-    return entropy.item()
-
-
+    average_probability = torch.mean(probabilities)
+    
+    # normalize by the sequence length; otherwise this would be only the reflection of length distr
+    norm_entropy = entropy/probabilities.shape[0] 
+    return norm_entropy.item(),average_probability.item()
+    
 
 '''
 optimize hyperpara using Bayesian model
