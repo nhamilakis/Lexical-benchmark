@@ -35,8 +35,8 @@ def parseArgs(argv):
                         help='Root Path to the training data; different sizes in dufferent models')
     
     
-    parser.add_argument('--mode', type=str, default = 'generated',
-                        help='calculate sequence entropy; reference or generated')
+    parser.add_argument('--mode', type=str, default = 'reference',
+                        help='calculate sequence entropy; reference, generated or reference_all')
     
     return parser.parse_args(argv)
 
@@ -167,6 +167,9 @@ def get_data1(DataPath,TrainPath,month):
     material.to_csv(DataPath + '/' + month + '/train_distr.csv')   
     return material
 
+
+
+
 def get_data(DataPath,TrainPath,month):
     
     '''
@@ -202,10 +205,11 @@ def get_data(DataPath,TrainPath,month):
     return ref
 
 
+
+
 def calculate_entropy(eval_model,sentence):
     
     '''
-    a gap between entropy based on the word level to the vhar level   # bpe tokens
     
     input: the single text string
     output: the calculated entropy score
@@ -219,18 +223,34 @@ def calculate_entropy(eval_model,sentence):
     with torch.no_grad():
             logits = eval_model(input_ids).logits[0]
     
-    # Calculate the probabilities
+    # probability distribution of all the tokens in the vocabulary
     probabilities = torch.nn.functional.softmax(logits, dim=-1)
     
-    # Calculate entropy
+    # Calculate entropy    thisis fine as we are getting all tokens in the vocab size
     entropy = -torch.sum(probabilities * torch.log2(probabilities))
-    
-    average_probability = torch.mean(probabilities)
     
     # normalize by the sequence length; otherwise this would be only the reflection of length distr
     norm_entropy = entropy/probabilities.shape[0] 
-    return norm_entropy.item(),average_probability.item()
     
+   
+    # get the average log prob of the given sequence !loop the index list 
+    i = 0
+    
+    log_prob = 0
+    for idx in input_ids.tolist()[0]:
+        try:
+            log_prob += torch.log2(probabilities[i][idx]).item()
+            
+        except:     
+            log_prob += 0
+        i += 1
+        
+    avg_log_prob = log_prob/i * (-1)    
+    
+    return norm_entropy.item(),avg_log_prob
+
+
+
 
 
 def main(argv):
@@ -245,7 +265,9 @@ def main(argv):
     # reduce the duplications: for files in the same folders or all the utterances? comparisons? 
     
     if mode == 'generated': 
-        for month in os.listdir(DataPath): 
+        month_lst = ['12']
+        #for month in os.listdir(DataPath): 
+        for month in month_lst: 
             
             if not month.endswith('.csv') and not month.endswith('.ods'): 
                 
@@ -267,7 +289,6 @@ def main(argv):
                                     while n < prompt.shape[0]:
                                         
                                         # only calculate those files that the given columns are not there 
-                                        if 
                                         
                                         try:
                                             row_temp = prompt.iloc[[n]]
@@ -287,14 +308,14 @@ def main(argv):
                                     prompt_calculated.to_csv(DataPath + '/' + month+ '/' + mode+ '/' + stra + '/' + file)
     
     #get the entropy of the reference utt
-    else: 
+    elif mode == 'reference':  
        # loop though the training dataset and put it in the  
        #for month in os.listdir(TrainPath):  
-       for month in ['36']:    
+       for month in ['12']:    
            print('Reading reference file of month ' + month)
            
-           material = get_data(DataPath,TrainPath,month)
-           #material = pd.read_csv(DataPath + '/' + month + '/train_distr.csv')
+           #material = get_data(DataPath,TrainPath,month)
+           material = pd.read_csv(DataPath + '/' + month + '/train_distr.csv')
            
            material_final = pd.DataFrame()
            n = 0
@@ -302,20 +323,47 @@ def main(argv):
                try:
                    entropy, prob = calculate_entropy(eval_model,material['utt'].tolist()[n].replace('|','').replace(' ',''))
                    material_temp = material.loc[[n]]
-                   material_temp['prob'] = prob
-                   material_temp['entropy'] = entropy
+                   material_temp['prob_new'] = prob
+                   material_temp['entropy_new'] = entropy
                    material_final = pd.concat([material_final,material_temp])
                except:
                    pass
                n += 1
                
-           
-           
            material_final.to_csv(DataPath + '/' + month + '/train_distr.csv')
            print('Finish entropy and probability calculation ' + month)
+    
+    # calculate all the entropy distribution to replicate William's study
+    elif mode == 'reference_all':  
+        
+        material = pd.read_csv(DataPath + '/Prompt_AE.csv')
+        
+        material_final = pd.DataFrame()
+        
+        n = 0
+        while n < material.shape[0]:
+               try:
+                   prompt_h, prompt_prob = calculate_entropy(eval_model,material['prompt_cleaned'].tolist()[n].replace('|','').replace(' ',''))
+                   text_h, text_prob = calculate_entropy(eval_model,material['text_cleaned'].tolist()[n].replace('|','').replace(' ',''))
+                   material_temp = material.loc[[n]]
+                   
+                   material_temp['prompt_h_log10'] = prompt_h
+                   material_temp['prompt_prob_log10'] = prompt_prob
+                   material_temp['text_h_log10'] = text_h
+                   material_temp['text_prob_log10'] = text_prob
+                   material_final = pd.concat([material_final,material_temp])
+               except:
+                   # in case it crashes down, save the intermediate results
+                   material_final.to_csv(DataPath + '/Prompt_AE_calculated.csv')
+        n += 1
+           
+        material_final.to_csv(DataPath + '/Prompt_AE_calculated.csv')
+        print('Finish entropy and probability calculation ')
            
            
 if __name__ == "__main__":
     args = sys.argv[1:]
     main(args)
+    
+    
     
