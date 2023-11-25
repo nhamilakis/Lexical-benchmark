@@ -63,8 +63,8 @@ def get_distr(root_path):
                                 # load decoding strategy information
                                 
                                 data = pd.read_csv(root_path + '/' + month+ '/' + prompt_type + '/' + strategy + '/' + file)
-                                prob_all.append(data['prob_new'].tolist())
-                                h_all.append(data['entropy_new'].tolist())
+                                prob_all.append(data['LSTM_generated_prob'].tolist())
+                                h_all.append(data['LSTM_generated_h'].tolist())
                                 
                                 if strategy == 'beam':
                                     beam_lst.append(file.split('_')[0])
@@ -78,13 +78,13 @@ def get_distr(root_path):
                                 strategy_lst.append(strategy)
                                 prompt_lst.append(prompt_type)
                                 month_lst.append(month)
-                                temp_lst.append(file.split('_')[1])
+                                temp_lst.append(float(file.split('_')[1]))
                                 
                                 
                                 
                                 # calculate the KL divergence between the reference and generated distr
-                                h_dist = mean_KL(data['entropy_new'].tolist(),train_distr['entropy'].tolist())
-                                prob_dist = mean_KL(data['prob_new'].tolist(),train_distr['prob'].tolist())
+                                h_dist = mean_KL(data['LSTM_generated_prob'].tolist(),train_distr['entropy'].tolist())
+                                prob_dist = mean_KL(data['LSTM_generated_h'].tolist(),train_distr['prob'].tolist())
                                 
                                 h_dist_lst.append(h_dist)
                                 prob_dist_lst.append(prob_dist)
@@ -96,7 +96,8 @@ def get_distr(root_path):
     
     # rename the columns
     info_frame.rename(columns = {0:'month', 1:'decoding', 2:'beam', 3:'top-k', 4:'temp',5:'entropy',6:'prob',7:'prompt',8:'prob_dist',9:'entropy_dist'}, inplace = True)
-
+    # sort the result based on temperature to get more organized legend labels
+    info_frame = info_frame.sort_values(by='temp', ascending=True)
     return info_frame, reference_frame
 
 
@@ -108,15 +109,13 @@ info_frame, reference_frame = get_distr('eval')
 
 
 
-
-
     
 def plot_single_para(reference,decoding,decoding_para,month,prompt,var):
     
     def plot_distr(reference_data, total_data,label_lst,x_label,title,prompt,month):
         
         '''
-        plot the var dustribution
+        plot the var dustribution     #!!! sort the labels
         input: 
             reference_data: a liost of the target training data
             tota_data: a list of the selected data in the given distr
@@ -126,6 +125,7 @@ def plot_single_para(reference,decoding,decoding_para,month,prompt,var):
             the distr figure of the reference train set and the generated data 
         '''
         
+        sns.set_style('whitegrid')
         sns.kdeplot(reference_data, fill=False, label='train set')
         
         n = 0
@@ -143,8 +143,8 @@ def plot_single_para(reference,decoding,decoding_para,month,prompt,var):
                 
         else:
             for line in ax.lines:
-                plt.xlim(0,1)
-                
+                plt.xlim(0,19)
+                plt.ylim(0,1)
                 
         # Add labels and title
         plt.xlabel(x_label)
@@ -190,10 +190,13 @@ def plot_distance(target,var,decoding,prompt,month):
 
 
 # loop different conditions to get multiple figures
-var_lst = ['entropy']
-decoding_lst = ['top-k','beam']
-prompt_lst = ['unprompted','prompted']
-month_lst = ['1','36']
+# var_lst = ['entropy','prob']
+var_lst = ['prob']
+# decoding_lst = ['top-k','beam']
+# prompt_lst = ['unprompted','prompted']
+decoding_lst = ['top-k']
+prompt_lst = ['unprompted']
+month_lst = ['1','3','12']
 
 for var in var_lst:
     for month in month_lst:
@@ -203,26 +206,27 @@ for var in var_lst:
             
             for decoding in decoding_lst:
                 
-                target = info_frame[(info_frame['month']==month) & (info_frame['decoding']==decoding) & (info_frame['prompt']==prompt)]
+                # target = info_frame[(info_frame['month']==month) & (info_frame['decoding']==decoding) & (info_frame['prompt']==prompt)]
                 
-                # sort the parameters 
-                decoding_val_lst = []
-                temp_val_lst = []
-                n = 0
-                while n < target.shape[0]:
+                # # sort the parameters 
+                # decoding_val_lst = []
+                # temp_val_lst = []
+                # n = 0
+                # while n < target.shape[0]:
                     
-                    decoding_val = int(target[decoding].tolist()[n])
-                    temp_val = float(target['temp'].tolist()[n])
+                #     decoding_val = int(target[decoding].tolist()[n])
+                #     temp_val = float(target['temp'].tolist()[n])
                     
-                    decoding_val_lst.append(decoding_val)
-                    temp_val_lst.append(temp_val)
-                    n += 1
+                #     decoding_val_lst.append(decoding_val)
+                #     temp_val_lst.append(temp_val)
+                #     n += 1
                 
-                target[decoding] = decoding_val_lst
-                target['temp'] = temp_val_lst
+                # target[decoding] = decoding_val_lst
+                # target['temp'] = temp_val_lst
+                
                 
                 # plot the KL divergence between the generated tokens and reference
-                plot_distance(target,var,decoding,prompt,month)
+                #plot_distance(target,var,decoding,prompt,month)
                 
                 # get the decoding-specific parameters
                 decoding_para_lst = list(set(info_frame[(info_frame['month']==month) & (info_frame['decoding']==decoding) 
