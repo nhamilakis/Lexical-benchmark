@@ -19,18 +19,7 @@ def get_distr(root_path):
             dataframe with all the words across different conditions
     
     '''
-    
-    
-    # load the rerference data
-    
-    month_lst = []
-    prompt_lst = []
-    h_all = []
-    prob_all =[]
-    strategy_lst = []
-    beam_lst = []
-    topk_lst = []
-    temp_lst = []
+    frame_all = []
     # go over the generated files recursively
     root_path = 'eval'
     
@@ -66,32 +55,22 @@ def get_distr(root_path):
                                 fre_table = pd.DataFrame([word_lst,freq_lst]).T
                                 col_Names=["Word", "Freq"]
                                 fre_table.columns = col_Names
-                                
+                                # take the word as columns and frequence of different files as rows
                                 
                                 
                                 if strategy == 'beam':
-                                    beam_lst.append(file.split('_')[0])
-                                    topk_lst.append('0')
+                                    fre_table['beam'] = file.split('_')[0]
+                                    fre_table['top-k'] ='0'
                                     
-                                if strategy == 'top-k':
-                                    topk_lst.append(file.split('_')[0])
-                                    beam_lst.append('0')
-                                
-                                    # concatnete all the basic info regarding the genrated seq
-                                strategy_lst.append(strategy)
-                                prompt_lst.append(prompt_type)
-                                month_lst.append(month)
-                                temp_lst.append(file.split('_')[1])
-                                
-                            
+                                elif strategy == 'top-k':
+                                    fre_table['top-k'] = file.split('_')[0]
+                                    fre_table['beam'] ='0'
+                              
+                                frame_all.append(fre_table)
                             except:
                                 print(file)
                                 
-    info_frame = pd.DataFrame([month_lst,strategy_lst,beam_lst,topk_lst,temp_lst,h_all,prob_all,prompt_lst]).T
-    
-    # rename the columns
-    info_frame.rename(columns = {0:'month', 1:'decoding', 2:'beam', 3:'top-k', 4:'temp',5:'entropy',6:'prob',7:'prompt'}, inplace = True)
-
+    #expand all the 
     return info_frame, reference_frame
 
 
