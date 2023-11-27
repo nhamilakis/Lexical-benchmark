@@ -14,7 +14,7 @@ import seaborn as sns
 from plot_entropy_util import mean_KL
 
 
-
+root_path = 'eval'
 
 def get_distr(root_path):
     
@@ -80,11 +80,12 @@ def get_distr(root_path):
                                 month_lst.append(month)
                                 temp_lst.append(float(file.split('_')[1]))
                                 
-                                
+                            except:
+                                print(file)    
                                 
                                 # calculate the KL divergence between the reference and generated distr
-                                h_dist = mean_KL(data['LSTM_generated_prob'].tolist(),train_distr['entropy'].tolist())
-                                prob_dist = mean_KL(data['LSTM_generated_h'].tolist(),train_distr['prob'].tolist())
+                                h_dist = mean_KL(data['LSTM_generated_h'].tolist(),train_distr['entropy'].tolist())
+                                prob_dist = mean_KL(data['LSTM_generated_prob'].tolist(),train_distr['prob'].tolist())
                                 
                                 h_dist_lst.append(h_dist)
                                 prob_dist_lst.append(prob_dist)
@@ -189,44 +190,53 @@ def plot_distance(target,var,decoding,prompt,month):
     
 
 
+
+
+
+
+
+
+
 # loop different conditions to get multiple figures
 # var_lst = ['entropy','prob']
-var_lst = ['prob']
+var_lst = ['entropy','prob']
 # decoding_lst = ['top-k','beam']
-# prompt_lst = ['unprompted','prompted']
-decoding_lst = ['top-k']
-prompt_lst = ['unprompted']
+prompt_lst = ['unprompted','prompted']
+decoding_lst = ['beam']
+
 month_lst = ['1','3','12']
 
-for var in var_lst:
-    for month in month_lst:
+
+for month in month_lst:
+    for var in var_lst:
         # load the reference data based on the month and the investigated variable
         reference = reference_frame[reference_frame['month']==month][var].tolist()
         for prompt in prompt_lst:
             
             for decoding in decoding_lst:
                 
-                # target = info_frame[(info_frame['month']==month) & (info_frame['decoding']==decoding) & (info_frame['prompt']==prompt)]
                 
-                # # sort the parameters 
-                # decoding_val_lst = []
-                # temp_val_lst = []
-                # n = 0
-                # while n < target.shape[0]:
-                    
-                #     decoding_val = int(target[decoding].tolist()[n])
-                #     temp_val = float(target['temp'].tolist()[n])
-                    
-                #     decoding_val_lst.append(decoding_val)
-                #     temp_val_lst.append(temp_val)
-                #     n += 1
+                target = info_frame[(info_frame['month']==month) & (info_frame['decoding']==decoding) & (info_frame['prompt']==prompt)]
                 
-                # target[decoding] = decoding_val_lst
-                # target['temp'] = temp_val_lst
+                # sort the parameters 
+                decoding_val_lst = []
+                temp_val_lst = []
+                n = 0
+                while n < target.shape[0]:
+                    
+                    decoding_val = int(target[decoding].tolist()[n])
+                    temp_val = float(target['temp'].tolist()[n])
+                    
+                    decoding_val_lst.append(decoding_val)
+                    temp_val_lst.append(temp_val)
+                    n += 1
+                
+                target[decoding] = decoding_val_lst
+                target['temp'] = temp_val_lst
                 
                 
                 # plot the KL divergence between the generated tokens and reference
-                #plot_distance(target,var,decoding,prompt,month)
+                plot_distance(target,var,decoding,prompt,month)
                 
                 # get the decoding-specific parameters
                 decoding_para_lst = list(set(info_frame[(info_frame['month']==month) & (info_frame['decoding']==decoding) 
