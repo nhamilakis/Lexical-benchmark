@@ -9,8 +9,11 @@ import pandas as pd
 import os
 import collections
 import enchant
-
+import spacy
 d = enchant.Dict("en_US")
+# Load the English language model
+nlp = spacy.load('en_core_web_sm')
+
 
 def match_seq(cleaned_word_temp,frame_all):
     '''
@@ -37,19 +40,24 @@ def match_seq(cleaned_word_temp,frame_all):
     i = 0
     while i < len(frame_all):
         # loop over the word freq frame 
+        
         n = 0
         while n < frame_all[i].shape[0]:   
+                
+                word = frame_all[i]['Word'].tolist()[n]
+                freq = frame_all[i]["Freq"].tolist()[n]       
+                # append the list to the frame 
+                cleaned_frame.loc[i,word] = freq
+                n += 1
+        try:        
+              
+            # loop the parameter list
+            for para in ['MONTH','PROMPT','BEAM','TOPK']:
+                cleaned_frame.loc[i,para] = frame_all[i][para].tolist()[0]
+                
+        except:
+            print(i)
             
-            word = frame_all[i]['Word'].tolist()[n]
-            freq = frame_all[i]["Freq"].tolist()[n]       
-            # append the list to the frame 
-            cleaned_frame.loc[i,word] = freq
-            n += 1
-            
-            
-        # loop the parameter list
-        for para in ['MONTH','PROMPT','BEAM','TOPK']:
-            cleaned_frame.loc[i,para] = frame_all[i][para].tolist()[1]
         i += 1
         
     return cleaned_frame
@@ -79,10 +87,16 @@ def get_distr(root_path):
                     for strategy in os.listdir(root_path + '/' + month+ '/' + prompt_type): 
                         
                         for file in os.listdir(root_path + '/' + month+ '/' + prompt_type+ '/' + strategy):
+                            data = pd.read_csv(root_path + '/' + month+ '/' + prompt_type + '/' + strategy + '/' + file)
+                           
+                            
+                            
                             try:      
                                 # load decoding strategy information
                                 
                                 data = pd.read_csv(root_path + '/' + month+ '/' + prompt_type + '/' + strategy + '/' + file)
+                                
+                                
                                 seq = []
                                 n = 0
                                 while n < data.shape[0]:
@@ -110,8 +124,11 @@ def get_distr(root_path):
                                 
                                 fre_table['PROMPT'] = prompt_type
                                 fre_table['MONTH'] = month
+                                
                                 frame_all.append(fre_table)
-                                seq_all.extend(seq)
+                                
+                                if len(seq) > 0:
+                                    seq_all.extend(seq)
                                 
                             except:
                                 print(file)
@@ -122,20 +139,85 @@ def get_distr(root_path):
     
     # select the word from the dataframe
     word_lst = []
+    lemma_dict = {}
     for seq in seq_lst:
         try: 
             if d.check(seq) == True:
                 word_lst.append(seq)
+                # Process the word using spaCy
+                doc = nlp(seq)
+                # lemmatize the word 
+                lemma = doc[0].lemma_
+                
+                if lemma in lemma_dict:
+                    lemma_dict[lemma].append(seq)
+                else:
+                    lemma_dict[lemma] = [seq]
         except:
-            print(seq)
+            pass
+    
+    
+    
     word_lst.extend(['MONTH','PROMPT','BEAM','TOPK'])
     word_frame = seq_frame[word_lst]
-    return seq_frame, word_frame
+    
+    # reshape the lemma frame based onthe word_frame: basic info, lemma, total counts
+    lemma_frame = seq_frame[['MONTH','PROMPT','BEAM','TOPK']]
+    for lemma, words in lemma_dict.items():
+        
+        # Merge columns in the list by adding their values
+        lemma_frame[lemma] = word_frame[words].sum(axis=1)
+       
+    
+    return seq_frame, word_frame, lemma_frame
 
 
-seq_frame, word_frame = get_distr('eval_1')
 
 
-# plot the figures 
-df = df.drop(columns=['MONTH','PROMPT','BEAM','TOPK'])
-threshold = 
+
+root_path = 'eval'
+seq_frame, word_frame, lemma_frame = get_distr('eval')
+
+
+
+
+def get_score(threshold,word_frame):
+    
+    '''
+    get the score based on the threshold
+    input:
+        selected threshold
+        dataframe with counts
+        
+    output:
+        dataframe with the scores
+    '''
+    
+    word_frame['MONTH']
+    words = word_frame.drop(columns=['MONTH','PROMPT','BEAM','TOPK'])
+    
+    # Function to apply to each element
+    def apply_threshold(value):
+        if value > threshold:
+            return 1
+        else:
+            return 0
+    
+    # Apply the function to all elements in the DataFrame
+    words = words.applymap(apply_threshold)
+   
+    # append the file info and get fig in different conditions
+    vocab_size_frame = word_frame[['MONTH','PROMPT','BEAM','TOPK']]
+    vocab_size_frame['vocab_size']= words.sum(axis=1).tolist()
+
+    return vocab_size_frame
+
+
+
+# plot the curve in different conditions: only for the best fitness
+
+
+
+# !!! TO DO: group the words by freq: esp OOV words(generated new words)
+
+
