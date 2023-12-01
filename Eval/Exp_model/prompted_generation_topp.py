@@ -47,10 +47,10 @@ def parseArgs(argv):
     parser.add_argument('--boundary_lst', default = ['<s>', '</s>', '|'],     # to be modified later!!!
                         help='a list of potential word boundaries')
     
-    parser.add_argument('--mode', type=str, default = 'beam',
+    parser.add_argument('--mode', type=str, default = 'sample_topp',
                         help='Different generation startegies: sample_topk,sample_topp, sample_random OR beam')
     
-    parser.add_argument('--sample_lst', default = [6],
+    parser.add_argument('--sample_lst', default = [0.1,0.3,0.5,0.7,0.9],
                         help='a list of top-k or top_p candidates')
     
     parser.add_argument('--temp_lst', default = [0.1,0.3,0.5,0.7,1],

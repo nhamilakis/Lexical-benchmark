@@ -8,10 +8,18 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import enchant
+import seaborn as sns
+import matplotlib.pyplot as plt
+import os 
+import pandas as pd
 
 dictionary = enchant.Dict("en_US")
 
-def mean_KL(predicted,target):
+'''
+predicted = data['LSTM_generated_h'].tolist()
+target = train_distr['entropy'].tolist()
+'''
+def mean_KL(predicted,target,gpu):
     
     '''
     input: two lists of entropy 
@@ -20,19 +28,32 @@ def mean_KL(predicted,target):
     
     '''
     
-    def kl_divergence(reference,target):
+    def kl_divergence(reference,target,gpu):
     
-        
-        a = torch.tensor(reference)
-        b = torch.tensor(target)
-        
-        kl_loss = nn.KLDivLoss(reduction="batchmean")
-        # input should be a distribution in the log space
-        input_distr = F.log_softmax(a)
-        # Sample a batch of distributions. Usually this would come from the dataset
-        target = F.softmax(b)
-        output = kl_loss(input_distr,target).item()
-        return output
+        if gpu:
+            a = torch.tensor(reference).cuda()
+            b = torch.tensor(target).cuda()
+            
+            kl_loss = nn.KLDivLoss(reduction="batchmean").cuda()
+            # input should be a distribution in the log space
+            input_distr = F.log_softmax(a).cuda()
+            # Sample a batch of distributions. Usually this would come from the dataset
+            target = F.softmax(b).cuda()
+            output = kl_loss(input_distr,target).cuda()
+            
+        else:
+            a = torch.tensor(reference)
+            b = torch.tensor(target)
+            
+            kl_loss = nn.KLDivLoss(reduction="batchmean")
+            # input should be a distribution in the log space
+            input_distr = F.log_softmax(a)
+            # Sample a batch of distributions. Usually this would come from the dataset
+            target = F.softmax(b)
+            output = kl_loss(input_distr,target)
+            
+            
+        return output.item()
     # segment the predicted lists
     
     avg_dist_lst = []
@@ -40,15 +61,24 @@ def mean_KL(predicted,target):
     while index < len(target):
     
         segmented_target = target[index:index + len(predicted)] 
+        
         try:
-            dist = kl_divergence(predicted, segmented_target)
+            dist = kl_divergence(predicted, segmented_target,gpu)
             avg_dist_lst.append(dist)
+            
         except:
-            pass
+            print(index)
+            
         index += len(predicted)
     
     avg_dist = sum(avg_dist_lst)/len(avg_dist_lst)
     return avg_dist
+
+
+
+    
+   
+
 
 
 def plot_distr(reference_data, total_data,label_lst,x_label,title,prompt,month):
@@ -98,6 +128,8 @@ def plot_distr(reference_data, total_data,label_lst,x_label,title,prompt,month):
     
     
 
+
+
 def plot_single_distr(data,title):
     # Create a histogram using Seaborn
     #sns.histplot(data, kde=True, color='blue', stat='density')     # this will add the bard in the figure
@@ -110,6 +142,9 @@ def plot_single_distr(data,title):
     
     # Show the plot
     plt.show()
+
+
+
 
 
 
@@ -185,8 +220,4 @@ def count_words(root_path):
     info_frame.rename(columns = {0:'month', 1:'decoding', 2:'beam', 3:'topk', 4:'temp',5:'vocab_size', 6:'words'}, inplace = True)
     return info_frame
                                 
-                                
-info_frame = count_words('eval')                        
-                        
-info_frame.to_csv('eval/Reference_1.csv')    
-
+  

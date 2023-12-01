@@ -15,8 +15,9 @@ from plot_entropy_util import mean_KL
 
 
 root_path = 'eval'
+gpu = False
 
-def get_distr(root_path):
+def get_distr(root_path,gpu):
     
     '''
     get the entropy distr and KL divergence with the reference data for each type 
@@ -37,12 +38,15 @@ def get_distr(root_path):
     strategy_lst = []
     beam_lst = []
     topk_lst = []
+    topp_lst = []
+    random_lst = []
     temp_lst = []
     h_dist_lst = []
     prob_dist_lst = []
+    directory_lst = []
     reference_frame = pd.DataFrame()
     # go over the generated files recursively
-    root_path = 'eval'
+    
     
     
     for month in os.listdir(root_path): 
@@ -59,44 +63,77 @@ def get_distr(root_path):
                     for strategy in os.listdir(root_path + '/' + month+ '/' + prompt_type): 
                         
                         for file in os.listdir(root_path + '/' + month+ '/' + prompt_type+ '/' + strategy):
-                            try:      # in the case that entroyp and prob are not calculated yet
+                                  # in the case that entroyp and prob are not calculated yet
                                 # load decoding strategy information
                                 
                                 data = pd.read_csv(root_path + '/' + month+ '/' + prompt_type + '/' + strategy + '/' + file)
-                                prob_all.append(data['LSTM_generated_prob'].tolist())
-                                h_all.append(data['LSTM_generated_h'].tolist())
                                 
-                                if strategy == 'beam':
-                                    beam_lst.append(file.split('_')[0])
-                                    topk_lst.append('0')
+                                if not file.startswith('.'):
                                     
-                                if strategy == 'top-k':
-                                    topk_lst.append(file.split('_')[0])
-                                    beam_lst.append('0')
+                                    try:
+                                        
+                                        # calculate the KL divergence between the reference and generated distr
+                                        '''
+                                        h_dist = mean_KL(data['LSTM_generated_h'].tolist(),train_distr['entropy'].tolist(),gpu)
+                                        prob_dist = mean_KL(data['LSTM_generated_prob'].tolist(),train_distr['prob'].tolist(),gpu)
+                                        
+                                        h_dist_lst.append(h_dist)
+                                        prob_dist_lst.append(prob_dist)
+                                        '''
+                                        h_dist_lst.append(1)
+                                        prob_dist_lst.append(1)
+                                        
+                                        prob_all.append(data['LSTM_generated_prob'].tolist())
+                                        h_all.append(data['LSTM_generated_h'].tolist())
+                                        
+                                        if strategy == 'beam':
+                                            beam_lst.append(file.split('_')[0])
+                                            topk_lst.append('0')
+                                            topp_lst.append('0')
+                                            random_lst.append('0')
+                                            
+                                        elif strategy == 'sample_topk':
+                                            topk_lst.append(file.split('_')[0])
+                                            beam_lst.append('0')
+                                            topp_lst.append('0')
+                                            random_lst.append('0')
+                                            
+                                        elif strategy == 'sample_topp':
+                                            topp_lst.append(file.split('_')[0])
+                                            beam_lst.append('0')
+                                            topk_lst.append('0')
+                                            random_lst.append('0')
+                                            
+                                        elif strategy == 'sample_random':
+                                            random_lst.append('1')
+                                            topk_lst.append('0')
+                                            beam_lst.append('0')
+                                            topp_lst.append('0')
+                                            
+                                            
+                                            # concatnete all the basic info regarding the genrated seq
+                                        strategy_lst.append(strategy.split('_')[1])
+                                        prompt_lst.append(prompt_type)
+                                        month_lst.append(month)
+                                        temp_lst.append(float(file.split('_')[1]))
+                                        directory_lst.append(month+ '/' + prompt_type + '/' + strategy + '/' + file)
+                                        print('SUCCESS: ' + month+ '/' + prompt_type + '/' + strategy + '/' + file)    
+                                    
+                                    
+                                    except:
+                                        print('FAILURE: ' + month+ '/' + prompt_type + '/' + strategy + '/' + file)
                                 
-                                    # concatnete all the basic info regarding the genrated seq
-                                strategy_lst.append(strategy)
-                                prompt_lst.append(prompt_type)
-                                month_lst.append(month)
-                                temp_lst.append(float(file.split('_')[1]))
-                                
-                            except:
-                                print(file)    
-                                
-                                # calculate the KL divergence between the reference and generated distr
-                                h_dist = mean_KL(data['LSTM_generated_h'].tolist(),train_distr['entropy'].tolist())
-                                prob_dist = mean_KL(data['LSTM_generated_prob'].tolist(),train_distr['prob'].tolist())
-                                
-                                h_dist_lst.append(h_dist)
-                                prob_dist_lst.append(prob_dist)
-                                
-                            except:
-                                print(file)
-                                
-    info_frame = pd.DataFrame([month_lst,strategy_lst,beam_lst,topk_lst,temp_lst,h_all,prob_all,prompt_lst,prob_dist_lst,h_dist_lst]).T
+                                else:
+                                    print(file)
+    info_frame = pd.DataFrame([month_lst,prompt_lst,strategy_lst,beam_lst,topk_lst,topp_lst,random_lst,temp_lst,h_all,prob_all,prob_dist_lst,h_dist_lst,directory_lst]).T
     
     # rename the columns
-    info_frame.rename(columns = {0:'month', 1:'decoding', 2:'beam', 3:'top-k', 4:'temp',5:'entropy',6:'prob',7:'prompt',8:'prob_dist',9:'entropy_dist'}, inplace = True)
+    info_frame.rename(columns = {0:'month', 1:'prompt',2:'decoding', 3:'beam', 4:'topk', 5:'topp',6:'random', 7:'temp',8:'entropy',9:'prob',10:'prob_dist',11:'entropy_dist',12:'location'}, inplace = True)
+    # remove the row with NA values
+    info_frame = info_frame.dropna()
+    info_frame = info_frame[(info_frame['random'] != '.') & (info_frame['topp'] != '.')& (info_frame['topk'] != '.') & (info_frame['prob'] != '[]')]
+    # remove additional lines if there is additional info
+    
     # sort the result based on temperature to get more organized legend labels
     info_frame = info_frame.sort_values(by='temp', ascending=True)
     return info_frame, reference_frame
@@ -104,10 +141,12 @@ def get_distr(root_path):
 
 
 
-info_frame, reference_frame = get_distr('eval')
+info_frame, reference_frame = get_distr(root_path,gpu)
 
-
-
+info_all = pd.DataFrame()
+decoding_lst = ['topk','beam','topp','random']
+for decoding in decoding_lst:
+    info_frame[info_frame]
 
 
     
@@ -160,8 +199,6 @@ def plot_single_para(reference,decoding,decoding_para,month,prompt,var):
         plt.show()
         
     
-    
-    
     target = info_frame[(info_frame['month']==month) & (info_frame['decoding']==decoding) & (info_frame['prompt']==prompt)
                         & (info_frame[decoding]==decoding_para)]
     
@@ -196,14 +233,14 @@ def plot_distance(target,var,decoding,prompt,month):
 
 
 
-
 # loop different conditions to get multiple figures
 # var_lst = ['entropy','prob']
-var_lst = ['entropy','prob']
-# decoding_lst = ['top-k','beam']
-prompt_lst = ['unprompted','prompted']
-decoding_lst = ['beam']
 
+var_lst = ['entropy','prob']
+decoding_lst = ['topk','beam','topp','random']
+prompt_lst = ['unprompted','prompted']
+
+info_frame.to_csv('Info_frame.csv')
 month_lst = ['1','3','12']
 
 
@@ -216,27 +253,28 @@ for month in month_lst:
             for decoding in decoding_lst:
                 
                 
-                target = info_frame[(info_frame['month']==month) & (info_frame['decoding']==decoding) & (info_frame['prompt']==prompt)]
+                # target = info_frame[(info_frame['month']==month) & (info_frame['decoding']==decoding) & (info_frame['prompt']==prompt)]
                 
-                # sort the parameters 
-                decoding_val_lst = []
-                temp_val_lst = []
-                n = 0
-                while n < target.shape[0]:
+                # # sort the parameters 
+                # decoding_val_lst = []
+                # temp_val_lst = []
+                # n = 0
+                # while n < target.shape[0]:
                     
-                    decoding_val = int(target[decoding].tolist()[n])
-                    temp_val = float(target['temp'].tolist()[n])
+                #     decoding_val = int(target[decoding].tolist()[n])
+                #     temp_val = float(target['temp'].tolist()[n])
                     
-                    decoding_val_lst.append(decoding_val)
-                    temp_val_lst.append(temp_val)
-                    n += 1
+                #     decoding_val_lst.append(decoding_val)
+                #     temp_val_lst.append(temp_val)
+                #     n += 1
                 
-                target[decoding] = decoding_val_lst
-                target['temp'] = temp_val_lst
+                # target[decoding] = decoding_val_lst
+                # target['temp'] = temp_val_lst
                 
                 
-                # plot the KL divergence between the generated tokens and reference
-                plot_distance(target,var,decoding,prompt,month)
+                # # plot the KL divergence between the generated tokens and reference
+                # plot_distance(target,var,decoding,prompt,month)
+                
                 
                 # get the decoding-specific parameters
                 decoding_para_lst = list(set(info_frame[(info_frame['month']==month) & (info_frame['decoding']==decoding) 

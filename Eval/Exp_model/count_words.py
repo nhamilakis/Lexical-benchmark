@@ -10,6 +10,10 @@ import os
 import collections
 import enchant
 import spacy
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
 d = enchant.Dict("en_US")
 # Load the English language model
 nlp = spacy.load('en_core_web_sm')
@@ -24,7 +28,7 @@ def match_seq(cleaned_word_temp,frame_all):
             dataframe with all the words across different conditions
     '''
     
-    cleaned_word_lst = ['MONTH','PROMPT','BEAM','TOPK']
+    cleaned_word_lst = ['MONTH','PROMPT','BEAM','TOPK','TEMP']
     cleaned_word_lst.extend(cleaned_word_temp)
     # construct a total dataframe
     cleaned_frame = pd.DataFrame(cleaned_word_lst).T
@@ -52,7 +56,7 @@ def match_seq(cleaned_word_temp,frame_all):
         try:        
               
             # loop the parameter list
-            for para in ['MONTH','PROMPT','BEAM','TOPK']:
+            for para in ['MONTH','PROMPT','BEAM','TOPK','TEMP']:
                 cleaned_frame.loc[i,para] = frame_all[i][para].tolist()[0]
                 
         except:
@@ -89,8 +93,6 @@ def get_distr(root_path):
                         for file in os.listdir(root_path + '/' + month+ '/' + prompt_type+ '/' + strategy):
                             data = pd.read_csv(root_path + '/' + month+ '/' + prompt_type + '/' + strategy + '/' + file)
                            
-                            
-                            
                             try:      
                                 # load decoding strategy information
                                 
@@ -124,7 +126,7 @@ def get_distr(root_path):
                                 
                                 fre_table['PROMPT'] = prompt_type
                                 fre_table['MONTH'] = month
-                                
+                                fre_table['TEMP'] = file.split('_')[1]
                                 frame_all.append(fre_table)
                                 
                                 if len(seq) > 0:
@@ -158,11 +160,11 @@ def get_distr(root_path):
     
     
     
-    word_lst.extend(['MONTH','PROMPT','BEAM','TOPK'])
+    word_lst.extend(['MONTH','PROMPT','BEAM','TOPK','TEMP'])
     word_frame = seq_frame[word_lst]
     
     # reshape the lemma frame based onthe word_frame: basic info, lemma, total counts
-    lemma_frame = seq_frame[['MONTH','PROMPT','BEAM','TOPK']]
+    lemma_frame = seq_frame[['MONTH','PROMPT','BEAM','TOPK','TEMP']]
     for lemma, words in lemma_dict.items():
         
         # Merge columns in the list by adding their values
@@ -170,14 +172,6 @@ def get_distr(root_path):
        
     
     return seq_frame, word_frame, lemma_frame
-
-
-
-
-
-root_path = 'eval'
-seq_frame, word_frame, lemma_frame = get_distr('eval')
-
 
 
 
@@ -194,7 +188,7 @@ def get_score(threshold,word_frame):
     '''
     
     word_frame['MONTH']
-    words = word_frame.drop(columns=['MONTH','PROMPT','BEAM','TOPK'])
+    words = word_frame.drop(columns=['MONTH','PROMPT','BEAM','TOPK','TEMP'])
     
     # Function to apply to each element
     def apply_threshold(value):
@@ -207,17 +201,97 @@ def get_score(threshold,word_frame):
     words = words.applymap(apply_threshold)
    
     # append the file info and get fig in different conditions
-    vocab_size_frame = word_frame[['MONTH','PROMPT','BEAM','TOPK']]
+    vocab_size_frame = word_frame[['MONTH','PROMPT','BEAM','TOPK','TEMP']]
     vocab_size_frame['vocab_size']= words.sum(axis=1).tolist()
 
     return vocab_size_frame
 
 
-
+def plot_curve(month,vocab_size,y_label,title):
+    
+    '''
+    input: a dataframe with varying sizes of temperature conditions
+    '''
+    # Plotting the line chart
+    plt.figure(figsize=(8, 6))  # Optional: specify the figure size
+    plt.plot(month,vocab_size, marker='o', linestyle='-')  # 'marker' defines the data point markers, 'linestyle' specifies the line style
+    plt.xlabel(month)  # Label for x-axis
+    plt.ylabel(y_label)  # Label for y-axis
+    plt.title(title)  # Title of the plot
+    plt.grid(True)  # Optional: add gridlines
+    plt.show()
+    
+    
+    
 # plot the curve in different conditions: only for the best fitness
 
+root_path = 'eval'
+seq_frame, word_frame, lemma_frame = get_distr('eval')
+threshold = 1
+word_size_frame = get_score(threshold,word_frame)
+lemma_size_frame = get_score(threshold,lemma_frame)
+
+word_size_frame.to_csv('Vocab_size.csv')
+lemma_size_frame.to_csv('Lemma_size.csv')
+word_frame.to_csv('Vocab.csv')
+lemma_frame.to_csv('Lemma.csv') 
 
 
+
+
+n = 0 
+
+decoding_lst = ['BEAM','TOPK']
+prompt_lst = ['unprompted','prompted']
+y_label = 'vocab size before lemmatization'
+
+for prompt in prompt_lst:
+    for decoding in decoding_lst: 
+        # non-zero in the correspoonding column means that it is the chosen decoding type
+        condition = (word_size_frame['PROMPT'] == prompt) & (word_size_frame[decoding] != '0')
+        selected_frame_temp = word_size_frame[condition]
+        for decode_para in list(set(selected_frame_temp[decoding].tolist())): 
+            # sort the dataframe by number 
+            
+            selected_frame = selected_frame_temp[selected_frame_temp[decoding]==decode_para]
+            selected_frame['MONTH'] = selected_frame['MONTH'].astype(int)
+
+            # Sort the DataFrame based on the 'Column_Name'
+            selected_frame = selected_frame.sort_values('MONTH')
+            
+            average_y_values = selected_frame.groupby('MONTH')['vocab_size'].mean().reset_index()
+            plt.figure(figsize=(8, 6))  # Optional: specify the figure size
+            sns.lineplot(data=average_y_values, x='MONTH', y='vocab_size', marker='o', ci=None)
+            
+            plt.ylim(20,120)
+            plt.xlabel('month')  # Label for x-axis
+            plt.ylabel(y_label)  # Label for y-axis (average)
+            plt.title(prompt +': ' + decoding + '_' + decode_para)  # Title of the plot
+            plt.grid(True)  # Optional: add gridlines
+            plt.show()
+            
+            '''
+            # plot the learning curve in different temp
+            for temp in list(set(selected_frame['TEMP'].tolist())):
+                final_frame = selected_frame[selected_frame['TEMP']==temp]    
+                plot_curve(final_frame['MONTH'].tolist(),final_frame['vocab_size'].tolist(),y_label,  prompt +': ' + decoding)
+            '''
+            
+
+
+# plot several vocab size trend 
+# prompted topk
+
+
+# unprompted topk
+
+
+# prompted beam
+
+
+# unprompted beam
 # !!! TO DO: group the words by freq: esp OOV words(generated new words)
+
+
 
 
