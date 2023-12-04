@@ -10,15 +10,20 @@ import torch.nn.functional as F
 import enchant
 import seaborn as sns
 import matplotlib.pyplot as plt
-import os 
 import pandas as pd
+import spacy
 
 dictionary = enchant.Dict("en_US")
+d = enchant.Dict("en_US")
+# Load the English language model
+nlp = spacy.load('en_core_web_sm')
+
 
 '''
 predicted = data['LSTM_generated_h'].tolist()
 target = train_distr['entropy'].tolist()
 '''
+
 def mean_KL(predicted,target,gpu):
     
     '''
@@ -78,146 +83,158 @@ def mean_KL(predicted,target,gpu):
 
     
    
-
-
-
-def plot_distr(reference_data, total_data,label_lst,x_label,title,prompt,month):
+def plot_single_para(info_frame,reference,decoding,decoding_para,month,prompt,var):
     
-    '''
-    plot the var dustribution
-    input: 
-        reference_data: a liost of the target training data
-        tota_data: a list of the selected data in the given distr
-        x_label: the chosen variable to investigate
+    def plot_distr(reference_data, total_data,label_lst,x_label,title,prompt,month):
         
-    output: 
-        the distr figure of the reference train set and the generated data 
-    '''
-    
-    sns.kdeplot(reference_data, fill=False, label='train set')
-    
-    n = 0
-    while n < len(total_data):
-    
-        # Create the KDE plots without bars or data points
-        ax = sns.kdeplot(total_data[n], fill=False, label=label_lst[n])
-        
-        n += 1
-    
-    if x_label == 'entropy':
-        for line in ax.lines:
-            plt.xlim(0,18)
-            plt.ylim(0,1.5)
+        '''
+        plot the var dustribution     #!!! sort the labels
+        input: 
+            reference_data: a liost of the target training data
+            tota_data: a list of the selected data in the given distr
+            x_label: the chosen variable to investigate
             
+        output: 
+            the distr figure of the reference train set and the generated data 
+        '''
+        
+        sns.set_style('whitegrid')
+        sns.kdeplot(reference_data, fill=False, label='train set')
+        
+        n = 0
+        while n < len(total_data):
+        
+            # Create the KDE plots without bars or data points
+            ax = sns.kdeplot(total_data[n], fill=False, label=label_lst[n])
+            
+            n += 1
+        
+        if x_label == 'entropy':
+            for line in ax.lines:
+                plt.xlim(0,18)
+                plt.ylim(0,1.5)
+                
+        else:
+            for line in ax.lines:
+                plt.xlim(0,19)
+                plt.ylim(0,1)
+                
+        # Add labels and title
+        plt.xlabel(x_label)
+        plt.ylabel('Density')
+        plt.title(prompt + ' generation, ' + title + ' in month ' + month)
+        # Add legend
+        plt.legend()
+        # get high-quality figure
+        plt.figure(figsize=(8, 6), dpi=800)
+        plt.savefig('figure/' + prompt + ' generation, ' + title + ' in month ' + month + '.png', dpi=800)
+        # Show the plot
+        plt.show()
+        
+    
+    target = info_frame[(info_frame['month']==month) & (info_frame['decoding']==decoding) & (info_frame['prompt']==prompt)
+                        & (info_frame[decoding]==decoding_para)]
+    
+    # remove additional noise for random conditions
+    if decoding == 'random':
+        plot_distr(reference,target[var].tolist(),target['temp'].tolist(),var,decoding,prompt,month)
+
     else:
-        for line in ax.lines:
-            plt.xlim(0,1)
-            
-            
-    # Add labels and title
-    plt.xlabel(x_label)
-    plt.ylabel('Density')
-    plt.title(prompt + ' generation, ' + title + ' in month ' + month)
-    # Add legend
-    plt.legend()
-    # get high-quality figure
-    plt.figure(figsize=(8, 6), dpi=800)
-    plt.savefig(prompt + ' generation, ' + title + ' in month ' + month + '.png', dpi=800)
+        plot_distr(reference,target[var].tolist(),target['temp'].tolist(),var,decoding + ': ' + decoding_para,prompt,month)
+
+
+
+def plot_distance(target,var,decoding,prompt,month):  
+    
+        
+    # Create a scatter plot with color mapping
+   
+    plt.scatter(target['temp'].tolist(),target[decoding].tolist(),c=target[var + '_dist'].tolist(), cmap='viridis')
+   
+   # Set labels and title
+    plt.xlabel("temp")
+    plt.ylabel(decoding)
+    plt.title(prompt + ' generation, ' + decoding + ' in month ' + month)
+
+    # Add a colorbar for reference
+    plt.colorbar(label='KL divergence')
+
     # Show the plot
     plt.show()
     
+
+
+
+def match_seq(cleaned_word_temp,frame_all):
+    '''
     
-
-
-
-def plot_single_distr(data,title):
-    # Create a histogram using Seaborn
-    #sns.histplot(data, kde=True, color='blue', stat='density')     # this will add the bard in the figure
-    # Create the KDE plot without bars or data points
-    sns.kdeplot(data, fill=True)
-    # Add labels and title
-    plt.xlabel(title)
-    plt.ylabel('Density')
-    plt.title(title + ' ditribution')
+    match the sequence with the genrated tokens
+    '''
     
-    # Show the plot
-    plt.show()
+    cleaned_word_lst = ['MONTH','PROMPT','BEAM','TOPK','TEMP']
+    cleaned_word_lst.extend(cleaned_word_temp)
+    # construct a total dataframe
+    cleaned_frame = pd.DataFrame(cleaned_word_lst).T
+    # Set the first row as column names
+    cleaned_frame.columns = cleaned_frame.iloc[0]
+    # Drop the first row
+    cleaned_frame = cleaned_frame[1:].reset_index(drop=True)
+    
+    # Fill the DataFrame with zeros for the specified number of rows
+    for i in range(len(frame_all)):
+        cleaned_frame.loc[i] = [0] * len(cleaned_word_lst)
+    
+    i = 0
+    while i < len(frame_all):
+        # loop over the word freq frame 
+        
+        n = 0
+        while n < frame_all[i].shape[0]:   
+                
+                word = frame_all[i]['Word'].tolist()[n]
+                freq = frame_all[i]["Freq"].tolist()[n]       
+                # append the list to the frame 
+                cleaned_frame.loc[i,word] = freq
+                n += 1
+        try:        
+              
+            # loop the parameter list
+            for para in ['MONTH','PROMPT','BEAM','TOPK','TEMP']:
+                cleaned_frame.loc[i,para] = frame_all[i][para].tolist()[0]
+                
+        except:
+            print(i)
+            
+        i += 1
+        
+    return cleaned_frame
 
 
 
-
-
-
-
-def count_words(root_path):
+def lemmatize(seq_lst):
     
     '''
-    get the number of generated words 
-    input: root path of all the generated data
-    output: infoframe: containing the number of the generated word types and in differetn parameter settings
-            word count matrix for the occurrence of each word in the given generation method
-            word freq matrix which checks each words appearance in the training set
-            normzalized word count? -> we'll see this later
+    get words and lemmas from sequences respectively
+    input: sequence list
+    output: 1.word list; 2.lemma dict{lemma: words}
     '''
-    month_lst = []
-    vocab_size = []
-    final_words =[]
-    strategy_lst = []
-    beam_lst = []
-    topk_lst = []
-    temp_lst = []
-    # go over the generated files recursively
-    root_path = 'eval'
-    for month in os.listdir(root_path): 
-        if not month.endswith('.csv') and not month.endswith('.ods'): 
-            for prompt_type in os.listdir(root_path + '/' + month):                     
-                if not prompt_type.endswith('.csv') and not prompt_type.endswith('.ods'):                    
-                    for strategy in os.listdir(root_path + '/' + month+ '/' + prompt_type):                      
-                        for file in os.listdir(root_path + '/' + month+ '/' + prompt_type+ '/' + strategy):
-                            
-                            # load decoding strategy information
-                            strategy_lst.append(strategy)
-                            month_lst.append(month)
-                            data = pd.read_csv(root_path + '/' + month+ '/' + prompt_type + '/' + strategy + '/' + file)
-                            temp_lst.append(file.split('_')[1])
-                            
-                            if strategy == 'beam':
-                                beam_lst.append(file.split('_')[0])
-                                topk_lst.append('0')
-                                
-                            if strategy == 'top-k':
-                                topk_lst.append(file.split('_')[0])
-                                beam_lst.append('0')
-                                
-                            sequence_lst = []
-                            word_lst = []
-                            # check whether it is a word or not? 
-                            
-                            for word in data['LSTM_generated'].tolist():
-                                
-                                try:
-                                    #remove blank spaces between characters
-                                    word = word.replace(" ", "")
-                                except:    
-                                    pass
-                                
-                                if type(word) == str:    
-                                    # split the word sequence into a list
-                                    for segmented_word in word.split('|'):
-                                        sequence_lst.append(segmented_word)
-                                        # check whether the genrated sequence is a word or not
-                                        if len(segmented_word) > 0:
-                                            if dictionary.check(segmented_word)==True: 
-                                                word_lst.append(segmented_word)
-                                          
-                            vocab_size.append(len(set(word_lst)))
-                            final_words.append(word_lst) 
-                            
-                            
-    info_frame = pd.DataFrame([month_lst,strategy_lst,beam_lst,topk_lst,temp_lst,vocab_size,final_words]).T
-    
-    # rename the columns
-    info_frame.rename(columns = {0:'month', 1:'decoding', 2:'beam', 3:'topk', 4:'temp',5:'vocab_size', 6:'words'}, inplace = True)
-    return info_frame
-                                
-  
+    # select the word from the dataframe
+    word_lst = []
+    lemma_dict = {}
+    for seq in seq_lst:
+        try: 
+            if d.check(seq) == True:
+                word_lst.append(seq)
+                # Process the word using spaCy
+                doc = nlp(seq)
+                # lemmatize the word 
+                lemma = doc[0].lemma_
+                
+                if lemma in lemma_dict:
+                    lemma_dict[lemma].append(seq)
+                else:
+                    lemma_dict[lemma] = [seq]
+        except:
+            pass
+
+    return word_lst, lemma_dict
