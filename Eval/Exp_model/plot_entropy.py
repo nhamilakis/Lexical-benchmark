@@ -152,8 +152,10 @@ def get_distr(root_path,gpu,KL):
                                             fre_table['BEAM'] ='0'
                                             fre_table['TOPP'] ='0'
                                             fre_table['TOPK'] ='0'
-                                        # concatnete all the basic info regarding the genrated seq
                                         
+                                        # concatnete all the basic info regarding the genrated seq
+                                        fre_table['MONTH'] = month
+                                        fre_table['PROMPT'] = prompt_type
                                         prompt_lst.append(prompt_type)
                                         month_lst.append(month)
                                         temp_lst.append(float(file.split('_')[1]))
@@ -204,7 +206,10 @@ def get_distr(root_path,gpu,KL):
     
     return info_frame, reference_frame, seq_frame, word_frame, lemma_frame
 
-
+word_frame.to_csv('vocab_size.csv')
+lemma_frame.to_csv('lemma_size.csv')
+seq_frame.to_csv('seq_size.csv')
+inf_frame.to_csv('info_frame.csv')
 
 
 '''

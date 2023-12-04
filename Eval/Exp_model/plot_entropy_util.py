@@ -171,7 +171,7 @@ def match_seq(cleaned_word_temp,frame_all):
     match the sequence with the genrated tokens
     '''
     
-    cleaned_word_lst = ['MONTH','PROMPT','BEAM','TOPK','TEMP']
+    cleaned_word_lst = ['MONTH','PROMPT','BEAM','TOPK','TEMP','TOPP','RANDOM']
     cleaned_word_lst.extend(cleaned_word_temp)
     # construct a total dataframe
     cleaned_frame = pd.DataFrame(cleaned_word_lst).T
@@ -199,7 +199,7 @@ def match_seq(cleaned_word_temp,frame_all):
         try:        
               
             # loop the parameter list
-            for para in ['MONTH','PROMPT','BEAM','TOPK','TEMP']:
+            for para in ['MONTH','PROMPT','BEAM','TOPK','TEMP','TOPP','RANDOM']:
                 cleaned_frame.loc[i,para] = frame_all[i][para].tolist()[0]
                 
         except:
@@ -212,6 +212,37 @@ def match_seq(cleaned_word_temp,frame_all):
 
 
 def lemmatize(seq_lst):
+    
+    '''
+    get words and lemmas from sequences respectively
+    input: sequence list
+    output: 1.word list; 2.lemma dict{lemma: words}
+    '''
+    # select the word from the dataframe
+    word_lst = []
+    lemma_dict = {}
+    for seq in seq_lst:
+        try: 
+            if d.check(seq) == True:
+                word_lst.append(seq)
+                # Process the word using spaCy
+                doc = nlp(seq)
+                # lemmatize the word 
+                lemma = doc[0].lemma_
+                
+                if lemma in lemma_dict:
+                    lemma_dict[lemma].append(seq)
+                else:
+                    lemma_dict[lemma] = [seq]
+        except:
+            pass
+
+    return word_lst, lemma_dict
+
+
+
+
+def plot_word_count(seq_lst):
     
     '''
     get words and lemmas from sequences respectively
