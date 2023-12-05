@@ -4,13 +4,10 @@
 util func for sentence generation
 search algorithms for sentence generation
 """
-import numpy as np
+
 import re
-import json
 import argparse
-import pandas as pd
 from fairseq import tasks, checkpoint_utils
-from scipy.interpolate import interp1d
 import torch
 import subprocess
 import string
@@ -52,27 +49,25 @@ def top_k(scaled_logits,topk,gpu):
         sorted_values = sorted_values.cuda()
         sorted_indices = sorted_indices.cuda()
         
-        # renormalize the logits 
-        normalized_values = torch.nn.functional.normalize(sorted_values, p=1, dim=-1).cuda() 
-       
-        # apply softmax on the vocabulary
-        softmax_output = torch.nn.functional.softmax(normalized_values,dim=-1).cuda() 
+        # apply softmax on the selected results
+        softmax_output = torch.nn.functional.softmax(sorted_values,dim=-1).cuda() 
+        
+        # renormalize the softmax values
+        normalized_softmax = torch.nn.functional.normalize(softmax_output, p=1, dim=-1).cuda() 
         
         # Randomly sample an index based on the probability distribution of the predicted next word
-        sampled_index = torch.multinomial(softmax_output[0][-1], num_samples=1).cuda()   # Perform sampling
+        sampled_index = torch.multinomial(normalized_softmax[0][-1], num_samples=1).cuda()   # Perform sampling
+    
         
-
     else:
        
-        
-        # renormalize the logits 
-        normalized_values = torch.nn.functional.normalize(sorted_values, p=1, dim=-1)
-       
         # apply softmax on the vocabulary
-        softmax_output = torch.nn.functional.softmax(normalized_values,dim=-1)
-        
+        softmax_output = torch.nn.functional.softmax(sorted_values,dim=-1)
+        # renormalize the logits 
+        normalized_softmax = torch.nn.functional.normalize(softmax_output, p=1, dim=-1)
+       
         # Randomly sample an index based on the probability distribution
-        sampled_index = torch.multinomial(softmax_output[0][-1], num_samples=1)
+        sampled_index = torch.multinomial(normalized_softmax[0][-1], num_samples=1)
         
     index = sorted_indices.tolist()[-1][-1][sampled_index.item()] 
     return index    
@@ -81,7 +76,6 @@ def top_k(scaled_logits,topk,gpu):
 
 
 def top_p(scaled_logits,p,gpu):
-    
     
     
     if gpu:
@@ -105,18 +99,24 @@ def top_p(scaled_logits,p,gpu):
     # Select tokens based on the top-p mask
     top_p_values = sorted_probs.masked_fill(top_p_mask, 0)
     top_p_indices = sorted_indices.masked_fill(top_p_mask, 0)
-        
+    
+    # normalize the softmax output 
+    normaized_top_p_values = torch.nn.functional.normalize(top_p_values, p=1, dim=-1).cuda() 
+    
     if gpu:   
         # Perform random sampling among the top-p tokens
-        #sampled_index = torch.multinomial(top_p_values[0][-1], num_samples=1).cuda(cuda_device)
-        sampled_index = torch.multinomial(top_p_values[0][-1], num_samples=1).cuda()
+       
+        sampled_index = torch.multinomial(normaized_top_p_values[0][-1], num_samples=1).cuda()
     else:
         
         # Perform random sampling among the top-p tokens
-        sampled_index = torch.multinomial(top_p_values[0][-1], num_samples=1)
+        sampled_index = torch.multinomial(normaized_top_p_values[0][-1], num_samples=1)
         
     index = top_p_indices.tolist()[-1][-1][sampled_index.item()]
     return index
+
+
+
 
 
 def calculate_entropy(eval_model,tokenizer,sentence,gpu):
