@@ -74,7 +74,7 @@ def top_p(scaled_logits,p,gpu):
     
     
     if gpu:
-        #softmax_output = torch.nn.functional.softmax(scaled_logits, dim=-1).cuda(cuda_device)
+        
         softmax_output = torch.nn.functional.softmax(scaled_logits, dim=-1).cuda()
         
     else:
@@ -83,38 +83,37 @@ def top_p(scaled_logits,p,gpu):
     
         
     # Sort the probabilities and indices in descending order
-    sorted_probs, sorted_indices = torch.sort(softmax_output, descending=True,dim=-1)
+    sorted_probs, sorted_indices = torch.sort(softmax_output, descending=True, dim=-1)
     
     # Calculate cumulative probabilities
     cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
     
-    # Determine the smallest set of tokens whose cumulative probability exceeds threshold p
-    top_p_mask = cumulative_probs <= p
+    # Getthe smallest set of tokens whose cumulative probability exceeds threshold p
+    cutoff_index = torch.where(cumulative_probs > p)[-1][0] + 1
     
-    # Select tokens based on the top-p mask
-    top_p_values = sorted_probs.masked_fill(top_p_mask, 0)
-    top_p_indices = sorted_indices.masked_fill(top_p_mask, 0)
+    top_p_probs = sorted_probs[:, :, :cutoff_index]
     
+    rescaled_probabilities = top_p_probs / top_p_probs.sum(dim=-1, keepdim=True)
     
     
     if gpu:  
         
-        # normalize the softmax output 
-        normaized_top_p_values = torch.nn.functional.normalize(top_p_values, p=1, dim=-1).cuda() 
-        
         # Perform random sampling among the top-p tokens
-        sampled_index = torch.multinomial(normaized_top_p_values[0][-1], num_samples=1).cuda()
+        sampled_index = torch.multinomial(rescaled_probabilities[0][-1], num_samples=1).cuda()
     
     
     else:
-        # normalize the softmax output 
-        normaized_top_p_values = torch.nn.functional.normalize(top_p_values, p=1, dim=-1)
-        # Perform random sampling among the top-p tokens
-        sampled_index = torch.multinomial(normaized_top_p_values[0][-1], num_samples=1)
         
-    index = top_p_indices.tolist()[-1][-1][sampled_index.item()]
+        # Perform random sampling among the top-p tokens
+        sampled_index = torch.multinomial(rescaled_probabilities[0][-1], num_samples=1)
+    
+    
+    index = sorted_indices.tolist()[-1][-1][sampled_index.item()]
     
     return index
+
+
+
 
 
 
