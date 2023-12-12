@@ -7,7 +7,7 @@ count the numbwer of generated words from the model
 
 import os
 import pandas as pd
-from plot_entropy_util import plot_single_para, plot_distance, match_seq,lemmatize
+from plot_entropy_util import plot_single_para, plot_distance, match_seq,lemmatize,filter_words
 import collections
 import argparse
 import sys
@@ -47,7 +47,7 @@ def parseArgs(argv):
 
 
 
-
+root_path = 'generation'
 
 
 def load_data(root_path):
@@ -166,6 +166,7 @@ def load_data(root_path):
                              fre_table['PROMPT'] = prompt_type
                              fre_table['TEMP'] = float(file.split('_')[1])
                              fre_table['CHUNK'] = chunk
+                             fre_table['DECODING'] = strategy.split('_')[-1]
                              prompt_lst.append(prompt_type)
                              month_lst.append(month)
                              temp_lst.append(float(file.split('_')[1]))
@@ -212,250 +213,91 @@ def load_data(root_path):
    
 
 
+# check the overlap between wordbank and those for receptive vocab
 
+vocab_filtered = pd.read_csv(root_path + '/vocab_filtered.csv')
+vocab_unfiltered = pd.read_csv(root_path + '/vocab_unfiltered.csv')
+AE_CDI = pd.read_csv(root_path + '/AE_content.csv')
+BE_CDI = pd.read_csv(root_path + '/BE_content.csv')
 
-
-
-def plot_distr(reference_data, total_data,label_lst,x_label,title,prompt,month):
+threshold = 1
+target_words = BE_CDI['words'].tolist()
+target_words = word_frame.columns.tolist()
+# plot the vocab size curve based on word counts
+def plot_curve(threshold,word_frame, target_words):
+    
     
     '''
-    plot the var dustribution     #!!! sort the labels
-    input: 
-        reference_data: a liost of the target training data
-        tota_data: a list of the selected data in the given distr
-        x_label: the chosen variable to investigate
-        
-    output: 
-        the distr figure of the reference train set and the generated data 
+    input: the frame with word vocab size score
+
+    Returns
+    the learning curve of the figure
+
     '''
+    def filter_words(word_frame, target_words):
+    
+        '''
+        input: 1.word count dataframe 
+               2.a list of the selected words from expressive vocabulary
+    
+        Returns
+                1. target word count dataframe across different months
+                2. dataframe with vocab/word size 
+        '''
+    
+        overlapping_words = [col for col in target_words if col in word_frame.columns]
+        # append other info in the selected vocab
+        overlapping_words.extend(['MONTH','CHUNK','PROMPT','BEAM','TOPK','TEMP','TOPP','RANDOM'])
+        # Selecting existing columns based on the list of column names
+        
+        selected_frame = word_frame[overlapping_words]
+    
+        return selected_frame
+
+    selected_frame = filter_words(word_frame, target_words)
+    
+    # remove duplicated 
+    word_size = get_score(threshold,selected_frame)
+    
+    # remove duplicated columns 
+    word_size = word_size.loc[:, ~word_size.columns.duplicated()]
+
+    target_frame = word_size[word_size['TOPP'] != '0']   
+
+    month_lst = []              
+    for month in target_frame['MONTH'].tolist():
+        pseudo_month = int(month[:-1])/89
+        month_lst.append(pseudo_month)
+        
+    target_frame['Pseudo_month'] = month_lst
+    
+    target_frame['Proportion of model'] = target_frame['vocab_size']/selected_frame.shape[1]
     
     sns.set_style('whitegrid')
-    sns.kdeplot(reference_data, fill=False, label='train set')
-    
-    n = 0
-    while n < len(total_data):
-    
-        # Create the KDE plots without bars or data points
-        ax = sns.kdeplot(total_data[n], fill=False, label=label_lst[n])
-        
-        n += 1
-    
-    if x_label == 'entropy':
-        for line in ax.lines:
-            plt.xlim(0,14)
-            plt.ylim(0,1)
-            
-    else:
-        for line in ax.lines:
-            plt.xlim(0,19)
-            plt.ylim(0,1)
-            
-    # Add labels and title
-    plt.xlabel(x_label)
-    plt.ylabel('Density')
-    plt.title(prompt + ' generation, ' + title + ' in month ' + month)
-    # Add legend
-    plt.legend()
-    # get high-quality figure
-    plt.figure(figsize=(8, 6), dpi=800)
-    plt.savefig('figure/' + prompt + ' generation, ' + title + ' in month ' + month + '.png', dpi=800)
-    # Show the plot
+    ax = sns.lineplot(data=target_frame, x='Pseudo_month', y='Proportion of model')
+                    
+    plt.title('Unprompted generation', fontsize=20)
     plt.show()
 
 
-def get_score(threshold,word_frame):
-    
-    '''
-    get the score based on the threshold
-    input:
-        selected threshold
-        dataframe with counts
-        
-    output:
-        dataframe with the scores
-    '''
-    
-    word_frame['MONTH']
-    words = word_frame.drop(columns=['MONTH','CHUNK','PROMPT','BEAM','TOPK','TEMP','TOPP','RANDOM'])
-    
-    # Function to apply to each element
-    def apply_threshold(value):
-        if value > threshold:
-            return 1
-        else:
-            return 0
-    
-    # Apply the function to all elements in the DataFrame
-    words = words.applymap(apply_threshold)
-   
-    # append the file info and get fig in different conditions
-    vocab_size_frame = word_frame[['MONTH','CHUNK','PROMPT','BEAM','TOPK','TEMP','TOPP','RANDOM']]
-    vocab_size_frame['vocab_size']= words.sum(axis=1).tolist()
 
-    return vocab_size_frame
-
-root_path = 'eval'
-var_lst = ['prob','entropy']
-decoding_lst = ['topp']
-prompt_lst = ['unprompted']
-month_lst = ['1','3','12','36']
-    
-
-info_frame.to_csv('model_eval/info_frame.csv')
-seq_frame.to_csv('model_eval/seq_frame.csv')
-word_frame.to_csv('model_eval/word_frame.csv')
-lemma_frame.to_csv('model_eval/lemma_frame.csv')
+plot_curve(threshold,word_frame, BE_CDI['words'].tolist())
 
 
-column_lst = ['MONTH','PROMPT','BEAM','TOPK','TEMP','TOPP','RANDOM']
+  
+# plot the results by different frequency bands
 
-
-threshold_lst = [1,2,3,4,5]
-word_size_frame = get_score(threshold,word_frame)
-
-
-# get and plot KL divergence 
-# plot the vocab size curve
+def plot_by_freq(threshold,word_frame, target_words):
 
 
 
-root_path = 'KL/KL_eval/'
-
-kl_frame_all = pd.DataFrame()
-lemma_frame_all = pd.DataFrame()
-word_frame_all = pd.DataFrame()
-
-for frame in os.listdir(root_path): 
-    
-    frame_temp = pd.read_csv(root_path + frame)
-    
-    
-    if frame.startswith('Info'):
-
-        kl_frame_all = pd.concat([kl_frame_all,frame_temp])
-        kl_frame_all = kl_frame_all.drop_duplicates()
-        
-
-    elif frame.startswith('lemma'):
-        lemma_frame_all = pd.concat([lemma_frame_all,frame_temp])
-        lemma_frame_all = lemma_frame_all.drop_duplicates()
-        
-        
-    elif frame.startswith('word'):
-        word_frame_all = pd.concat([word_frame_all,frame_temp])
-        word_frame_all = word_frame_all.drop_duplicates()
-        
-        
-kl_frame_all = pd.read_csv('KL/KL_eval/Info_frame28.csv') 
-lemma_frame_all = pd.read_csv('KL/KL_eval/lemma_frame28.csv') 
-word_frame_all = pd.read_csv('KL/KL_eval/word_frame28.csv') 
-kl_frame_all = kl_frame_all.drop_duplicates()
-lemma_frame_all = lemma_frame_all.drop_duplicates()
-word_frame_all = word_frame_all.drop_duplicates()
-
-threshold = 1
-lemma_size = get_score(threshold,lemma_frame_all)
-word_size = get_score(threshold,word_frame_all)
+# investigate POS of the generated words/ The emergence of function words 
 
 
 
 
 
-var_lst = ['prob_dist','entropy_dist']
 
-var_lst = ['prob_dist']
-prompt_lst = ['unprompted']
-month_lst = [1,3,12,36]
-decoding = 'topp'
-target_var = 'topp'
-
-
-
-# use word count for evaluation 
-
-
-def vocab_size(word_size,prompt_lst,month_lst,decoding_lst,vocab_type):
-    
-    decoding_dict = {'topk':'TOPK','beam':'BEAM','topp':'TOPP','random':'RANDOM'}
-    
-    sns.set_style('whitegrid')
-    for prompt in prompt_lst:
-              
-        for decoding in decoding_lst:
-                
-                    target_frame = word_size[(word_size['PROMPT']==prompt) & (word_size['DECODING']==decoding)]
-                    
-                    for month in month_lst: 
-                        # plot the difference for each month 
-                        ax = sns.lineplot(data=target_frame[target_frame['MONTH'] == month], x=decoding_dict[decoding], y='vocab_size', label = str(month))
-                    
-                    
-                    if prompt == 'unprompted':   
-                        plt.ylim(0,400)  
-                         
-                        
-                    elif prompt == 'prompted':  
-                        
-                        plt.ylim(50,250)  
-                    
-                    
-                    plt.xlabel(decoding, fontsize=18)
-                    plt.ylabel(vocab_type + '_size', fontsize=18)
-                    plt.tick_params(axis='both', labelsize=14)
-                    plt.legend(bbox_to_anchor=(1.05, 0.5), loc='upper left',fontsize=15, title='month',title_fontsize=18)
-                    plt.title(prompt + ' generation', fontsize=20)
-                    plt.show()
-
-
-
-
-prompt_lst = ['unprompted']
-month_lst = ['50h','100h','200h']
-decoding_lst = ['topp']
-vocab_type = 'lemma'
-word_size = lemma_size
-vocab_size(word_size,prompt_lst,month_lst,decoding_lst,vocab_type)
-
-var = 'prob_dist'
-   
-
-info_frame = kl_frame_all
-
-def optimal_frame(info_frame,var,month_lst,prompt_lst,decoding_lst):
-    
-    '''
-    get the dataframe with optimal conditions
-    input: 
-    output: the target dataframe
-    
-    '''
-    frame_all = pd.DataFrame()
-    for month in month_lst:
-        for prompt in prompt_lst:
-            for decoding in decoding_lst:
-                selected_frame = info_frame[(info_frame['month']==month) & (info_frame['decoding']==decoding) & (info_frame['prompt']==prompt)]
-                # get the row with the lowest target number 
-                index_min = selected_frame[var].idxmin()
-    
-                # Get the row with the lowest value in the specified column
-                target_row = selected_frame.loc[[index_min]]     
-                # concatenate the given rows
-                frame_all = pd.concat([target_row,frame_all])
-    
-    frame_all = frame_all.sort_values(by=var, ascending=True)
-    return frame_all 
-
-# get the optimal conditions with lowest KL divergence
-prompt_lst = ['unprompted','prompted']
-decoding_lst = ['topp','topk']
-month_lst = [1,3,12,36]
-var_lst = ['prob_dist','entropy_dist']
-
-frame_dict = {}
-for var in var_lst:
-    frame = optimal_frame(kl_frame_all,var,month_lst,prompt_lst,decoding_lst)
-    frame_dict[var] = frame
-    
     
     
 def main(argv):
