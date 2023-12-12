@@ -19,69 +19,6 @@ d = enchant.Dict("en_US")
 nlp = spacy.load('en_core_web_sm')
 
 
-'''
-predicted = data['LSTM_generated_h'].tolist()
-target = train_distr['entropy'].tolist()
-'''
-
-def mean_KL(predicted,target,gpu):
-    
-    '''
-    input: two lists of entropy 
-        predicted: generated tokens; target: the reference ones, typically long and that's why we use the average value
-    output: averaged KL distance
-    
-    '''
-    
-    def kl_divergence(reference,target,gpu):
-    
-        if gpu:
-            a = torch.tensor(reference).cuda()
-            b = torch.tensor(target).cuda()
-            
-            kl_loss = nn.KLDivLoss(reduction="batchmean").cuda()
-            # input should be a distribution in the log space
-            input_distr = F.log_softmax(a).cuda()
-            # Sample a batch of distributions. Usually this would come from the dataset
-            target = F.softmax(b).cuda()
-            output = kl_loss(input_distr,target).cuda()
-            
-        else:
-            a = torch.tensor(reference)
-            b = torch.tensor(target)
-            
-            kl_loss = nn.KLDivLoss(reduction="batchmean")
-            # input should be a distribution in the log space
-            input_distr = F.log_softmax(a)
-            # Sample a batch of distributions. Usually this would come from the dataset
-            target = F.softmax(b)
-            output = kl_loss(input_distr,target)
-            
-            
-        return output.item()
-    # segment the predicted lists
-    
-    avg_dist_lst = []
-    index = 0
-    while index < len(target):
-    
-        segmented_target = target[index:index + len(predicted)] 
-        
-        try:
-            dist = kl_divergence(predicted, segmented_target,gpu)
-            avg_dist_lst.append(dist)
-            
-        except:
-            print(index)
-            
-        index += len(predicted)
-    
-    avg_dist = sum(avg_dist_lst)/len(avg_dist_lst)
-    return avg_dist
-
-
-
-    
    
 def plot_single_para(info_frame,reference,decoding,decoding_para,month,prompt,var):
     
@@ -171,7 +108,7 @@ def match_seq(cleaned_word_temp,frame_all):
     match the sequence with the genrated tokens
     '''
     
-    cleaned_word_lst = ['MONTH','CHUNK','PROMPT','BEAM','TOPK','TEMP','TOPP','RANDOM','DECODING']
+    cleaned_word_lst = ['MONTH','CHUNK','PROMPT','BEAM','TOPK','TEMP','TOPP','RANDOM']
     cleaned_word_lst.extend(cleaned_word_temp)
     # construct a total dataframe
     cleaned_frame = pd.DataFrame(cleaned_word_lst).T
@@ -199,7 +136,7 @@ def match_seq(cleaned_word_temp,frame_all):
         try:        
               
             # loop the parameter list
-            for para in ['MONTH','CHUNK','PROMPT','BEAM','TOPK','TEMP','TOPP','RANDOM','DECODING']:
+            for para in ['MONTH','CHUNK','PROMPT','BEAM','TOPK','TEMP','TOPP','RANDOM']:
                 cleaned_frame.loc[i,para] = frame_all[i][para].tolist()[0]
                 
         except:
