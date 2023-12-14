@@ -29,16 +29,16 @@ def parseArgs(argv):
     parser.add_argument('--OutputPath', type=str, default = 'Output',
                         help='Path to the freq output.')
     
-    parser.add_argument('--condition', type=str, default = 'recep',
+    parser.add_argument('--condition', type=str, default = 'exp',
                         help='types of vocab: recep or exp')
     
-    parser.add_argument('--hour', type=int, default = 3,
+    parser.add_argument('--hour', type=int, default = 1,
                         help='the estimated number of hours per day')
     
     parser.add_argument('--word_per_hour', type=int, default = 10000,
                         help='the estimated number of words per hour')
     
-    parser.add_argument('--threshold_range', type=list, default = [10],
+    parser.add_argument('--threshold_range', type=list, default = [300,600],
                         help='threshold to decide knowing a productive word or not, one of the variable to invetigate')
     
     parser.add_argument('--eval_path', type=str, default = 'Human_CDI/',
@@ -60,9 +60,9 @@ def load_data(TextPath,OutputPath,lang,condition):
     '''
     
     # load and clean transcripts: get word info in each seperate transcript
-    if os.path.exists(OutputPath + '/stat_per_file_' + lang +'.csv'):     
+    if os.path.exists(OutputPath + '/stat_per_file' +'.csv'):     
         print('The transcripts have already been cleaned! Skip')
-        file_stat_sorted = pd.read_csv(OutputPath + '/stat_per_file_' + lang +'.csv')
+        file_stat_sorted = pd.read_csv(OutputPath + '/stat_per_file' +'.csv')
         
     # check whether the cleaned transcripts exist
     else:
@@ -79,7 +79,7 @@ def load_data(TextPath,OutputPath,lang,condition):
                     print(file)
                     
         file_stat_sorted = file_stat.sort_values('month')    
-        file_stat_sorted.to_csv(OutputPath + '/stat_per_file_' + lang +'.csv')                
+        file_stat_sorted.to_csv(OutputPath + '/stat_per_file' +'.csv')                
         print('Finished cleaning files')
     
     # concatenate word info in each month
@@ -89,8 +89,13 @@ def load_data(TextPath,OutputPath,lang,condition):
 
 
 
-
 def count_words(OutputPath,group_stat,eval_path,hour,word_per_hour):
+    
+    '''
+    count words of the given list
+    
+    '''
+    
     
     for file in os.listdir(eval_path):
         eval_lst = pd.read_csv(eval_path + '/' + file)['words'].tolist()
@@ -98,15 +103,15 @@ def count_words(OutputPath,group_stat,eval_path,hour,word_per_hour):
         
     freq_frame = pd.DataFrame()
     freq_frame['word'] = eval_lst
-
+    
+    
     # loop each month
-    for file in group_stat['group'].tolist():
+    for file in set(group_stat['end_month'].tolist()):
         
         # get word freq list for each file
-        text_file = 'transcript_' + file.split('.')[0].split('-')[1]
+        text_file = 'transcript_' + str(file)
         file_path = OutputPath + '/Transcript_by_month/' + text_file + '.txt'  
-            
-           
+        
         with open(file_path, encoding="utf8") as f:
             sent_lst = f.readlines()
         word_lst = []    
@@ -118,8 +123,10 @@ def count_words(OutputPath,group_stat,eval_path,hour,word_per_hour):
                 cleaned_word = word.strip()
                 if len(cleaned_word) > 0:  
                     word_lst.append(cleaned_word)
-
+        # save the overall freq dataframe for further use
         fre_table = get_freq(word_lst)
+        
+        
         
         freq_lst = []
         for word in eval_lst:
@@ -133,6 +140,7 @@ def count_words(OutputPath,group_stat,eval_path,hour,word_per_hour):
             freq_lst.append(norm_count)
         freq_frame[file] = freq_lst
         
+    # sort the target frameRecep vocab
     
     # we use cum freq as the threshold for the word
     sel_frame = freq_frame.iloc[:,1:]
@@ -191,41 +199,12 @@ def plot_curve(OutputPath,eval_path,score_frame,threshold,group_stat,condition):
     
     sns.set_style('whitegrid') 
     
-    column_list = score_frame.columns.tolist()[2:]
-    
-    for chunk in column_list: 
-        min_month = group_stat[group_stat['group'] == chunk]['start_month'].item()
-        max_month = group_stat[group_stat['group'] == chunk]['end_month'].item()
-        column_name = str(min_month) + '-' + str(max_month)
-        score_frame.rename(columns={chunk: column_name}, inplace=True)     
-        
-    # get the average-frame 
-    column_averages = score_frame.mean()[1:]
-    
-    # Columns to plot
-    columns_to_plot = column_averages.index
-    
-    # Customized bar widths
-    
-    labels = []
-    
-    for column in columns_to_plot:
-        column_left = column.split('-')[0]
-        
-        labels.append(int(column_left))
-        
-    # get the average value of the same bar
-    df = pd.DataFrame([labels, column_averages.tolist()]).T
-    df = df.rename(columns={0: "month", 1: "Value"})
+    avg_values = score_frame.mean()
+    # Plotting the line curve
+    ax = sns.lineplot(score_frame.columns, avg_values.values, label= 'CHILDES')
     
     
-    # Group by 'Group' column and calculate the mean of 'Value' for each group
-    '''
-    get the average value of the same bar/month
-    '''
-    mean_values = df.groupby('month')['Value'].mean()
-    plt.plot(mean_values, label='CHILDES')
-    
+    mean_values = score_frame.mean()
     
     # plot the CDI results
     for file in os.listdir(eval_path):
@@ -275,6 +254,7 @@ def plot_curve(OutputPath,eval_path,score_frame,threshold,group_stat,condition):
     
     
     mean_value_CDI = data_frame_final.groupby('month')['Proportion of acquired words'].mean()
+    
     fitness = calculate_fitness(mean_values, mean_value_CDI)
     return fitness
       
@@ -315,7 +295,9 @@ def main(argv):
        
     rmse_frame_all.to_csv(OutputPath + '/Scores/Fitness_All.csv')  
     
-    
+
+
+   
 
 if __name__ == "__main__":
     args = sys.argv[1:]
