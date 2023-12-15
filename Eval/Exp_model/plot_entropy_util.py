@@ -219,12 +219,11 @@ def lemmatize(seq_lst):
     output: 1.word list; 2.lemma dict{lemma: words}
     '''
     # select the word from the dataframe
-    word_lst = []
+    
     lemma_dict = {}
     for seq in seq_lst:
         try: 
-            if d.check(seq) == True:
-                word_lst.append(seq)
+            
                 # Process the word using spaCy
                 doc = nlp(seq)
                 # lemmatize the word 
@@ -237,7 +236,7 @@ def lemmatize(seq_lst):
         except:
             pass
 
-    return word_lst, lemma_dict
+    return lemma_dict
 
 
 
@@ -272,51 +271,24 @@ def plot_word_count(seq_lst):
 
 
 
-def get_score(threshold,word_frame,word_num,column_lst,prompt,decoding):
+def get_score(target_frame,seq_frame,threshold):
+    overlapping_words = [col for col in target_frame['word'].tolist() if col in seq_frame.index.tolist()]
+    # get the subdataframe
+    selected_frame = seq_frame.loc[overlapping_words]
     
-    '''
-    get the score based on the threshold
-    input:
-        selected threshold
-        dataframe with counts
-        freq band
+    # add more scores additional lines to the frame
+    
+    extra_word_lst = [element for element in target_frame['word'].tolist() if element not in overlapping_words]
+    
+    for word in extra_word_lst:
+        selected_frame.loc[word] = [0] * selected_frame.shape[1]
         
-    output:
-        dataframe with the scores
-    '''
+    # get the score based on theshold
+    score_frame_all = selected_frame.applymap(lambda x: 1 if x >= threshold else 0)
     
-   
-    words = word_frame.drop(columns=column_lst)
+    avg_values = score_frame_all.mean()
     
-    # Function to apply to each element
-    def apply_threshold(value):
-        if value > threshold:
-            return 1
-        else:
-            return 0
-    
-    # Apply the function to all elements in the DataFrame
-    words = words.applymap(apply_threshold)
-   
-    # append the file info and get fig in different conditions
-    vocab_size_frame = word_frame[column_lst]
-    vocab_size_frame['vocab_size']= words.sum(axis=1).tolist()
-    
-    # remove duplicated columns 
-    word_size = vocab_size_frame.loc[:, ~vocab_size_frame.columns.duplicated()]
-    
-    target_frame = word_size[(word_size[decoding] != '0') & (word_size['PROMPT'] == prompt)] 
-    
-    month_lst = []              
-    for month in target_frame['MONTH'].tolist():
-            pseudo_month = int(month[:-1])/89
-            month_lst.append(pseudo_month)
-            
-    target_frame['Pseudo_month'] = month_lst
-        
-    target_frame['Proportion of model'] = target_frame['vocab_size']/word_num
-
-    return target_frame
+    return score_frame_all, avg_values
 
 
 
