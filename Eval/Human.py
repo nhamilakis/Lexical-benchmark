@@ -6,13 +6,12 @@ Read CHILDES scripts adnd return the frequency-based curve
 @author: jliu
 """
 import os
-from util import load_transcript, get_freq, count_by_month, calculate_fitness
+from util import load_transcript, get_freq, count_by_month, calculate_fitness,get_score
 import pandas as pd
 import argparse
 import sys
 import matplotlib.pyplot as plt
 import seaborn as sns   
-from scipy.interpolate import interp1d
 
 
 
@@ -20,8 +19,14 @@ def parseArgs(argv):
     # Run parameters
     parser = argparse.ArgumentParser(description='Investigate CHILDES corpus')
     
-    parser.add_argument('--lang', type=str, default = 'AE',
+    parser.add_argument('--lang', type=str, default = 'BE',
                         help='langauges to test: AE, BE or FR')
+    
+    parser.add_argument('--eval_type', type=str, default = 'CDI',
+                        help='langauges to test: CDI or Wuggy_filtered')
+    
+    parser.add_argument('--eval_condition', type=str, default = 'exp',
+                        help='which type of words to evaluate; recep or exp')
     
     parser.add_argument('--TextPath', type=str, default = 'CHILDES',
                         help='root Path to the CHILDES transcripts; one of the variables to invetigate')
@@ -29,19 +34,19 @@ def parseArgs(argv):
     parser.add_argument('--OutputPath', type=str, default = 'Output',
                         help='Path to the freq output.')
     
-    parser.add_argument('--condition', type=str, default = 'exp',
+    parser.add_argument('--input_condition', type=str, default = 'recep',
                         help='types of vocab: recep or exp')
     
-    parser.add_argument('--hour', type=int, default = 1,
+    parser.add_argument('--hour', type=int, default = 3,
                         help='the estimated number of hours per day')
     
     parser.add_argument('--word_per_hour', type=int, default = 10000,
                         help='the estimated number of words per hour')
     
-    parser.add_argument('--threshold_range', type=list, default = [300,600],
+    parser.add_argument('--threshold_range', type=list, default = [1,200,600,1000],
                         help='threshold to decide knowing a productive word or not, one of the variable to invetigate')
     
-    parser.add_argument('--eval_path', type=str, default = 'Human_CDI/',
+    parser.add_argument('--eval_path', type=str, default = 'Human_eval/',
                         help='path to the evaluation material; one of the variables to invetigate')
     
     return parser.parse_args(argv)
@@ -51,7 +56,7 @@ def parseArgs(argv):
 
 
 
-def load_data(TextPath,OutputPath,lang,condition):
+def load_data(TextPath,OutputPath,lang,input_condition):
     
     '''
     get word counts from the cleaned transcripts
@@ -72,7 +77,7 @@ def load_data(TextPath,OutputPath,lang,condition):
             output_dir =  OutputPath + '/' + lang
             for file in os.listdir(TextPath + '/' + lang): 
                 try: 
-                    file_frame = load_transcript(TextPath,output_dir,file,lang,condition)
+                    file_frame = load_transcript(TextPath,output_dir,file,lang,input_condition)
                     file_stat = pd.concat([file_stat,file_frame])
                     
                 except:
@@ -89,21 +94,24 @@ def load_data(TextPath,OutputPath,lang,condition):
 
 
 
-def count_words(OutputPath,group_stat,eval_path,hour,word_per_hour):
+def count_words(OutputPath,group_stat,eval_path,hour,word_per_hour,eval_type,lang,eval_condition):
     
     '''
     count words of the given list
     
     '''
     
+    eval_dir = eval_path + eval_type + '/' + lang + '/' + eval_condition
     
-    for file in os.listdir(eval_path):
-        eval_lst = pd.read_csv(eval_path + '/' + file)['words'].tolist()
-        
+    
+           
+    for file in os.listdir(eval_dir):
+        eval_frame = pd.read_csv(eval_dir + '/' + file)
+        eval_lst = eval_frame['word'].tolist()
         
     freq_frame = pd.DataFrame()
     freq_frame['word'] = eval_lst
-    
+    freq_frame['group_original'] = eval_frame['group_original'].tolist()
     
     # loop each month
     for file in set(group_stat['end_month'].tolist()):
@@ -143,8 +151,8 @@ def count_words(OutputPath,group_stat,eval_path,hour,word_per_hour):
     # sort the target frameRecep vocab
     
     # we use cum freq as the threshold for the word
-    sel_frame = freq_frame.iloc[:,1:]
-    columns = freq_frame.columns[1:]
+    sel_frame = freq_frame.iloc[:,2:]
+    columns = freq_frame.columns[2:]
     sel_frame = sel_frame.cumsum(axis=1)
             
     for col in columns.tolist():
@@ -157,58 +165,19 @@ def count_words(OutputPath,group_stat,eval_path,hour,word_per_hour):
 
 
 
-def get_score(freq_frame,OutputPath,threshold,hour):
-    
-    '''
-    get scores of the target words in Wordbank 
-    input: word counts in each chunk/month and the stat of the number of true words as well as the true data proportion
-    output: a dataframe with each word count        
-    '''
-     
-    score_frame = pd.DataFrame()
-    
-    
-    # get each chunk's scores based on the threshold
-    columns = freq_frame.columns[1:]
-      
-    for col in columns.tolist():
-        score_lst = []
-        
-        for count in freq_frame[col].tolist():
-            
-            # varying thresholds based on the correction factors
-            if count >= threshold:
-                score = 1
-            else:
-                score = 0
-                        
-            score_lst.append(score)
-                
-        score_frame[col] = score_lst
-    
-    score_path = OutputPath + '/Scores/'
-    if not os.path.exists(score_path):
-        os.makedirs(score_path) 
-    score_frame.to_csv(score_path + '/score_' + str(threshold) +'.csv')
-    return score_frame
-    
 
-
-def plot_curve(OutputPath,eval_path,score_frame,threshold,group_stat,condition):
+def plot_multiple(OutputPath,eval_path,threshold_range,group_stat,eval_condition,freq_frame,hour,lang,eval_type):
     
     
     sns.set_style('whitegrid') 
     
-    avg_values = score_frame.mean()
-    # Plotting the line curve
-    ax = sns.lineplot(score_frame.columns, avg_values.values, label= 'CHILDES')
     
-    
-    mean_values = score_frame.mean()
-    
+    eval_dir = eval_path + 'CDI' + '/' + lang + '/' + eval_condition   
+   
     # plot the CDI results
-    for file in os.listdir(eval_path):
-        selected_words = pd.read_csv(eval_path + '/' + file).iloc[:, 5:-4]
+    # load multiple files
+    for file in os.listdir(eval_dir):
+        selected_words = pd.read_csv(eval_dir + '/' + file).iloc[:, 5:-6]
         
     
     size_lst = []
@@ -231,33 +200,62 @@ def plot_curve(OutputPath,eval_path,score_frame,threshold,group_stat,condition):
     data_frame.rename(columns={0:'month',1:'Proportion of acquired words'}, inplace=True)
     data_frame_final = data_frame.dropna(axis=0)
     
-    ax = sns.lineplot(x="month", y="Proportion of acquired words", data=data_frame_final, label='CDI')
+    
+    ax = sns.lineplot(x="month", y="Proportion of acquired words", data=data_frame_final, color='black', linewidth=2.5, label=lang + '_CDI')
     
     # set the limits of the x-axis for each line
     for line in ax.lines:
         plt.xlim(0,36)
         plt.ylim(0,1)
+    mean_value_CDI = data_frame_final.groupby('month')['Proportion of acquired words'].mean()
     
     
-    plt.title('CHILDES {} vocab (threshold = {})'.format(condition,threshold))
+    
+    # plot the model results
+    rmse_frame_all = pd.DataFrame()
+    # loop over thresholds
+    for threshold in threshold_range:
+        
+        avg_values_lst = []
+        # averaged by different groups
+        for freq in set(list(freq_frame['group_original'].tolist())):
+            
+            word_group = freq_frame[freq_frame['group_original']==freq]
+            score_frame,avg_value = get_score(word_group,OutputPath,threshold,hour)
+            avg_values_lst.append(avg_value.values)
+            
+        avg_values = (avg_values_lst[0] + avg_values_lst[1]) / 2    
+        
+        # Plotting the line curve
+        ax = sns.lineplot(score_frame.columns, avg_values, label= 'threshold: ' + str(threshold))
+    '''    
+        # convert back to series to calculate fitness fo the two curves
+        mean_value_CHILDES = pd.Series(avg_values, index=score_frame.columns)
+        rmse = calculate_fitness(mean_value_CHILDES, mean_value_CDI)
+        rmse_frame_temp = pd.DataFrame([threshold, rmse]).T
+        rmse_frame = rmse_frame_temp.rename(columns={0: "Chunksize", 1: "threshold", 2: "rmse" })    
+        rmse_frame_all = pd.concat([rmse_frame_all,rmse_frame])
+    '''    
+    #plt.title('{} CHILDES {} vocab(tested on {})'.format(lang,eval_condition,eval_type), fontsize=15)
+    plt.title('Accumulator on {} CHILDES ({} vocab)'.format(lang,eval_condition), fontsize=15)
     plt.xlabel('age in month', fontsize=15)
     plt.ylabel('Proportion of children', fontsize=15)
-
+    
+    
     plt.tick_params(axis='both', labelsize=10)
   
     plt.legend()
+    
     figure_path = OutputPath + '/Figures/'
     if not os.path.exists(figure_path):
         os.makedirs(figure_path) 
-    plt.savefig(figure_path + '/Curve_'+ str(threshold) + '.png')
+    plt.savefig(figure_path + '/Curve.png',dpi=800)
     plt.show()
     
+    #rmse_frame_all.to_csv(OutputPath + '/Scores/Fitness_All.csv')  
     
-    mean_value_CDI = data_frame_final.groupby('month')['Proportion of acquired words'].mean()
     
-    fitness = calculate_fitness(mean_values, mean_value_CDI)
-    return fitness
-      
+    
 
 def main(argv):
     
@@ -265,37 +263,24 @@ def main(argv):
     args = parseArgs(argv)
     
     TextPath = args.TextPath
-    condition = args.condition
+    eval_condition = args.eval_condition
+    input_condition = args.input_condition
     lang = args.lang
-    OutputPath = args.OutputPath + '/' + lang + '/' + condition
-    eval_path = args.eval_path + lang + '/' + condition
+    eval_type = args.eval_type
+    OutputPath = args.OutputPath + '/' + eval_type + '/' + lang + '/' + eval_condition
+    eval_path = args.eval_path
     hour = args.hour
     threshold_range = args.threshold_range
     word_per_hour = args.word_per_hour
-    rmse_frame_all = pd.DataFrame()
     
-    # step 1: load data and count words
-    month_stat = load_data(TextPath,OutputPath,lang,condition)
-    freq_frame = count_words(OutputPath,month_stat,eval_path,hour,word_per_hour)
-    
-    # step 2: get the score based on different thresholds
-    for threshold in threshold_range:
-    
-        score_frame = get_score(freq_frame,OutputPath,threshold,hour)
-             
-        # plot the developmental bars and calculate the fitness
-        print('Plotting the developmental bars')
-             
-        # compare and get the best combination of threshold two variables
-        rmse = plot_curve(OutputPath,eval_path,score_frame,threshold,month_stat,condition)
-        rmse_frame_temp = pd.DataFrame([threshold, rmse]).T
-        rmse_frame = rmse_frame_temp.rename(columns={0: "Chunksize", 1: "threshold", 2: "rmse" })    
-        rmse_frame_all = pd.concat([rmse_frame_all,rmse_frame])
         
-       
-    rmse_frame_all.to_csv(OutputPath + '/Scores/Fitness_All.csv')  
+    # step 1: load data and count words
+    month_stat = load_data(TextPath,OutputPath,lang,input_condition)
+    freq_frame = count_words(OutputPath,month_stat,eval_path,hour,word_per_hour,eval_type,lang,eval_condition)
+                            
+    # step 2: get the score based on different thresholds
+    plot_multiple(OutputPath,eval_path,threshold_range,month_stat,eval_condition,freq_frame,hour,lang,eval_type)
     
-
 
    
 
@@ -303,4 +288,5 @@ if __name__ == "__main__":
     args = sys.argv[1:]
     main(args)
     
-    
+
+
