@@ -11,7 +11,7 @@ import numpy as np
 # in use(en_US here)
 d = enchant.Dict("en_US")
 
-
+re.sub('(xxx)|(trn)|(sr)|(yyy)|(noise)', '', 'this is xxx')
 
 def load_transcript(TextPath,output_dir,file,lang,condition): 
     
@@ -35,23 +35,25 @@ def load_transcript(TextPath,output_dir,file,lang,condition):
             file = f.readlines()
             cleaned_lst = []
             for script in file: 
-                if condition == 'comprehension':
+                if condition == 'recep':
                     if script.startswith('*') and not script.startswith('*CHI'):
                         # remove annotations
                         script = re.sub('\[[=\?@#%^&*!,.()*&_:;\'\"]*\s*\w*\]', '', script)
                         script = re.sub('[&=]+\s*\w+', '', script)
                         script = re.sub('\[!=+\s*\w+(\s*\w*)*]', '', script)
                         script = re.sub('&=[A-Za-z]+', '', script)
-                        
+                        script = re.sub('(xxx)|(trn)|(sr)|(yyy)|(noise)', '', script)
                         translator = str.maketrans('', '', string.punctuation+ string.digits)
                         clean_string = script.translate(translator).lower()
-                        cleaned_lst.append(clean_string)
-                else:
+                        cleaned = clean_string.replace('\n','')
+                        cleaned_lst.append(cleaned)
+                elif condition == 'exp':
                     if script.startswith('*') and script.startswith('*CHI'):
                         # remove annotations
                         script = re.sub('\[[=\?@#%^&*!,.()*&_:;\'\"]*\s*\w*\]', '', script)
                         script = re.sub('[&=]+\s*\w+', '', script)
                         script = re.sub('[!=]+\s*\w+', '', script)
+                        script = re.sub('(xxx)|(trn)|(sr)|(yyy)|(noise)', '', script)
                         # remove punctuations and digits
                         translator = str.maketrans('', '', string.punctuation+ string.digits)
                         clean_string = script.translate(translator).lower()
