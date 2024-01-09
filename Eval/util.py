@@ -183,6 +183,37 @@ def count_by_month(OutputPath,file_stat_sorted):
     group_stat.to_csv(OutputPath + '/month/Stat_chunk.csv')
     return group_stat
   
+def get_score(freq_frame,OutputPath,threshold,hour):
+    
+    '''
+    get scores of the target words in Wordbank 
+    input: word counts in each chunk/month and the stat of the number of true words as well as the true data proportion
+    output: a dataframe with each word count  
+
+    we have the weighed score in case the influence of different proportions of frequency bands      
+    '''
+     
+    
+    freq_frame = freq_frame.drop(columns=['word', 'group_original'])
+    
+    # get each chunk's scores based on the threshold
+    columns = freq_frame.columns
+      
+    for col in columns.tolist():
+        freq_frame.loc[col] = [0] * freq_frame.shape[1]
+        
+    # get the score based on theshold
+    score_frame = freq_frame.applymap(lambda x: 1 if x >= threshold else 0)
+    
+    avg_values = score_frame.mean()
+    
+    score_path = OutputPath + '/Scores/'
+    if not os.path.exists(score_path):
+        os.makedirs(score_path) 
+    score_frame.to_csv(score_path + '/score_' + str(threshold) +'.csv')
+    
+    return score_frame, avg_values
+    
 
 
 def get_freq(result):
