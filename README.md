@@ -15,7 +15,9 @@ Human.py: get freq of CDI receptive/expressive vocab from CHILDES parents'/child
         		2. the freq list of all the words in the selected transcripts 
         		3. the freq list of all the words in the selected transcripts with the overlapping of CDI data
 
-Link to the CHILDES script: https://drive.google.com/file/d/1cGO8j0nP2J_vViaQeUjdZHTFkZfZ6J_s/view?usp=sharing
+Link to the CHILDES dataset for threshold estimation: https://drive.google.com/file/d/1cGO8j0nP2J_vViaQeUjdZHTFkZfZ6J_s/view?usp=sharing
+Link to the AO-CHILDES: https://github.com/UIUCLearningLanguageLab/AOCHILDES
+
 
 Recep_model:
 	utils.py: common functions used in compute_prob.py
@@ -28,13 +30,13 @@ Recep_model:
 		input: The text file containing the word probabilities 
 		output: .csv file containing test scores
 
-	TO DO: write the pipeline python file fo rthe whole procedure
+	
 
 
-Prod:	
+Exp_model:	
 	Reference_model.py: train the reference model to optimize hyperparameters of model generations
 		input: Training dataset and months to be simulated
 		output: trained model checkpoints
-
+	Generation.py: LSTM model generation with/out prompts using beam search; sampling method(random, topk, topp)
 
 
