@@ -74,7 +74,7 @@ lang_lst = ['AE','BE']
 eval_condition_lst = ['exp','recep']
 #word_format_lst = ['char','phon']
 word_format_lst = ['char']
-match_mode_lst = ['equal_sized']
+match_mode_lst = ['equal_sized','aligned']
 num_bins_lst = [2,3,4,5]
 freq_type_lst = ['freq','log_freq']
 

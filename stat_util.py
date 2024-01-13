@@ -18,19 +18,7 @@ import re
 import os 
 
 
-def phonememize(word):
- 
-     '''
-     phonemize single word/utterance
-     input: grapheme string; output: phonemized string
-     '''
-     
-     backend = EspeakBackend('en-us', language_switch="remove-utterance")
-     separator = Separator(word=None, phone=" ")
-     phonemized = backend.phonemize([word], separator=separator)[0].strip()
-     return phonemized
- 
-    
+
 def get_freq_table(lines):
     
     '''
@@ -98,78 +86,187 @@ def convert_to_log(freq):
 
 
 
+def match_range(CDI,audiobook):
+    
+    '''
+    match the audiobook sets with CHILDES of differetn modes
+    Returns shrinked dataset with the matched range
+    '''
+    max_freq = min(CDI['CHILDES_freq_per_million'].max(),audiobook['Audiobook_freq_per_million'].max())
+    min_freq = max(CDI['CHILDES_freq_per_million'].min(),audiobook['Audiobook_freq_per_million'].min())
+    matched_CDI = CDI[(CDI['CHILDES_freq_per_million'] >= min_freq) & (CDI['CHILDES_freq_per_million'] <= max_freq)]
+    matched_audiobook = audiobook[(audiobook['Audiobook_freq_per_million'] >= min_freq) & (audiobook['Audiobook_freq_per_million'] <= max_freq)]
+    # sort the results by freq 
+    matched_CDI = matched_CDI.sort_values(by='CHILDES_freq_per_million')
+    matched_audiobook = matched_audiobook.sort_values(by='Audiobook_freq_per_million')
+    
+    return matched_CDI,matched_audiobook
+
+
+def get_bin_stat(bins,data_sorted):
+    
+    '''
+    get stat of freq bins
+    '''
+    # computing statistics over the bins (size, min, max, mean, med, low and high boundaries and density)
+    boundaries=list(zip(bins[:-1],bins[1:]))
+    binned_data_count=[len(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
+    binned_data_min =[np.min(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
+    binned_data_max=[np.max(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
+    binned_data_mean=[np.mean(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
+    binned_data_median=[np.median(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
+    bins_stats=pd.DataFrame({'count':binned_data_count,'min':binned_data_min,'max':binned_data_max,'mean':binned_data_mean,'median':binned_data_median})
+    bins_stats['low']=bins[:-1]  
+    bins_stats['high']=bins[1:]
+    bins_stats['density']=bins_stats['count']/(bins_stats['high']-bins_stats['low'])/sum(bins_stats['count'])
+    
+    return bins_stats
+    
+
+
+def get_equal_bins(data,n_bins):
+    
+    '''
+    get equal-sized bins
+    input: a sorted array or a list of numbers; computes a split of the data into n_bins bins of approximately the same size
+    
+    return
+        bins: array with each bin boundary
+        bins_stats  
+    '''
+    # preparing data (adding small jitter to remove ties)
+    size=len(data)
+    assert n_bins<=size,"too many bins compared to data size"
+    mindif=np.min(np.abs(np.diff(np.sort(np.unique(data))))) # minimum difference between consecutive distinct values
+    jitter=mindif*0.01  # this small jitter will not change the relative order between datapoints
+    data_jitter=np.array(data)+np.random.uniform(low=-jitter, high=jitter, size=size)
+    data_sorted = np.sort(data_jitter) # little jitter to remove ties
+
+    # Creating the bins with approx equal number of observations
+    bin_indices = np.linspace(1, len(data), n_bins+1)-1   # indices to edges in sorted data
+    bins=[data_sorted[0]] # left edge inclusive
+    bins=np.append(bins,[(data_sorted[int(b)]+data_sorted[int(b+1)])/2 for b in bin_indices[1:-1]])
+    bins = np.append(bins, data_sorted[-1]+jitter)  # this is because the extreme right edge is inclusive in plt.hits
+    
+    
+    # computing bin membership for the original data; append bin membership to stat
+    bin_membership=np.zeros(len(bins),dtype=int)
+    for i in range(0,len(bins)-1):
+       bin_membership[(data_sorted>=bins[i])&(data_sorted<bins[i+1])]=i
+    
+    data_sorted['group_' + str(len(bins))] = bin_membership
+    
+    return bins, data_sorted 
+
+
+
+def match_bin_range(CDI_bins,audiobook):
+    
+    '''
+    match range of the audiobook freq of machine CDI with CHILDES freq of CDI
+    
+    input: 
+        human CDI eauql-sized bins
+        machine-CDI freq bin
+    Returns 
+        bins: machiine CDI with adjusted group array
+        bins_stats: machine CDI dataframe with annotated group
+    '''
+    
+    def find_closest_numbers(arr, target_array):
+        closest_numbers = [min(arr, key=lambda x: abs(x - target)) for target in target_array]
+        return np.array(closest_numbers)
+     
+    # Creating the bins with approx equal number of observations
+    bins = find_closest_numbers(audiobook, CDI_bins)
+    
+    # computing bin membership for the original data; append bin membership to stat
+    bin_membership=np.zeros(len(bins),dtype=int)
+    for i in range(0,len(bins)-1):
+       bin_membership[(audiobook>=bins[i])&(audiobook<bins[i+1])]=i
+    
+    audiobook['group_' + str(len(bins))] = bin_membership
+       
+    return bins, audiobook 
+
+
+
+
+def match_bin_density(CDI_bins_stats,audiobook_bins_stats,audiobook_data):
+    
+    '''
+    match density of the audiobook freq of machine CDI with CHILDES freq of CDI
+    
+    input: 
+        human CDI eauql-sized bins
+        machine-CDI freq bin
+    Returns 
+        bins: machiine CDI with adjusted group array
+        bins_stats: machine CDI dataframe with annotated group
+    '''
+    # adjust based on density
+    CDI_density = set(CDI_bins_stats['density'].tolist())
+    audiobook_density = set(audiobook_bins_stats['density'].tolist())
+    
+    # divide by density
+    result_set = [a for a, b in zip(CDI_density, audiobook_density) if a > b]
+    
+    
+    # get the selected rows
+    remained_rows = 
+    rows_to_reduce = 
+    
+    # sort the difference
+    
+    # the objective would be the smallest overall density dist
+    density_diff = 0
+    
+    
+    return bins, bins_stats, matched_audiobook
 
 
 def plot_density_hist(data,n_bins,label,alpha=0.5):
-      
-      # Creating the bins with equal number of observations
-      data_sorted = np.sort(data)
-      bins = np.array([data_sorted[i] for i in range(0, len(data_sorted), len(data_sorted)//n_bins)])
-    
-      # Making sure to include the maximum value in the last bin
-      if bins[-1] != data_sorted[-1]:
-          bins = np.append(bins, data_sorted[-1])
-    
-      # Plotting the histogram
-      plt.hist(data, bins=bins, density=True, alpha=alpha,edgecolor='black',label=label)
-      return bins
-      
+  """Takes as input an array or a list of numbers; computes a split of the data into n_bins bins of approximately the same size
+     taking into account ties. Returns descriptive stats for each bins, a membership array (tells which bins each datapoint belongs to)
+     and plots a quantile density histogram"""
+  # preparing data (adding small jitter to remove ties)
+  size=len(data)
+  assert n_bins<=size,"too many bins compared to data size"
+  mindif=np.min(np.abs(np.diff(np.sort(np.unique(data))))) # minimum difference between consecutive distinct values
+  jitter=mindif*0.01  # this small jitter will not change the relative order between datapoints
+  data_jitter=np.array(data)+np.random.uniform(low=-jitter, high=jitter, size=size)
+  data_sorted = np.sort(data_jitter) # little jitter to remove ties
 
-def match_density_hist(data,target_bins,label,alpha=0.5):
+  # Creating the bins with approx equal number of observations
+  bin_indices = np.linspace(1, len(data), n_bins+1)-1   # indices to edges in sorted data
+  bins=[data_sorted[0]] # left edge inclusive
+  bins=np.append(bins,[(data_sorted[int(b)]+data_sorted[int(b+1)])/2 for b in bin_indices[1:-1]])
+  bins = np.append(bins, data_sorted[-1]+jitter)  # this is because the extreme right edge is inclusive in plt.hits
     
-      
-      def find_closest_numbers(arr, target_array):
-        closest_numbers = [min(arr, key=lambda x: abs(x - target)) for target in target_array]
-        return np.array(closest_numbers)
-    
-      # Creating the bins with equal number of observations
-      data_sorted = np.sort(data)
-      # find the corresponding number in the array
-      bins = find_closest_numbers(target_bins, data_sorted)
-    
-      # Making sure to include the maximum value in the last bin
-      if bins[-1] != data_sorted[-1]:
-          bins = np.append(bins, data_sorted[-1])
-    
-      # Plotting the histogram
-      plt.hist(data, bins=bins, density=True, alpha=alpha,edgecolor='black',label=label)
+  # computing statistics over the bins (size, min, max, mean, med, low and high boundaries and density)
+  boundaries=list(zip(bins[:-1],bins[1:]))
+  binned_data_count=[len(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
+  binned_data_min =[np.min(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
+  binned_data_max=[np.max(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
+  binned_data_mean=[np.mean(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
+  binned_data_median=[np.median(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
+  bins_stats=pd.DataFrame({'count':binned_data_count,'min':binned_data_min,'max':binned_data_max,'mean':binned_data_mean,'median':binned_data_median})
+  bins_stats['low']=bins[:-1]  
+  bins_stats['high']=bins[1:]
+  bins_stats['density']=bins_stats['count']/(bins_stats['high']-bins_stats['low'])/sum(bins_stats['count'])
 
-
-
-
-      
-
-# distribution of matched sets
-def plot_single(freq,n,freq_type,lang,eval_condition, eval_type, word_format):  
-    
-    
-    
-    if eval_type == 'CDI': 
-        
-        data = freq['CHILDES_'+ freq_type + '_per_million'].tolist()
-    
-    else:
-        data = freq['Audiobook_'+ freq_type + '_per_million'].tolist()
    
-    # plot freq per million     
-    plot_density_hist(data,n,label = eval_type)
-     
-    
-    plt.xlabel(freq_type + '_per million')
-    plt.ylabel('Density')
-    
-    # set the limits of the x-axis for each line
-    if freq_type == 'freq':
-        
-        plt.xlim(0,850)
-        plt.ylim(0,0.035)
-            
-    elif freq_type == 'log_freq':
-        
-        plt.xlim(-1,4)
-        plt.ylim(0,2)
-    
-    plt.legend() 
+  # computing bin membership for the original data
+  bin_membership=np.zeros(size,dtype=int)
+  for i in range(0,len(bins)-1):
+     bin_membership[(data_jitter>=bins[i])&(data_jitter<bins[i+1])]=i
+
+  # Plotting the histogram
+  plt.hist(data_sorted, bins=bins, density=True, alpha=alpha,edgecolor='black',label=label)
+
+  return bins, bins_stats  
+
+
 
     
 
@@ -243,3 +340,42 @@ def match_stat(freq_path):
     return len_dict,matched_stat
  
 
+def filter_words(gold_path):
+    
+    '''
+    this won't matter: as we have similar words anyway
+    
+    '''
+    # check whether the selected words carry 5 nonword pairs 
+    
+    gold = pd.read_csv(gold_path)
+    # check the number of phoneme variations   the id would be theversion of the 
+    
+    unique_df = gold.drop_duplicates(subset='id')
+    
+    # Group by column 'B' and count the number of rows in each group
+    grouped_df = unique_df.groupby(['word']).size().reset_index(name='Count')
+    
+    # Convert the grouped DataFrame to a dictionary
+    result_dict = dict(zip(grouped_df['word'], grouped_df['Count']))
+    
+    filtered_dict = {key: value for key, value in result_dict.items() if value >= 6}
+    filtered_frame = pd.DataFrame(list(filtered_dict.items()), columns=['word', 'pair'])
+    # output the filtered 
+    filtered_frame.to_csv('/data/Lexical-benchmark/stat/corpus/char/Audiobook_test.csv')
+    return filtered_frame
+
+
+def phonememize(word):
+ 
+     '''
+     phonemize single word/utterance
+     input: grapheme string; output: phonemized string
+     '''
+     
+     backend = EspeakBackend('en-us', language_switch="remove-utterance")
+     separator = Separator(word=None, phone=" ")
+     phonemized = backend.phonemize([word], separator=separator)[0].strip()
+     return phonemized
+ 
+    
