@@ -74,9 +74,11 @@ lang_lst = ['AE','BE']
 eval_condition_lst = ['exp','recep']
 #word_format_lst = ['char','phon']
 word_format_lst = ['char']
-match_mode_lst = ['equal_sized','aligned']
-num_bins_lst = [2,3,4,5]
-freq_type_lst = ['freq','log_freq']
+#match_mode_lst = ['range_aligned','bin_range_aligned']
+
+match_mode_lst = ['bin_range_aligned']
+num_bins_lst = [2]
+freq_type_lst = ['freq']
 
 for lang in lang_lst:
     
@@ -95,7 +97,9 @@ for lang in lang_lst:
                                          , match_mode_temp = match_mode)
                         run_command(stat_command)
                         
-                        
+
+
+'''                        
 freq_path = 'stat/freq/char'
 len_frame,matched_stat = match_stat(freq_path)
 # output the results
@@ -105,7 +109,7 @@ if not os.path.exists(stat_path):
 matched_stat.to_csv(stat_path + 'overlapping.csv')
 len_frame.to_csv(stat_path + 'length.csv')
 
-
+'''  
 
 
 

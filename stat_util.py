@@ -10,13 +10,12 @@ import pandas as pd
 import math
 import numpy as np
 import collections
-import matplotlib.pyplot as plt
 from phonemizer.backend import EspeakBackend
 from phonemizer.separator import Separator
 from itertools import combinations
 import re
 import os 
-
+import matplotlib.pyplot as plt
 
 
 def get_freq_table(lines):
@@ -81,10 +80,6 @@ def get_freq_table(lines):
 
 
 
-def convert_to_log(freq):
-    return math.log10(freq)
-
-
 
 def match_range(CDI,audiobook):
     
@@ -107,7 +102,10 @@ def get_bin_stat(bins,data_sorted):
     
     '''
     get stat of freq bins
+    input: column with annotated group name
+    return bin_stat
     '''
+    data_sorted = np.array(data_sorted)
     # computing statistics over the bins (size, min, max, mean, med, low and high boundaries and density)
     boundaries=list(zip(bins[:-1],bins[1:]))
     binned_data_count=[len(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
@@ -124,7 +122,34 @@ def get_bin_stat(bins,data_sorted):
     
 
 
-def get_equal_bins(data,n_bins):
+
+
+
+
+
+def get_bin_stat(data_sorted,group):
+    
+    '''
+    get stat of freq bins
+    input: target column adn column with annotated group name
+    return bin_stat
+    '''
+    bins = set(group)
+    # computing statistics over the bins (size, min, max, mean, med, low and high boundaries and density)
+    boundaries=list(zip(bins[:-1],bins[1:]))
+    binned_data_count=[len(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
+    binned_data_min =[np.min(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
+    binned_data_max=[np.max(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
+    binned_data_mean=[np.mean(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
+    binned_data_median=[np.median(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
+    bins_stats=pd.DataFrame({'count':binned_data_count,'min':binned_data_min,'max':binned_data_max,'mean':binned_data_mean,'median':binned_data_median})
+    bins_stats['low']=bins[:-1]  
+    bins_stats['high']=bins[1:]
+    bins_stats['density']=bins_stats['count']/(bins_stats['high']-bins_stats['low'])/sum(bins_stats['count'])
+    
+    return bins_stats
+
+def get_equal_bins(data,data_frame,n_bins):
     
     '''
     get equal-sized bins
@@ -150,17 +175,18 @@ def get_equal_bins(data,n_bins):
     
     
     # computing bin membership for the original data; append bin membership to stat
-    bin_membership=np.zeros(len(bins),dtype=int)
+    bin_membership=np.zeros(size,dtype=int)
     for i in range(0,len(bins)-1):
-       bin_membership[(data_sorted>=bins[i])&(data_sorted<bins[i+1])]=i
+        bin_membership[(data_jitter>=bins[i])&(data_jitter<bins[i+1])]=i
     
-    data_sorted['group_' + str(len(bins))] = bin_membership
-    
-    return bins, data_sorted 
+    data_frame['group_' + str(len(bins)-1)] = bin_membership
+    return bins, data_frame
 
 
 
-def match_bin_range(CDI_bins,audiobook):
+
+
+def match_bin_range(CDI_bins,audiobook,audiobook_frame):
     
     '''
     match range of the audiobook freq of machine CDI with CHILDES freq of CDI
@@ -173,6 +199,7 @@ def match_bin_range(CDI_bins,audiobook):
         bins_stats: machine CDI dataframe with annotated group
     '''
     
+    audiobook = np.array(audiobook)
     def find_closest_numbers(arr, target_array):
         closest_numbers = [min(arr, key=lambda x: abs(x - target)) for target in target_array]
         return np.array(closest_numbers)
@@ -181,18 +208,20 @@ def match_bin_range(CDI_bins,audiobook):
     bins = find_closest_numbers(audiobook, CDI_bins)
     
     # computing bin membership for the original data; append bin membership to stat
-    bin_membership=np.zeros(len(bins),dtype=int)
+    bin_membership=np.zeros(len(audiobook),dtype=int)
     for i in range(0,len(bins)-1):
        bin_membership[(audiobook>=bins[i])&(audiobook<bins[i+1])]=i
-    
-    audiobook['group_' + str(len(bins))] = bin_membership
        
-    return bins, audiobook 
+    audiobook_frame['group_' + str(len(bins)-1)] = bin_membership
+       
+    return bins, audiobook_frame 
 
 
 
-
-def match_bin_density(CDI_bins_stats,audiobook_bins_stats,audiobook_data):
+CDI = pd.read_csv('/data/Lexical-benchmark/stat/freq/char/range_aligned/2/CDI_AE_exp.csv')
+audiobook = pd.read_csv('/data/Lexical-benchmark/stat/freq/char/range_aligned/2/matched_AE_exp.csv')
+                    
+def match_bin_density(matched_CDI,matched_audiobook,CDI_bins,audiobook_bins, threshold):
     
     '''
     match density of the audiobook freq of machine CDI with CHILDES freq of CDI
@@ -204,72 +233,62 @@ def match_bin_density(CDI_bins_stats,audiobook_bins_stats,audiobook_data):
         bins: machiine CDI with adjusted group array
         bins_stats: machine CDI dataframe with annotated group
     '''
+    
+    CDI_bins_stats = get_bin_stat(CDI_bins,matched_CDI['CHILDES_freq_per_million'].tolist())
+    audiobook_bins_stats = get_bin_stat(audiobook_bins,matched_audiobook['Audiobook_freq_per_million'].tolist())
+    
     # adjust based on density
     CDI_density = set(CDI_bins_stats['density'].tolist())
     audiobook_density = set(audiobook_bins_stats['density'].tolist())
     
     # divide by density
-    result_set = [a for a, b in zip(CDI_density, audiobook_density) if a > b]
+    result_set = [a for a, b in zip(CDI_density, audiobook_density) if a < b]
     
+    # get the selected rows based on density difference
+    density_all_diff = 0
+    frame = {}
+    # loop the density dict
     
-    # get the selected rows
-    remained_rows = 
-    rows_to_reduce = 
-    
-    # sort the difference
-    
-    # the objective would be the smallest overall density dist
+    # target: remove rows in the dataframe to get the match
     density_diff = 0
     
+    # computing bin membership for the original data; append bin membership to stat
+    bin_membership=np.zeros(len(bins),dtype=int)
+    for i in range(0,len(bins)-1):
+       bin_membership[(audiobook>=bins[i])&(audiobook<bins[i+1])]=i
+       
+    audiobook_frame['group_' + str(len(bins)-1)] = bin_membership
     
-    return bins, bins_stats, matched_audiobook
+    return bins, audiobook_frame 
 
 
-def plot_density_hist(data,n_bins,label,alpha=0.5):
-  """Takes as input an array or a list of numbers; computes a split of the data into n_bins bins of approximately the same size
-     taking into account ties. Returns descriptive stats for each bins, a membership array (tells which bins each datapoint belongs to)
-     and plots a quantile density histogram"""
-  # preparing data (adding small jitter to remove ties)
-  size=len(data)
-  assert n_bins<=size,"too many bins compared to data size"
-  mindif=np.min(np.abs(np.diff(np.sort(np.unique(data))))) # minimum difference between consecutive distinct values
-  jitter=mindif*0.01  # this small jitter will not change the relative order between datapoints
-  data_jitter=np.array(data)+np.random.uniform(low=-jitter, high=jitter, size=size)
-  data_sorted = np.sort(data_jitter) # little jitter to remove ties
-
-  # Creating the bins with approx equal number of observations
-  bin_indices = np.linspace(1, len(data), n_bins+1)-1   # indices to edges in sorted data
-  bins=[data_sorted[0]] # left edge inclusive
-  bins=np.append(bins,[(data_sorted[int(b)]+data_sorted[int(b+1)])/2 for b in bin_indices[1:-1]])
-  bins = np.append(bins, data_sorted[-1]+jitter)  # this is because the extreme right edge is inclusive in plt.hits
+def plot_density_hist(matched_CDI,group_name,freq_name,freq_type,label,alpha): 
     
-  # computing statistics over the bins (size, min, max, mean, med, low and high boundaries and density)
-  boundaries=list(zip(bins[:-1],bins[1:]))
-  binned_data_count=[len(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
-  binned_data_min =[np.min(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
-  binned_data_max=[np.max(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
-  binned_data_mean=[np.mean(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
-  binned_data_median=[np.median(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
-  bins_stats=pd.DataFrame({'count':binned_data_count,'min':binned_data_min,'max':binned_data_max,'mean':binned_data_mean,'median':binned_data_median})
-  bins_stats['low']=bins[:-1]  
-  bins_stats['high']=bins[1:]
-  bins_stats['density']=bins_stats['count']/(bins_stats['high']-bins_stats['low'])/sum(bins_stats['count'])
-
-   
-  # computing bin membership for the original data
-  bin_membership=np.zeros(size,dtype=int)
-  for i in range(0,len(bins)-1):
-     bin_membership[(data_jitter>=bins[i])&(data_jitter<bins[i+1])]=i
-
-  # Plotting the histogram
-  plt.hist(data_sorted, bins=bins, density=True, alpha=alpha,edgecolor='black',label=label)
-
-  return bins, bins_stats  
-
-
-
+    def get_first_number(group):
+        return group.iloc[0] 
     
-
+    CDI_array = np.append(matched_CDI.groupby('group_' + group_name)[freq_name + '_per_million'].apply(get_first_number).values
+                          ,matched_CDI[freq_name + '_per_million'].tolist()[-1])
+    CDI_freq = matched_CDI[freq_name + '_per_million'].tolist()
+    
+    # get bins based on the dataframe
+    plt.hist(CDI_freq,bins=CDI_array, density=True, alpha=alpha,edgecolor='black',label = label) 
+    
+    plt.xlabel(freq_type + '_per million')
+    plt.ylabel('Density')
+    
+    # set the limits of the x-axis for each line
+    if freq_type == 'freq':
+        
+        plt.xlim(0,850)
+        plt.ylim(0,0.035)
+            
+    elif freq_type == 'log_freq':
+        
+        plt.xlim(-1,4)
+        plt.ylim(0,1.5)
+    
+    
       
 def get_overlapping(word_lists_dict):
     
