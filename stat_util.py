@@ -10,8 +10,8 @@ import pandas as pd
 import math
 import numpy as np
 import collections
-from phonemizer.backend import EspeakBackend
-from phonemizer.separator import Separator
+#from phonemizer.backend import EspeakBackend
+#from phonemizer.separator import Separator
 from itertools import combinations
 import re
 import os 
@@ -98,6 +98,8 @@ def match_range(CDI,audiobook):
     return matched_CDI,matched_audiobook
 
 
+
+
 def get_bin_stat(bins,data_sorted):
     
     '''
@@ -117,37 +119,11 @@ def get_bin_stat(bins,data_sorted):
     bins_stats['low']=bins[:-1]  
     bins_stats['high']=bins[1:]
     bins_stats['density']=bins_stats['count']/(bins_stats['high']-bins_stats['low'])/sum(bins_stats['count'])
-    
+    # Rename the newly created column to 'group'
+    bins_stats = bins_stats.reset_index()
+    bins_stats = bins_stats.rename(columns={'index': 'group'})
     return bins_stats
     
-
-
-
-
-
-
-
-def get_bin_stat(data_sorted,group):
-    
-    '''
-    get stat of freq bins
-    input: target column adn column with annotated group name
-    return bin_stat
-    '''
-    bins = set(group)
-    # computing statistics over the bins (size, min, max, mean, med, low and high boundaries and density)
-    boundaries=list(zip(bins[:-1],bins[1:]))
-    binned_data_count=[len(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
-    binned_data_min =[np.min(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
-    binned_data_max=[np.max(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
-    binned_data_mean=[np.mean(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
-    binned_data_median=[np.median(data_sorted[(data_sorted>=l) & (data_sorted<h)]) for l,h in boundaries]
-    bins_stats=pd.DataFrame({'count':binned_data_count,'min':binned_data_min,'max':binned_data_max,'mean':binned_data_mean,'median':binned_data_median})
-    bins_stats['low']=bins[:-1]  
-    bins_stats['high']=bins[1:]
-    bins_stats['density']=bins_stats['count']/(bins_stats['high']-bins_stats['low'])/sum(bins_stats['count'])
-    
-    return bins_stats
 
 def get_equal_bins(data,data_frame,n_bins):
     
@@ -180,6 +156,7 @@ def get_equal_bins(data,data_frame,n_bins):
         bin_membership[(data_jitter>=bins[i])&(data_jitter<bins[i+1])]=i
     
     data_frame['group_' + str(len(bins)-1)] = bin_membership
+    
     return bins, data_frame
 
 
@@ -217,11 +194,12 @@ def match_bin_range(CDI_bins,audiobook,audiobook_frame):
     return bins, audiobook_frame 
 
 
-
-CDI = pd.read_csv('/data/Lexical-benchmark/stat/freq/char/range_aligned/2/CDI_AE_exp.csv')
-audiobook = pd.read_csv('/data/Lexical-benchmark/stat/freq/char/range_aligned/2/matched_AE_exp.csv')
-                    
-def match_bin_density(matched_CDI,matched_audiobook,CDI_bins,audiobook_bins, threshold):
+'''
+CDI = pd.read_csv('stat/freq/char/bin_range_aligned/5/CDI_AE_exp.csv')
+audiobook = pd.read_csv('stat/freq/char/bin_range_aligned/5/matched_AE_exp.csv')
+'''
+                  
+def match_bin_density(matched_CDI,matched_audiobook,CDI_bins,audiobook_bins, threshold = 0.01):
     
     '''
     match density of the audiobook freq of machine CDI with CHILDES freq of CDI
@@ -230,36 +208,58 @@ def match_bin_density(matched_CDI,matched_audiobook,CDI_bins,audiobook_bins, thr
         human CDI eauql-sized bins
         machine-CDI freq bin
     Returns 
-        bins: machiine CDI with adjusted group array
+        bins: machiine CDI with adjusted dataframe
         bins_stats: machine CDI dataframe with annotated group
     '''
     
+    # update the results
+    def update_bins(CDI_bins_stats,audiobook_bins,matched_audiobook):
+        
+        '''
+        for one update: only remove one median row of the selected band
+        return the dictionary and updated audiobook frame
+        '''
+        
+        def get_bin_diff(CDI_bins_stats,audiobook_bins,matched_audiobook):
+            audiobook_bins_stats = get_bin_stat(audiobook_bins,matched_audiobook['Audiobook_freq_per_million'].tolist())
+            # map the result with the diectionary key
+            # Merge DataFrames on column A
+            merged_df = pd.merge(audiobook_bins_stats, CDI_bins_stats, on='group', suffixes=('_audio', '_CDI'))
+            # Create a dictionary with key as the values of column A and value as the difference
+            diff_dict = {row['group']: row['density_audio'] - row['density_CDI'] for _, row in merged_df.iterrows()}
+            return diff_dict
+        
+        diff_dict = get_bin_diff(CDI_bins_stats,audiobook_bins,matched_audiobook)
+        # Find the key-value pair with the highest value
+        max_pair = max(diff_dict.items(), key=lambda x: x[1])
+
+        # resort the diff_dict
+        if max_pair[1] > 0:
+            # remove the median ele
+            selected_frame = matched_audiobook[matched_audiobook['group_5'] == max_pair[0]]
+            freq = selected_frame.iloc[int(selected_frame.shape[0] / 2)]['Audiobook_freq_per_million'].item()
+            # Convert the median index to an integer (as iloc expects integer indices)
+            new_matched_audiobook = matched_audiobook[matched_audiobook['Audiobook_freq_per_million'] != freq]
+        
+        diff_dict = get_bin_diff(CDI_bins_stats,audiobook_bins,new_matched_audiobook)
+        density_diff = sum(abs(value) for value in diff_dict.values())
+        
+        return new_matched_audiobook, diff_dict, density_diff
+    
     CDI_bins_stats = get_bin_stat(CDI_bins,matched_CDI['CHILDES_freq_per_million'].tolist())
-    audiobook_bins_stats = get_bin_stat(audiobook_bins,matched_audiobook['Audiobook_freq_per_million'].tolist())
     
-    # adjust based on density
-    CDI_density = set(CDI_bins_stats['density'].tolist())
-    audiobook_density = set(audiobook_bins_stats['density'].tolist())
+    # compare the results each iteration
     
-    # divide by density
-    result_set = [a for a, b in zip(CDI_density, audiobook_density) if a < b]
-    
-    # get the selected rows based on density difference
-    density_all_diff = 0
-    frame = {}
-    # loop the density dict
-    
-    # target: remove rows in the dataframe to get the match
     density_diff = 0
-    
-    # computing bin membership for the original data; append bin membership to stat
-    bin_membership=np.zeros(len(bins),dtype=int)
-    for i in range(0,len(bins)-1):
-       bin_membership[(audiobook>=bins[i])&(audiobook<bins[i+1])]=i
-       
-    audiobook_frame['group_' + str(len(bins)-1)] = bin_membership
-    
-    return bins, audiobook_frame 
+    while density_diff > threshold:
+        matched_audiobook, diff_dict, density_diff = update_bins(CDI_bins_stats,audiobook_bins,matched_audiobook)
+         
+    return audiobook_bins, matched_audiobook 
+
+
+
+
+
 
 
 def plot_density_hist(matched_CDI,group_name,freq_name,freq_type,label,alpha): 

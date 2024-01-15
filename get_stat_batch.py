@@ -76,8 +76,8 @@ eval_condition_lst = ['exp','recep']
 word_format_lst = ['char']
 #match_mode_lst = ['range_aligned','bin_range_aligned']
 
-match_mode_lst = ['bin_range_aligned']
-num_bins_lst = [2]
+match_mode_lst = ['density_aligned']
+num_bins_lst = [2,3,4,5]
 freq_type_lst = ['freq']
 
 for lang in lang_lst:

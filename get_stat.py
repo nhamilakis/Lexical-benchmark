@@ -16,8 +16,8 @@ import pandas as pd
 import argparse
 import os
 import matplotlib.pyplot as plt
-from stat_util import get_freq_table, match_range, get_equal_bins, match_bin_range, plot_density_hist
-from aochildes.dataset import AOChildesDataSet
+from stat_util import get_freq_table, match_range, get_equal_bins, match_bin_range, plot_density_hist, match_bin_density
+#from aochildes.dataset import AOChildesDataSet
 import math
 
 
@@ -31,7 +31,7 @@ def parseArgs(argv):
     parser.add_argument('--eval_condition', type=str, default = 'recep',
                         help='which type of words to evaluate; recep or exp')
     
-    parser.add_argument('--CDIPath', type=str, default = 'Final_scores/Human_eval/CDI/',
+    parser.add_argument('--CDIPath', type=str, default = 'Human_eval/CDI/',
                         help='path to the evaluation material; one of the variables to invetigate')
     
     parser.add_argument('--freqPath', type=str, default = 'stat/',
@@ -116,9 +116,12 @@ def get_freq_frame(test,train_path):
     
     return freq_frame
 
-
-
-
+'''
+num_bins = 5
+match_mode = 'density_aligned'
+CDI = pd.read_csv('stat/freq/char/bin_range_aligned/5/CDI_AE_exp.csv')
+audiobook = pd.read_csv('stat/freq/char/bin_range_aligned/5/matched_AE_exp.csv')
+'''
 def match_freq(CDI,audiobook,match_mode,num_bins):
     
     '''
@@ -133,11 +136,13 @@ def match_freq(CDI,audiobook,match_mode,num_bins):
         _, matched_audiobook = get_equal_bins(audiobook['Audiobook_freq_per_million'].tolist(),audiobook,num_bins)
     
     elif match_mode == 'bin_range_aligned':
-        CDI_bins, matched_audiobook = match_bin_range(CDI_bins,audiobook['Audiobook_freq_per_million'].tolist(),audiobook)
+        _, matched_audiobook = match_bin_range(CDI_bins,audiobook['Audiobook_freq_per_million'].tolist(),audiobook)
     
     elif match_mode == 'density_aligned':
         audiobook_bins, matched_audiobook = match_bin_range(CDI_bins,audiobook['Audiobook_freq_per_million'].tolist(),audiobook)
         # get stat
+        audiobook_bins, matched_audiobook = match_bin_density(matched_CDI,matched_audiobook,CDI_bins,audiobook_bins, threshold = 0.01)
+    
     return matched_CDI, matched_audiobook
     
 
@@ -229,9 +234,9 @@ def main(argv):
     # step 3: plot the distr figures
     fig_path = args.freqPath + 'fig/' + args.word_format
     # plot out the matched freq results
-    ''' 
-    compare_histogram(matched_CDI,matched_audiobook,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,alpha=0.5)
      
+    compare_histogram(matched_CDI,matched_audiobook,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,alpha=0.5)
+    ''' 
     plot_all_histogram(matched_CDI,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,'CDI',alpha=0.5)
     plot_all_histogram(matched_audiobook,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,'matched',alpha=0.5)
              
