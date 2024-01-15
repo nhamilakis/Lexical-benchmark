@@ -122,6 +122,7 @@ def get_bin_stat(bins,data_sorted):
     # Rename the newly created column to 'group'
     bins_stats = bins_stats.reset_index()
     bins_stats = bins_stats.rename(columns={'index': 'group'})
+    # add the proportion of each freq bin
     return bins_stats
     
 
@@ -265,22 +266,125 @@ def match_bin_density(matched_CDI,matched_audiobook,CDI_bins,audiobook_bins, thr
     return audiobook_bins, matched_audiobook 
 
 
+def match_bin_prop(matched_audiobook,threshold):
+    
+    '''
+    match distribution of the audiobook freq of machine CDI with CHILDES freq of CDI; 
+    allow variations in each distr
+    
+    We assume Human CDI follows the equal-sized ditr here
+    '''
+    
+    def remove_middle_rows(df, n):
+        middle_index = len(df) // 2
+        start_index = middle_index - n // 2
+        end_index = start_index + n
+
+        # Remove n rows from the middle of the DataFrame
+        updated_df = pd.concat([df.iloc[:start_index], df.iloc[end_index:]])
+
+        return updated_df
+
+    # Group by the specified column
+    grouped_df = matched_audiobook.groupby('group')
+    # Find the minimum number of rows in the grouped DataFrames
+    min_rows = int(grouped_df.size().min() * (1+threshold))
+
+    updated_audiobook = pd.DataFrame()
+    for group_name, sub_df in grouped_df:
+        
+        # fluctruate by prop
+        
+        n_rows_to_remove = sub_df.shape[0] - min_rows
+        # Apply the custom function to each group, keeping the minimum number of rows
+        updated_df = remove_middle_rows(sub_df, n_rows_to_remove)
+        updated_audiobook = pd.concat([updated_audiobook, updated_df])
+
+    return updated_audiobook
 
 
 
+# def match_bin_prop(matched_audiobook):
+    
+#     '''
+#     match distribution of the audiobook freq of machine CDI with CHILDES freq of CDI; 
+#     allow variations in each distr
+    
+#     We assume Human CDI follows the equal-sized ditr here
+#     '''
+    
+#     def remove_middle_rows(df, n):
+#         middle_index = len(df) // 2
+#         start_index = middle_index - n // 2
+#         end_index = start_index + n
+
+#         # Remove n rows from the middle of the DataFrame
+#         updated_df = pd.concat([df.iloc[:start_index], df.iloc[end_index:]])
+
+#         return updated_df
+
+#     # Group by the specified column
+#     grouped_df = matched_audiobook.groupby('group')
+#     # Find the minimum number of rows in the grouped DataFrames
+#     min_rows = grouped_df.size().min()
+
+#     updated_audiobook = pd.DataFrame()
+#     for group_name, sub_df in grouped_df:
+
+#         n_rows_to_remove = sub_df.shape[0] - min_rows
+#         # Apply the custom function to each group, keeping the minimum number of rows
+#         updated_df = remove_middle_rows(sub_df, n_rows_to_remove)
+#         updated_audiobook = pd.concat([updated_audiobook, updated_df])
+
+#     return updated_audiobook
+
+'''
+matched_CDI = pd.read_csv('/data/Lexical-benchmark/stat/freq/char/distr_aligned/5/1.0/CDI_AE_exp.csv')
+freq_type = 'log_freq'
+freq_name = 'CHILDES_'+ freq_type
+label = 'Human'
+alpha=0.5
+n_bins = 5
+mode = 'equal_bins'
+'''
 
 
-def plot_density_hist(matched_CDI,freq_name,freq_type,label,alpha): 
+def plot_density_hist(matched_CDI,freq_name,freq_type,label,alpha,mode,n_bins): 
     
     def get_first_number(group):
         return group.iloc[0] 
     
-    CDI_array = np.append(matched_CDI.groupby('group')[freq_name + '_per_million'].apply(get_first_number).values
-                          ,matched_CDI[freq_name + '_per_million'].tolist()[-1])
-    CDI_freq = matched_CDI[freq_name + '_per_million'].tolist()
+    if mode == 'given_bins':
+        # first sort the dataframe by the given column
+        CDI_array = np.append(matched_CDI.groupby('group')[freq_name + '_per_million'].apply(get_first_number).values
+                              ,matched_CDI[freq_name + '_per_million'].tolist()[-1])
+        
+        data_sorted = matched_CDI[freq_name + '_per_million'].tolist()
+        
+    elif mode == 'equal_bins':
+        
+        # sort the dataframe by the required column 
+        matched_CDI = matched_CDI.sort_values(by=freq_name + '_per_million')
+        
+        data = matched_CDI[freq_name + '_per_million'].tolist()
+        
+        # preparing data (adding small jitter to remove ties)
+        size=len(data)
+        assert n_bins<=size,"too many bins compared to data size"
+        mindif=np.min(np.abs(np.diff(np.sort(np.unique(data))))) # minimum difference between consecutive distinct values
+        jitter=mindif*0.01  # this small jitter will not change the relative order between datapoints
+        data_jitter=np.array(data)+np.random.uniform(low=-jitter, high=jitter, size=size)
+        data_sorted = np.sort(data_jitter) # little jitter to remove ties
+
+        # Creating the bins with approx equal number of observations
+        bin_indices = np.linspace(1, len(data), n_bins+1)-1   # indices to edges in sorted data
+        bins=[data_sorted[0]] # left edge inclusive
+        bins=np.append(bins,[(data_sorted[int(b)]+data_sorted[int(b+1)])/2 for b in bin_indices[1:-1]])
+        CDI_array = np.append(bins, data_sorted[-1]+jitter)  # this is because the extreme right edge is inclusive in plt.hits
+        
     
     # get bins based on the dataframe
-    plt.hist(CDI_freq,bins=CDI_array, density=True, alpha=alpha,edgecolor='black',label = label) 
+    plt.hist(data_sorted,bins=CDI_array, density=True, alpha=alpha,edgecolor='black',label = label) 
     
     plt.xlabel(freq_type + '_per million')
     plt.ylabel('Density')

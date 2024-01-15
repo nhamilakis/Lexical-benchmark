@@ -16,7 +16,7 @@ import pandas as pd
 import argparse
 import os
 import matplotlib.pyplot as plt
-from stat_util import get_freq_table, match_range, get_equal_bins, match_bin_range, plot_density_hist, match_bin_density
+from stat_util import get_freq_table, match_range, get_equal_bins, match_bin_range, plot_density_hist, match_bin_density,match_bin_prop
 from aochildes.dataset import AOChildesDataSet
 import math
 
@@ -47,7 +47,7 @@ def parseArgs(argv):
                         help='different freq types: freq or log_freq')
     
     parser.add_argument('--match_mode', type=str, default = 'range_aligned',
-                        help='different freq types: range_aligned, bin_range_aligned or density_aligned')
+                        help='different freq types: range_aligned, bin_range_aligned ,density_aligned or distr_aligned')
     
     parser.add_argument('--threshold', type=float, default = 0.05,
                         help='average thresholds for each freq bin')
@@ -121,9 +121,9 @@ def get_freq_frame(test,train_path):
 
 '''
 num_bins = 3
-match_mode = 'density_aligned'
-CDI = pd.read_csv('stat/freq/char/bin_range_aligned/CDI_AE_exp.csv')
-audiobook = pd.read_csv('stat/freq/char/bin_range_aligned/matched_AE_exp.csv')
+match_mode = 'bin_range_aligned'
+CDI = pd.read_csv('stat/freq/char/bin_range_aligned/5/CDI_AE_exp.csv')
+audiobook = pd.read_csv('stat/freq/char/bin_range_aligned/5/matched_AE_exp.csv')
 '''
 
 
@@ -141,15 +141,17 @@ def match_freq(CDI,audiobook,match_mode,num_bins,threshold):
         _, matched_audiobook = get_equal_bins(audiobook['Audiobook_log_freq_per_million'].tolist(),audiobook,num_bins)
     
     elif match_mode == 'bin_range_aligned':
-        audiobook_bins, matched_audiobook = match_bin_range(CDI_bins,audiobook['Audiobook_log_freq_per_million'].tolist(),audiobook)
+        _, matched_audiobook = match_bin_range(CDI_bins,audiobook['Audiobook_log_freq_per_million'].tolist(),audiobook)
     
     elif match_mode == 'density_aligned':
         audiobook_bins_temp, matched_audiobook_temp = match_bin_range(CDI_bins,audiobook['Audiobook_log_freq_per_million'].tolist(),audiobook)
-        # get stat
-
         threshold_all = threshold * num_bins
-        audiobook_bins, matched_audiobook = match_bin_density(matched_CDI,matched_audiobook_temp,CDI_bins,audiobook_bins_temp, threshold_all)
+        _, matched_audiobook = match_bin_density(matched_CDI,matched_audiobook_temp,CDI_bins,audiobook_bins_temp, threshold_all)
     
+    elif match_mode == 'distr_aligned':
+        _, matched_audiobook_temp = match_bin_range(CDI_bins,audiobook['Audiobook_log_freq_per_million'].tolist(),audiobook)
+        matched_audiobook = match_bin_prop(matched_audiobook_temp,threshold)
+        
     return matched_CDI, matched_audiobook
     
 
@@ -158,8 +160,8 @@ def compare_histogram(matched_CDI,matched_audiobook,num_bins,freq_type,lang,eval
     
     # get bins based on results
     
-    plot_density_hist(matched_audiobook,'Audiobook_'+ freq_type,freq_type,'Machine',alpha)
-    plot_density_hist(matched_CDI,'CHILDES_'+ freq_type,freq_type,'Human',alpha)
+    plot_density_hist(matched_audiobook,'Audiobook_'+ freq_type,freq_type,'Machine',alpha,'given_bins',num_bins)
+    plot_density_hist(matched_CDI,'CHILDES_'+ freq_type,freq_type,'Human',alpha,'given_bins',num_bins)
     plt.legend() 
     plt.title(lang + ' ' + eval_condition + ' ('  + match_mode + ')')
     
@@ -174,22 +176,23 @@ def compare_histogram(matched_CDI,matched_audiobook,num_bins,freq_type,lang,eval
     
     
                 
-def plot_all_histogram(freq,num_bins,freq_type,lang,eval_condition,freqPath,match_mode,eval_type,alpha=0.5):  
+def plot_all_histogram(freq,num_bins,freq_type,lang,eval_condition,freqPath,match_mode,eval_type,threshold,alpha=0.5):  
     
     '''
     plot each freq stat
     '''
     
-    plot_density_hist(freq,str(num_bins),'Audiobook_'+ freq_type,freq_type,'Audiobook',alpha)
-    plot_density_hist(freq,str(num_bins),'CHILDES_'+ freq_type,freq_type,'CHILDES',alpha)
-    plot_density_hist(freq,str(num_bins),'CELEX_'+ freq_type,freq_type,'CELEX',alpha)
+    plot_density_hist(freq,'Audiobook_'+ freq_type,freq_type,'Audiobook',alpha,'equal_bins',num_bins)
+    plot_density_hist(freq,'CHILDES_'+ freq_type,freq_type,'CHILDES',alpha,'equal_bins',num_bins)
+    plot_density_hist(freq,'CELEX_'+ freq_type,freq_type,'CELEX',alpha,'equal_bins',num_bins)
     plt.legend() 
        
     plt.title(lang + ' ' + eval_condition + ' ' +  eval_type + ' (' + match_mode  + ')')
     
     
     # save the plot to the target dir
-    OutputPath = freqPath + '/' + match_mode + '/' + str(num_bins) + '/Stat/'
+    OutputPath = freqPath + '/' + match_mode + '/' + str(num_bins) + '/' + str(threshold) +'/Stat/'
+    
     if not os.path.exists(OutputPath):
         os.makedirs(OutputPath) 
         
@@ -243,11 +246,10 @@ def main(argv):
     # plot out the matched freq results
      
     compare_histogram(matched_CDI,matched_audiobook,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,args.threshold,alpha=0.5)
-    ''' 
-    plot_all_histogram(matched_CDI,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,'CDI',alpha=0.5)
-    plot_all_histogram(matched_audiobook,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,'matched',alpha=0.5)
+    
+    plot_all_histogram(matched_CDI,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,'CDI',args.threshold,alpha=0.5)
+    plot_all_histogram(matched_audiobook,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,'matched',args.threshold,alpha=0.5)
              
-    '''                                               
     
     '''
     # save the freq stat

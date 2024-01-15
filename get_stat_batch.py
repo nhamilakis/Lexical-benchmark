@@ -77,11 +77,11 @@ eval_condition_lst = ['exp','recep']
 word_format_lst = ['char']
 #match_mode_lst = ['range_aligned','bin_range_aligned']
 
-match_mode_lst = ['density_aligned']
+match_mode_lst = ['bin_range_aligned']
 num_bins_lst = [2,3,4,5]
 freq_type_lst = ['freq','log_freq']
 
-threshold_lst = [0.1]
+threshold_lst = [1]
 
 
 
@@ -118,12 +118,14 @@ for lang in lang_lst:
                                 matched_stat.to_csv(stat_path + 'overlapping.csv')
                                 len_frame.to_csv(stat_path + 'length.csv')
                                 
-                                len_frame_all = pd.concat([])
+                                
                             except: 
                                 print('Something wrong with stat: ' + match_mode + '/' + str(num_bins))
 
 
 # put them altogether 
+
+#freq_path = 'stat/freq/char/' + match_mode + '/' + str(num_bins) + '/' + str(threshold)
 
 
 
