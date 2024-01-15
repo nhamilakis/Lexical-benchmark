@@ -66,7 +66,8 @@ def run_command(command):
 
 # download one file to test
 stat_command_temp = 'python get_stat.py --lang {lang_temp} --eval_condition {eval_condition_temp} \
-                --word_format {word_format_temp} --num_bins {num_bins_temp} --freq_type {freq_type_temp} --match_mode {match_mode_temp}'
+                --word_format {word_format_temp} --num_bins {num_bins_temp} --freq_type {freq_type_temp} \
+                --match_mode {match_mode_temp} --threshold {threshold_temp}'
 
                 
 lang_lst = ['AE','BE']
@@ -78,7 +79,12 @@ word_format_lst = ['char']
 
 match_mode_lst = ['density_aligned']
 num_bins_lst = [2,3,4,5]
-freq_type_lst = ['freq']
+freq_type_lst = ['freq','log_freq']
+
+threshold_lst = [0.1]
+
+
+
 
 for lang in lang_lst:
     
@@ -92,24 +98,34 @@ for lang in lang_lst:
                     
                     for freq_type in freq_type_lst:
                         
-                        stat_command = stat_command_temp.format(lang_temp = lang, eval_condition_temp = eval_condition
-                                         ,word_format_temp= word_format, num_bins_temp = num_bins, freq_type_temp = freq_type
-                                         , match_mode_temp = match_mode)
-                        run_command(stat_command)
-                        
+                        for threshold in threshold_lst:
+                            
+                            
+                            stat_command = stat_command_temp.format(lang_temp = lang, eval_condition_temp = eval_condition
+                                             ,word_format_temp= word_format, num_bins_temp = num_bins, freq_type_temp = freq_type
+                                             , match_mode_temp = match_mode, threshold_temp = threshold)
+                            
+                            run_command(stat_command)
+                            
+                            
+                            freq_path = 'stat/freq/char/' + match_mode + '/' + str(num_bins) + '/' + str(threshold)
+                            try:
+                                len_frame,matched_stat = match_stat(freq_path)
+                                # output the results
+                                stat_path = freq_path + '/stat/'
+                                if not os.path.exists(stat_path):
+                                    os.makedirs(stat_path) 
+                                matched_stat.to_csv(stat_path + 'overlapping.csv')
+                                len_frame.to_csv(stat_path + 'length.csv')
+                                
+                                len_frame_all = pd.concat([])
+                            except: 
+                                print('Something wrong with stat: ' + match_mode + '/' + str(num_bins))
 
 
-'''                        
-freq_path = 'stat/freq/char'
-len_frame,matched_stat = match_stat(freq_path)
-# output the results
-stat_path = freq_path + '/stat/'
-if not os.path.exists(stat_path):
-    os.makedirs(stat_path) 
-matched_stat.to_csv(stat_path + 'overlapping.csv')
-len_frame.to_csv(stat_path + 'length.csv')
+# put them altogether 
 
-'''  
+
 
 
 
