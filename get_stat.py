@@ -182,9 +182,20 @@ def plot_all_histogram(freq,num_bins,freq_type,lang,eval_condition,freqPath,matc
     plot each freq stat
     '''
     
-    plot_density_hist(freq,'Audiobook_'+ freq_type,freq_type,'Audiobook',alpha,'equal_bins',num_bins)
-    plot_density_hist(freq,'CHILDES_'+ freq_type,freq_type,'CHILDES',alpha,'equal_bins',num_bins)
-    plot_density_hist(freq,'CELEX_'+ freq_type,freq_type,'CELEX',alpha,'equal_bins',num_bins)
+    stat_audiobook = plot_density_hist(freq,'Audiobook_'+ freq_type,freq_type,'Audiobook',alpha,'equal_bins',num_bins)
+    stat_CHILDES = plot_density_hist(freq,'CHILDES_'+ freq_type,freq_type,'CHILDES',alpha,'equal_bins',num_bins)
+    stat_CELEX = plot_density_hist(freq,'CELEX_'+ freq_type,freq_type,'CELEX',alpha,'equal_bins',num_bins)
+    
+    # concat results
+    stat_audiobook['freq_type'] = 'Audiobook_'+ freq_type
+    stat_CHILDES['freq_type'] = 'CHILDES_'+ freq_type
+    stat_CELEX['freq_type'] = 'CELEX_'+ freq_type
+    
+    
+    # concatenate all the dataframes
+    stat_all = pd.concat([stat_audiobook, stat_CHILDES, stat_CELEX], ignore_index=True)
+    
+    '''
     plt.legend() 
        
     plt.title(lang + ' ' + eval_condition + ' ' +  eval_type + ' (' + match_mode  + ')')
@@ -199,6 +210,12 @@ def plot_all_histogram(freq,num_bins,freq_type,lang,eval_condition,freqPath,matc
     plt.savefig(OutputPath + eval_type + '_' + lang + '_' + eval_condition + '_' + freq_type, dpi=800)
     plt.clf()
     
+    '''
+    return stat_all
+
+
+
+
 
 def main(argv):
     
@@ -243,15 +260,21 @@ def main(argv):
     
     # step 3: plot the distr figures
     fig_path = args.freqPath + 'fig/' + args.word_format
+    stat_path = freq_path + '/stat/'
     # plot out the matched freq results
-     
-    compare_histogram(matched_CDI,matched_audiobook,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,args.threshold,alpha=0.5)
+    if not os.path.exists(stat_path):
+        os.makedirs(stat_path)  
+    #compare_histogram(matched_CDI,matched_audiobook,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,args.threshold,alpha=0.5)
     
-    plot_all_histogram(matched_CDI,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,'CDI',args.threshold,alpha=0.5)
-    plot_all_histogram(matched_audiobook,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,'matched',args.threshold,alpha=0.5)
-             
-    
+    stat_CDI = plot_all_histogram(matched_CDI,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,'CDI',args.threshold,alpha=0.5)
+    stat_matched = plot_all_histogram(matched_audiobook,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,'matched',args.threshold,alpha=0.5)
+    stat_CDI['set_type'] = 'CDI'
+    stat_matched['set_type'] = 'Machine'
+    stat_all = pd.concat([stat_CDI, stat_matched], ignore_index=True)  
+    stat_all.to_csv(stat_path + args.lang + '_' + args.eval_condition + '.csv')
+          
     '''
+    
     # save the freq stat
     matched_path = 'stat/freq/char/stat/compare.csv'
     if os.path.exists(matched_path):

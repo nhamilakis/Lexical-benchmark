@@ -296,57 +296,21 @@ def match_bin_prop(matched_audiobook,threshold):
         # fluctruate by prop
         
         n_rows_to_remove = sub_df.shape[0] - min_rows
-        # Apply the custom function to each group, keeping the minimum number of rows
-        updated_df = remove_middle_rows(sub_df, n_rows_to_remove)
+        if n_rows_to_remove > 0:
+            
+            # Apply the custom function to each group, keeping the minimum number of rows
+            updated_df = remove_middle_rows(sub_df, n_rows_to_remove)
+            
+        else:
+            updated_df = sub_df
+            
         updated_audiobook = pd.concat([updated_audiobook, updated_df])
 
     return updated_audiobook
 
 
 
-# def match_bin_prop(matched_audiobook):
-    
-#     '''
-#     match distribution of the audiobook freq of machine CDI with CHILDES freq of CDI; 
-#     allow variations in each distr
-    
-#     We assume Human CDI follows the equal-sized ditr here
-#     '''
-    
-#     def remove_middle_rows(df, n):
-#         middle_index = len(df) // 2
-#         start_index = middle_index - n // 2
-#         end_index = start_index + n
 
-#         # Remove n rows from the middle of the DataFrame
-#         updated_df = pd.concat([df.iloc[:start_index], df.iloc[end_index:]])
-
-#         return updated_df
-
-#     # Group by the specified column
-#     grouped_df = matched_audiobook.groupby('group')
-#     # Find the minimum number of rows in the grouped DataFrames
-#     min_rows = grouped_df.size().min()
-
-#     updated_audiobook = pd.DataFrame()
-#     for group_name, sub_df in grouped_df:
-
-#         n_rows_to_remove = sub_df.shape[0] - min_rows
-#         # Apply the custom function to each group, keeping the minimum number of rows
-#         updated_df = remove_middle_rows(sub_df, n_rows_to_remove)
-#         updated_audiobook = pd.concat([updated_audiobook, updated_df])
-
-#     return updated_audiobook
-
-'''
-matched_CDI = pd.read_csv('/data/Lexical-benchmark/stat/freq/char/distr_aligned/5/1.0/CDI_AE_exp.csv')
-freq_type = 'log_freq'
-freq_name = 'CHILDES_'+ freq_type
-label = 'Human'
-alpha=0.5
-n_bins = 5
-mode = 'equal_bins'
-'''
 
 
 def plot_density_hist(matched_CDI,freq_name,freq_type,label,alpha,mode,n_bins): 
@@ -400,8 +364,10 @@ def plot_density_hist(matched_CDI,freq_name,freq_type,label,alpha,mode,n_bins):
         plt.xlim(-1,4)
         plt.ylim(0,1.5)
     
-    
+    stat = get_bin_stat(CDI_array,data_sorted)
+    return stat
       
+
 def get_overlapping(word_lists_dict):
     
     

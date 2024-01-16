@@ -77,11 +77,11 @@ eval_condition_lst = ['exp','recep']
 word_format_lst = ['char']
 #match_mode_lst = ['range_aligned','bin_range_aligned']
 
-match_mode_lst = ['bin_range_aligned']
+match_mode_lst = ['distr_aligned']
 num_bins_lst = [2,3,4,5]
 freq_type_lst = ['freq','log_freq']
 
-threshold_lst = [1]
+threshold_lst = [0.1]
 
 
 
@@ -108,7 +108,7 @@ for lang in lang_lst:
                             run_command(stat_command)
                             
                             
-                            freq_path = 'stat/freq/char/' + match_mode + '/' + str(num_bins) + '/' + str(threshold)
+                            freq_path = '/data/Lexical-benchmark/stat/freq/char/' + match_mode + '/' + str(num_bins) + '/' + str(threshold)
                             try:
                                 len_frame,matched_stat = match_stat(freq_path)
                                 # output the results
@@ -121,11 +121,6 @@ for lang in lang_lst:
                                 
                             except: 
                                 print('Something wrong with stat: ' + match_mode + '/' + str(num_bins))
-
-
-# put them altogether 
-
-#freq_path = 'stat/freq/char/' + match_mode + '/' + str(num_bins) + '/' + str(threshold)
 
 
 
