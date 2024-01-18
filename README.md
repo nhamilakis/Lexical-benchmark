@@ -1,40 +1,32 @@
-# Lexical-benchmark
-The lexical benchmark  project provides more finegrained human-model comparison on lexical level by carefully matching the test word set and evalauation tasks. 
+# Machien CDI: Lexical-benchmark
+This repository focuses on a detailed comparison between human and model performance at the lexical level. The project comprises two main components: Receptive Vocabulary (Recep_model) and Expressive Vocabulary (Exp_model).
 
-It covers the following two aspects: i) receptive vocabulary  ii) expressive vocabualry
+Receptive Vocabulary (Recep_model)
+Util.py
+Common functions for the scripts.
 
+Human.py
+Retrieves CDI receptive/expressive vocabulary frequencies from CHILDES parents' and children's utterances.
 
-util.py: common functions for the scripts below
+CHILDES Dataset: Download
 
-Human.py: get freq of CDI receptive/expressive vocab from CHILDES parents'/children's utterances
-		input: 1.CHILDES transcript; 2.CDI data
-        	output: all are in the same folder named as lang_condition 
-        		1. all the selected transcripts by interlocutor in CHILDES
-        		2. the freq list of all the words in the selected transcripts 
-        		3. the freq list of all the words in the selected transcripts with the overlapping of CDI data
+AO-CHILDES Repository: Link
 
-Link to the CHILDES dataset for threshold estimation: https://drive.google.com/file/d/1cGO8j0nP2J_vViaQeUjdZHTFkZfZ6J_s/view?usp=sharing
-Link to the AO-CHILDES: https://github.com/UIUCLearningLanguageLab/AOCHILDES
+Expressive Vocabulary (Exp_model)
+Recep_model/utils.py
+Common functions for compute_prob.py.
 
+compute_prob.py
+Computes word-non-word pair probabilities for acoustic and textual inputs.
 
-Recep_model:
-	utils.py: common functions used in compute_prob.py
+generate_scores.py
+Calculates lexical scores based on Wuggy test results.
 
-	compute_prob.py: compute probability of the word-non-word pairs: for both acoustic and textual inputs
-		input: 1. model checkpoints; 2.word-non-word pairs to be evaluated 
-		output: text file containing probabilities
+Exp_model
+Reference_model.py
+Trains the reference model to optimize hyperparameters.
 
-	generate_scores.py: calculate the lexical scores based on the results of wuggy test
-		input: The text file containing the word probabilities 
-		output: .csv file containing test scores
-
-	
-
-
-Exp_model:	
-	Reference_model.py: train the reference model to optimize hyperparameters of model generations
-		input: Training dataset and months to be simulated
-		output: trained model checkpoints
-	Generation.py: LSTM model generation with/out prompts using beam search; sampling method(random, topk, topp)
+Generation.py
+LSTM model generation with/without prompts using beam search and sampling methods (random, topk, topp).
 
 
