@@ -1,5 +1,7 @@
 # Lexical-benchmark
-This project provides more finegrained human-model comparison on lexical level. This project is divided into following components: i) model training;  ii) model evaluation;   iii) plot the data
+The lexical benchmark  project provides more finegrained human-model comparison on lexical level. 
+
+This project is divided into following components: i) receptive vocabulary  ii) expressive vocabualry
 
 
 i)  Training
