@@ -1,13 +1,9 @@
 # Lexical-benchmark
-The lexical benchmark  project provides more finegrained human-model comparison on lexical level. 
+The lexical benchmark  project provides more finegrained human-model comparison on lexical level by carefully matching the test word set and evalauation tasks. 
 
-This project is divided into following components: i) receptive vocabulary  ii) expressive vocabualry
-
-
-i)  Training
+It covers the following two aspects: i) receptive vocabulary  ii) expressive vocabualry
 
 
-ii) Eval
 util.py: common functions for the scripts below
 
 Human.py: get freq of CDI receptive/expressive vocab from CHILDES parents'/children's utterances
