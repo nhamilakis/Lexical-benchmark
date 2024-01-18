@@ -1,4 +1,4 @@
-# Machien CDI: Lexical-benchmark
+# Machine CDI: Lexical-benchmark
 This repository focuses on a detailed comparison between human and model performance at the lexical level. The project comprises two main components: Receptive Vocabulary (Recep_model) and Expressive Vocabulary (Exp_model).
 
 Receptive Vocabulary (Recep_model)
