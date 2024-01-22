@@ -2,7 +2,7 @@
 
 This repository focuses on a detailed comparison between human(CDI) and model performance at the lexical level, including: 
 
-1) Receptive Vocabulary using a spot-the-word task (adapted from [BabySLM](https://github.com/MarvinLvn/BabySLM) 
+1) Receptive Vocabulary using a spot-the-word task (adapted from [BabySLM](https://github.com/MarvinLvn/BabySLM)
 
 2) Expressive Vocabulary using (un)prompted generations
 
