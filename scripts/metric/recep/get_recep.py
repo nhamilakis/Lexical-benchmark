@@ -186,9 +186,10 @@ def main(argv):
     # remove nan
     gold = gold.dropna()
     
-    for hour in os.listdir(args. +'/'+hour):
+    for hour in os.listdir(args.score_root):
         
-        for chunk in os.listdir():
+        for chunk in os.listdir(args.score_root + hour):
+            
             
             
 
