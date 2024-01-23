@@ -3,6 +3,9 @@
 """
 Read CHILDES scripts adnd return the frequency-based curve
 
+between 6 and 36 the following nb of seconds per hours
+
+
 @author: jliu
 """
 import os
@@ -34,25 +37,25 @@ def parseArgs(argv):
     parser.add_argument('--OutputPath', type=str, default = 'Output',
                         help='Path to the freq output.')
     
-    parser.add_argument('--input_condition', type=str, default = 'recep',
+    parser.add_argument('--input_condition', type=str, default = 'exp',
                         help='types of vocab: recep or exp')
     
-    parser.add_argument('--hour', type=int, default = 3,
-                        help='the estimated number of hours per day')
+    parser.add_argument('--hour', type=dict, default = 10,
+                        help='the estimated number of waking hours per day; data from Alex(2023)')
     
-    parser.add_argument('--word_per_hour', type=int, default = 10000,
-                        help='the estimated number of words per hour')
+    parser.add_argument('--word_per_sec', type=int, default = 3,
+                        help='the estimated number of words per second')
     
-    parser.add_argument('--threshold_range', type=list, default = [1,200,600,1000],
+    parser.add_argument('--sec_frame_path', type=str, default = 'vocal_month.csv',
+                        help='the estmated vocalization seconds per hour by month')
+    
+    parser.add_argument('--threshold_range', type=list, default = [50,100,200,300],
                         help='threshold to decide knowing a productive word or not, one of the variable to invetigate')
     
     parser.add_argument('--eval_path', type=str, default = 'Human_eval/',
                         help='path to the evaluation material; one of the variables to invetigate')
     
     return parser.parse_args(argv)
-
-
-
 
 
 
@@ -94,7 +97,7 @@ def load_data(TextPath,OutputPath,lang,input_condition):
 
 
 
-def count_words(OutputPath,group_stat,eval_path,hour,word_per_hour,eval_type,lang,eval_condition):
+def count_words(OutputPath,group_stat,eval_path,hour,word_per_sec,eval_type,lang,eval_condition,sec_frame):
     
     '''
     count words of the given list
@@ -139,9 +142,10 @@ def count_words(OutputPath,group_stat,eval_path,hour,word_per_hour,eval_type,lan
         freq_lst = []
         for word in eval_lst:
             try: 
-                # recover to the actual count
+                # recover to the actual count based on Alex's paper
                 
-                norm_count = fre_table[fre_table['Word']==word]['Norm_freq'].item() * 30 * word_per_hour * hour
+                sec_per_hour = sec_frame[sec_frame['month']==file]['sec_per_hour'].item()
+                norm_count = fre_table[fre_table['Word']==word]['Norm_freq'].item() * 30 * word_per_sec * hour * sec_per_hour
                 
             except:
                 norm_count = 0
@@ -223,9 +227,11 @@ def plot_multiple(OutputPath,eval_path,threshold_range,group_stat,eval_condition
             word_group = freq_frame[freq_frame['group_original']==freq]
             score_frame,avg_value = get_score(word_group,OutputPath,threshold,hour)
             avg_values_lst.append(avg_value.values)
-            
-        avg_values = (avg_values_lst[0] + avg_values_lst[1]) / 2    
         
+        # problem here: only for the high freq words in the end
+        #avg_values = (avg_values_lst[0] + avg_values_lst[1]+avg_values_lst[2] + avg_values_lst[3]+avg_values_lst[4] + avg_values_lst[5]) / 6    
+        
+        avg_values = (avg_values_lst[0] + avg_values_lst[1]) / 2
         # Plotting the line curve
         ax = sns.lineplot(score_frame.columns, avg_values, label= 'threshold: ' + str(threshold))
     '''    
@@ -236,8 +242,8 @@ def plot_multiple(OutputPath,eval_path,threshold_range,group_stat,eval_condition
         rmse_frame = rmse_frame_temp.rename(columns={0: "Chunksize", 1: "threshold", 2: "rmse" })    
         rmse_frame_all = pd.concat([rmse_frame_all,rmse_frame])
     '''    
-    #plt.title('{} CHILDES {} vocab(tested on {})'.format(lang,eval_condition,eval_type), fontsize=15)
-    plt.title('Accumulator on {} CHILDES ({} vocab)'.format(lang,eval_condition), fontsize=15)
+    plt.title('{} CHILDES {} vocab(tested on {})'.format(lang,eval_condition,eval_type), fontsize=15)
+    #plt.title('Accumulator on {} CHILDES ({} vocab)'.format(lang,eval_condition), fontsize=15)
     plt.xlabel('age in month', fontsize=15)
     plt.ylabel('Proportion of children', fontsize=15)
     
@@ -271,12 +277,12 @@ def main(argv):
     eval_path = args.eval_path
     hour = args.hour
     threshold_range = args.threshold_range
-    word_per_hour = args.word_per_hour
-    
+    word_per_sec = args.word_per_sec
+    sec_frame = pd.read_csv(args.sec_frame_path)
         
     # step 1: load data and count words
     month_stat = load_data(TextPath,OutputPath,lang,input_condition)
-    freq_frame = count_words(OutputPath,month_stat,eval_path,hour,word_per_hour,eval_type,lang,eval_condition)
+    freq_frame = count_words(OutputPath,month_stat,eval_path,hour,word_per_sec,eval_type,lang,eval_condition,sec_frame)
                             
     # step 2: get the score based on different thresholds
     plot_multiple(OutputPath,eval_path,threshold_range,month_stat,eval_condition,freq_frame,hour,lang,eval_type)
