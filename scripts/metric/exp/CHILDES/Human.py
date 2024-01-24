@@ -9,13 +9,13 @@ between 6 and 36 the following nb of seconds per hours
 @author: jliu
 """
 import os
-from util import load_transcript, get_freq, count_by_month, calculate_fitness,get_score
+from util import load_transcript, get_freq, count_by_month, get_score
 import pandas as pd
 import argparse
 import sys
 import matplotlib.pyplot as plt
 import seaborn as sns   
-
+import numpy as np
 
 
 def parseArgs(argv):
@@ -231,7 +231,14 @@ def plot_multiple(OutputPath,eval_path,threshold_range,group_stat,eval_condition
         # problem here: only for the high freq words in the end
         #avg_values = (avg_values_lst[0] + avg_values_lst[1]+avg_values_lst[2] + avg_values_lst[3]+avg_values_lst[4] + avg_values_lst[5]) / 6    
         
-        avg_values = (avg_values_lst[0] + avg_values_lst[1]) / 2
+        #avg_values = (avg_values_lst[0] + avg_values_lst[1]) / 2
+        
+        
+        arrays_matrix = np.array(avg_values_lst)
+
+        # Calculate the average array along axis 0
+        avg_values = np.mean(arrays_matrix, axis=0)
+
         # Plotting the line curve
         ax = sns.lineplot(score_frame.columns, avg_values, label= 'threshold: ' + str(threshold))
     '''    
