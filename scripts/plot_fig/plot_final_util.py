@@ -28,8 +28,7 @@ def get_score(target_frame,seq_frame,threshold):
     selected_frame = seq_frame.loc[overlapping_words]
     
     # use weighted class to decrase the effect of the unbalanced dataset
-    
-    
+
     extra_word_lst = [element for element in target_frame['word'].tolist() if element not in overlapping_words]
     
     

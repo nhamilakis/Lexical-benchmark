@@ -228,12 +228,6 @@ def plot_multiple(OutputPath,eval_path,threshold_range,group_stat,eval_condition
             score_frame,avg_value = get_score(word_group,OutputPath,threshold,hour)
             avg_values_lst.append(avg_value.values)
         
-        # problem here: only for the high freq words in the end
-        #avg_values = (avg_values_lst[0] + avg_values_lst[1]+avg_values_lst[2] + avg_values_lst[3]+avg_values_lst[4] + avg_values_lst[5]) / 6    
-        
-        #avg_values = (avg_values_lst[0] + avg_values_lst[1]) / 2
-        
-        
         arrays_matrix = np.array(avg_values_lst)
 
         # Calculate the average array along axis 0

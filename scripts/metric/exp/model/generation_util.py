@@ -120,11 +120,11 @@ def top_p(scaled_logits,p,gpu):
 
 
 def calculate_entropy(eval_model,tokenizer,sentence,gpu):
-    
-    '''
+
+    """
     input: the single text string
     output: the calculated entropy score
-    '''
+    """
     
     # Tokenize the sentence and convert to tensor
     if gpu:
