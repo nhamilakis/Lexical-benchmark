@@ -9,7 +9,7 @@ different datasets:
     - CELEX: SUBLEX-US     
 @author: jliu
 two versions of freq: char and phoneme
-
+TTR and length distribution
 """
 import sys
 import pandas as pd
@@ -50,7 +50,7 @@ def parseArgs(argv):
                         help='different freq types: range_aligned, bin_range_aligned ,density_aligned or distr_aligned')
     
     parser.add_argument('--threshold', type=float, default = 0.05,
-                        help='average thresholds for each freq bin')
+                        help='average threshold for each freq bin')
     
     return parser.parse_args(argv)
 
@@ -119,12 +119,7 @@ def get_freq_frame(test,train_path):
     
     return freq_frame
 
-'''
-num_bins = 3
-match_mode = 'bin_range_aligned'
-CDI = pd.read_csv('stat/freq/char/bin_range_aligned/5/CDI_AE_exp.csv')
-audiobook = pd.read_csv('stat/freq/char/bin_range_aligned/5/matched_AE_exp.csv')
-'''
+
 
 
 def match_freq(CDI,audiobook,match_mode,num_bins,threshold):
@@ -264,7 +259,7 @@ def main(argv):
     # plot out the matched freq results
     if not os.path.exists(stat_path):
         os.makedirs(stat_path)  
-    #compare_histogram(matched_CDI,matched_audiobook,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,args.threshold,alpha=0.5)
+    compare_histogram(matched_CDI,matched_audiobook,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,args.threshold,alpha=0.5)
     
     stat_CDI = plot_all_histogram(matched_CDI,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,'CDI',args.threshold,alpha=0.5)
     stat_matched = plot_all_histogram(matched_audiobook,args.num_bins,args.freq_type,args.lang,args.eval_condition,fig_path,args.match_mode,'matched',args.threshold,alpha=0.5)

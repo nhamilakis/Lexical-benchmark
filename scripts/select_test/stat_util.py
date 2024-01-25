@@ -17,6 +17,14 @@ import re
 import os 
 import matplotlib.pyplot as plt
 
+def get_ttr(freq_table):
+    
+    '''
+    get the type-to-token ratios
+    '''
+    return freq_table.shape[0]/freq_table['Freq'].sum() * 100
+
+
 
 def get_freq_table(lines):
     
@@ -194,11 +202,7 @@ def match_bin_range(CDI_bins,audiobook,audiobook_frame):
        
     return bins, audiobook_frame 
 
-'''
-CDI = pd.read_csv('stat/freq/char/bin_range_aligned/5/CDI_AE_exp.csv')
-audiobook = pd.read_csv('stat/freq/char/bin_range_aligned/5/matched_AE_exp.csv')
-threshold = 0.1
-'''
+
 
                  
 def match_bin_density(matched_CDI,matched_audiobook,CDI_bins,audiobook_bins, threshold):
@@ -463,16 +467,5 @@ def filter_words(gold_path):
     return filtered_frame
 
 
-def phonememize(word):
- 
-     '''
-     phonemize single word/utterance
-     input: grapheme string; output: phonemized string
-     '''
-     
-     backend = EspeakBackend('en-us', language_switch="remove-utterance")
-     separator = Separator(word=None, phone=" ")
-     phonemized = backend.phonemize([word], separator=separator)[0].strip()
-     return phonemized
- 
+
     
