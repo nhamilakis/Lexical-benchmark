@@ -7,8 +7,7 @@ Plot all figures in the paper
 """
 '''
 color setting
-
-human: orange
+human: red
 freq-based:purpl -> pink for matched
 model:
     1.speech/prompted (the most human like): speech
@@ -18,8 +17,6 @@ model:
 by_freq: similar colors but different shape
     high: line
     low: dotted
-    
-
 '''
 import pandas as pd
 import os
