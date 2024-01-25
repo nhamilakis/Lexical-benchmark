@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Refined pipeline for wuggy test
-Recursively run the results
-
+Whole pipeline for wuggy test
 @author: jliu
 
 """
@@ -102,7 +100,6 @@ def load_data(TestPath,MaterialPath,modality):
     
     # Export selected columns to a .txt file separated by tabs
     selected_material.to_csv('test.txt', sep='\t', index=False, header=False)
-    
     selected_test.to_csv('gold.csv', index=False)
     
     return selected_material
@@ -111,7 +108,6 @@ def load_data(TestPath,MaterialPath,modality):
 
 '''
 step 1.5: quantize the tested audios with trained models
-TO DO: add gpu setting
 '''
 
 quantize_audio_temp = 'python quantize_audio.py --pathClusteringCheckpoint {model_root}/{hour}/{chunk}/kmeans50/checkpoint_last.pt \
@@ -129,8 +125,6 @@ step 2: compute the prob
 
 phoneme modality: one test file outside the directory
 speech modality: in the corresponding subfolders
-
-name of the dictionary files are different! 
 '''
 
 compute_prob_temp = 'python compute_prob.py --pathQuantizedUnits {test_path}/{test}.txt \
@@ -144,8 +138,6 @@ compute_prob_temp = 'python compute_prob.py --pathQuantizedUnits {test_path}/{te
 
 '''
 step 3: get the scores recursively
-
-!!! change this 
 '''
 
 compute_lexical_temp = 'python compute_lexical.py \

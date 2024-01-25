@@ -8,10 +8,7 @@ import os
 import numpy as np
 
 # create dictionary for the language
-# in use(en_US here)
 d = enchant.Dict("en_US")
-
-
 
 def load_transcript(TextPath,output_dir,file,lang,condition): 
     
@@ -201,16 +198,6 @@ def get_score(freq_frame,OutputPath,threshold):
     freq_frame = freq_frame.drop(columns=['word', 'group_original'])
     
     # get each chunk's scores based on the threshold
-    
-    '''
-    columns = freq_frame.columns
-    
-    
-    for col in columns.tolist():
-        
-        freq_frame.loc[col] = [0] * freq_frame.shape[1]
-    '''    
-    # get the score based on theshold
     score_frame = freq_frame.applymap(lambda x: 1 if x >= threshold else 0)
     
     avg_values = score_frame.mean()

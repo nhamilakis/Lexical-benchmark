@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Read CHILDES scripts adnd return the frequency-based curve
-
-between 6 and 36 the following nb of seconds per hours
-
+apply thresholds on CHILDES scripts or model generations
 
 @author: jliu
 """
@@ -13,26 +10,24 @@ from util import load_transcript, get_freq, count_by_month, get_score
 import pandas as pd
 import argparse
 import sys
-import matplotlib.pyplot as plt
-import seaborn as sns   
 import numpy as np
 
 
 def parseArgs(argv):
     # Run parameters
-    parser = argparse.ArgumentParser(description='Investigate CHILDES corpus')
+    parser = argparse.ArgumentParser(description='Apply threhsolds')
     
     parser.add_argument('--lang', type=str, default = 'BE',
-                        help='langauges to test: AE, BE or FR')
+                        help='langauges to test: AE or BE')
     
     parser.add_argument('--eval_type', type=str, default = 'CDI',
-                        help='langauges to test: CDI or Wuggy_filtered')
+                        help='languages to test: CDI or model')
     
     parser.add_argument('--eval_condition', type=str, default = 'exp',
                         help='which type of words to evaluate; recep or exp')
     
     parser.add_argument('--TextPath', type=str, default = 'CHILDES',
-                        help='root Path to the CHILDES transcripts; one of the variables to invetigate')
+                        help='root Path to the CHILDES transcripts')
     
     parser.add_argument('--OutputPath', type=str, default = 'Output',
                         help='Path to the freq output.')
@@ -101,12 +96,9 @@ def count_words(OutputPath,group_stat,eval_path,hour,word_per_sec,eval_type,lang
     
     '''
     count words of the given list
-    
     '''
     
     eval_dir = eval_path + eval_type + '/' + lang + '/' + eval_condition
-    
-    
            
     for file in os.listdir(eval_dir):
         eval_frame = pd.read_csv(eval_dir + '/' + file)
@@ -136,14 +128,11 @@ def count_words(OutputPath,group_stat,eval_path,hour,word_per_sec,eval_type,lang
                     word_lst.append(cleaned_word)
         # save the overall freq dataframe for further use
         fre_table = get_freq(word_lst)
-        
-        
-        
+
         freq_lst = []
         for word in eval_lst:
             try: 
                 # recover to the actual count based on Alex's paper
-                
                 sec_per_hour = sec_frame[sec_frame['month']==file]['sec_per_hour'].item()
                 norm_count = fre_table[fre_table['Word']==word]['Norm_freq'].item() * 30 * word_per_sec * hour * sec_per_hour
                 
@@ -169,101 +158,6 @@ def count_words(OutputPath,group_stat,eval_path,hour,word_per_sec,eval_type,lang
 
 
 
-
-def plot_multiple(OutputPath,eval_path,threshold_range,group_stat,eval_condition,freq_frame,hour,lang,eval_type):
-    
-    
-    sns.set_style('whitegrid') 
-    
-    
-    eval_dir = eval_path + 'CDI' + '/' + lang + '/' + eval_condition   
-   
-    # plot the CDI results
-    # load multiple files
-    for file in os.listdir(eval_dir):
-        selected_words = pd.read_csv(eval_dir + '/' + file).iloc[:, 5:-6]
-        
-    
-    size_lst = []
-    month_lst = []
-    
-    n = 0
-    while n < selected_words.shape[0]:
-        size_lst.append(selected_words.iloc[n])
-        headers_list = selected_words.columns.tolist()
-        month_lst.append(headers_list)
-        n += 1
-
-    size_lst_final = [item for sublist in size_lst for item in sublist]
-    month_lst_final = [item for sublist in month_lst for item in sublist]
-    month_lst_transformed = []
-    for month in month_lst_final:
-        month_lst_transformed.append(int(month))
-    # convert into dataframe
-    data_frame = pd.DataFrame([month_lst_transformed,size_lst_final]).T
-    data_frame.rename(columns={0:'month',1:'Proportion of acquired words'}, inplace=True)
-    data_frame_final = data_frame.dropna(axis=0)
-    
-    
-    ax = sns.lineplot(x="month", y="Proportion of acquired words", data=data_frame_final, color='black', linewidth=2.5, label=lang + '_CDI')
-    
-    # set the limits of the x-axis for each line
-    for line in ax.lines:
-        plt.xlim(0,36)
-        plt.ylim(0,1)
-    mean_value_CDI = data_frame_final.groupby('month')['Proportion of acquired words'].mean()
-    
-    
-    
-    # plot the model results
-    rmse_frame_all = pd.DataFrame()
-    # loop over thresholds
-    for threshold in threshold_range:
-        
-        avg_values_lst = []
-        # averaged by different groups
-        for freq in set(list(freq_frame['group_original'].tolist())):
-            
-            word_group = freq_frame[freq_frame['group_original']==freq]
-            score_frame,avg_value = get_score(word_group,OutputPath,threshold,hour)
-            avg_values_lst.append(avg_value.values)
-        
-        arrays_matrix = np.array(avg_values_lst)
-
-        # Calculate the average array along axis 0
-        avg_values = np.mean(arrays_matrix, axis=0)
-
-        # Plotting the line curve
-        ax = sns.lineplot(score_frame.columns, avg_values, label= 'threshold: ' + str(threshold))
-    '''    
-        # convert back to series to calculate fitness fo the two curves
-        mean_value_CHILDES = pd.Series(avg_values, index=score_frame.columns)
-        rmse = calculate_fitness(mean_value_CHILDES, mean_value_CDI)
-        rmse_frame_temp = pd.DataFrame([threshold, rmse]).T
-        rmse_frame = rmse_frame_temp.rename(columns={0: "Chunksize", 1: "threshold", 2: "rmse" })    
-        rmse_frame_all = pd.concat([rmse_frame_all,rmse_frame])
-    '''    
-    plt.title('{} CHILDES {} vocab(tested on {})'.format(lang,eval_condition,eval_type), fontsize=15)
-    #plt.title('Accumulator on {} CHILDES ({} vocab)'.format(lang,eval_condition), fontsize=15)
-    plt.xlabel('age in month', fontsize=15)
-    plt.ylabel('Proportion of children', fontsize=15)
-    
-    
-    plt.tick_params(axis='both', labelsize=10)
-  
-    plt.legend()
-    
-    figure_path = OutputPath + '/Figures/'
-    if not os.path.exists(figure_path):
-        os.makedirs(figure_path) 
-    plt.savefig(figure_path + '/Curve.png',dpi=800)
-    plt.show()
-    
-    #rmse_frame_all.to_csv(OutputPath + '/Scores/Fitness_All.csv')  
-    
-    
-    
-
 def main(argv):
     
     # Args parser
@@ -285,9 +179,7 @@ def main(argv):
     month_stat = load_data(TextPath,OutputPath,lang,input_condition)
     freq_frame = count_words(OutputPath,month_stat,eval_path,hour,word_per_sec,eval_type,lang,eval_condition,sec_frame)
                             
-    # step 2: get the score based on different thresholds
-    plot_multiple(OutputPath,eval_path,threshold_range,month_stat,eval_condition,freq_frame,hour,lang,eval_type)
-    
+
 
    
 
