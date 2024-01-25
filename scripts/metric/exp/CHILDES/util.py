@@ -185,7 +185,9 @@ def count_by_month(OutputPath,file_stat_sorted):
     group_stat.to_csv(OutputPath + '/month/Stat_chunk.csv')
     return group_stat
   
-def get_score(freq_frame,OutputPath,threshold,hour):
+    
+  
+def get_score(freq_frame,OutputPath,threshold):
     
     '''
     get scores of the target words in Wordbank 
@@ -199,11 +201,15 @@ def get_score(freq_frame,OutputPath,threshold,hour):
     freq_frame = freq_frame.drop(columns=['word', 'group_original'])
     
     # get each chunk's scores based on the threshold
+    
+    '''
     columns = freq_frame.columns
-      
+    
+    
     for col in columns.tolist():
-        freq_frame.loc[col] = [0] * freq_frame.shape[1]
         
+        freq_frame.loc[col] = [0] * freq_frame.shape[1]
+    '''    
     # get the score based on theshold
     score_frame = freq_frame.applymap(lambda x: 1 if x >= threshold else 0)
     
