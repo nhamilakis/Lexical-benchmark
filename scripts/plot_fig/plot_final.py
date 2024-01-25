@@ -19,15 +19,14 @@ by_freq: similar colors but different shape
     high: line
     low: dotted
     
-    
-human is the most stressed
+
 '''
 import pandas as pd
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
 from plot_final_util import load_CDI,load_accum,load_exp,get_score_CHILDES,fit_curve
-
+import numpy as np
 
 
 # Using a predefined color palette with a blue-green shade
@@ -75,12 +74,31 @@ def plot_all(vocab_type, human_dir, test_set, accum_threshold, exp_threshold):
         target_dir = human_dir.replace('CDI', test_set)
 
         # add human-estimation here
-        CHILDES_freq = pd.read_csv(model_dir + '/CHILDES.csv')
-        CHIDES_result, avg_values = get_score_CHILDES(CHILDES_freq, 200)
-        month_list_CHILDES = [int(x) for x in CHIDES_result.columns]
-        ax = sns.lineplot(month_list_CHILDES, avg_values,
-                          color="Orange", linewidth=3, label='CHILDES-estimation')
+        CHILDES_freq = pd.read_csv('Final_scores/Model_eval/' + lang + '/exp/CDI/CHILDES.csv')
+        
+        
+        
+        
+        
+        avg_values_lst = []
+        # averaged by different groups
+        for freq in set(list(CHILDES_freq['group_original'].tolist())):
+            
+            word_group = CHILDES_freq[CHILDES_freq['group_original']==freq]
+            score_frame,avg_value = get_score_CHILDES(word_group, exp_threshold)
+            avg_values_lst.append(avg_value.values)
+        
+        
+        arrays_matrix = np.array(avg_values_lst)
 
+        # Calculate the average array along axis 0
+        avg_values = np.mean(arrays_matrix, axis=0)
+
+        # Plotting the line curve
+        month_list_CHILDES = [int(x) for x in score_frame.columns]
+        ax = sns.lineplot(month_list_CHILDES, avg_values,color="Orange", linewidth=3, label= 'CHILDES-estimation')
+        
+        
         # unprompted generation
         for file in os.listdir(target_dir):
             target_frame = pd.read_csv(target_dir + '/' + file)
@@ -120,25 +138,25 @@ def plot_all(vocab_type, human_dir, test_set, accum_threshold, exp_threshold):
         legend_loc = 'upper left'
 
     plt.legend(loc=legend_loc)
-
+    
+    
+    
     plt.savefig('Final_scores/Figures/avg/' + lang + '_' +
                 vocab_type + '_' + test_set+'.png', dpi=800)
+    
     plt.show()
 
 
 # receptive vocab
 vocab_type = 'recep'    # recep or exp
 lang = 'BE'    # AE or BE
-test_set = 'CDI'   # CDI or Wuggy_filtered
-exp_threshold = 200
+test_set = 'matched'   # CDI or Wuggy_filtered
+exp_threshold = 60
+accum_threshold = 200
 
-vocab_type_lst = ['recep', 'exp']
-lang_lst = ['AE', 'BE']
-test_set_lst = ['CDI']
-
-vocab_type_lst = ['recep']
-lang_lst = ['AE','BE']
-test_set_lst = ['CDI']
+vocab_type_lst = ['exp']
+lang_lst = ['BE','AE']
+test_set_lst = ['matched']
 
 for vocab_type in vocab_type_lst:
     for lang in lang_lst:
@@ -149,11 +167,7 @@ for vocab_type in vocab_type_lst:
                 '/' + vocab_type + '/' + test_set + '/'
             human_dir = 'Final_scores/Human_eval/CDI/' + lang + '/' + vocab_type
 
-            if vocab_type == 'recep':
-                accum_threshold = 200
-            elif vocab_type == 'exp':
-                accum_threshold = 500
-
+            
             plot_all(vocab_type, human_dir, test_set,
                      accum_threshold, exp_threshold)
 
@@ -246,6 +260,8 @@ def plot_by_freq(vocab_type,human_dir,test_set_lst,accum_threshold,exp_threshold
             
             CHILDES_frame = pd.read_csv(model_dir + test_set_lst[n] +  '/CHILDES.csv')
             
+            
+            
             # unprompted generations
             for freq in freq_lst:   
                 
@@ -325,9 +341,9 @@ test_set = 'CDI'   # CDI or Wuggy_filtered
 exp_threshold = 200
 
 
-vocab_type_lst = ['recep']
+vocab_type_lst = ['exp']
 lang_lst = ['AE','BE']
-test_set_lst = ['CDI']
+test_set_lst = ['matched']
 
 for vocab_type in vocab_type_lst:
     for lang in lang_lst:

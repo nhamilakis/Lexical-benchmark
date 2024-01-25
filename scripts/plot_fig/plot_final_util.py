@@ -15,7 +15,6 @@ from sklearn.linear_model import LinearRegression
 from scipy.optimize import curve_fit
 
 
-
 def get_score(target_frame,seq_frame,threshold):
     
     
@@ -30,18 +29,41 @@ def get_score(target_frame,seq_frame,threshold):
     
     # use weighted class to decrase the effect of the unbalanced dataset
     
+    
     extra_word_lst = [element for element in target_frame['word'].tolist() if element not in overlapping_words]
+    
     
     for word in extra_word_lst:
         selected_frame.loc[word] = [0] * selected_frame.shape[1]
-        
+     
     # get the score based on theshold
     score_frame_all = selected_frame.applymap(lambda x: 1 if x >= threshold else 0)
     
     avg_values = score_frame_all.mean()
     
+    score_frame_all.to_csv('score_machine_exp.csv')
     return score_frame_all, avg_values
 
+
+
+def get_score_CHILDES(freq_frame,threshold):
+    
+    '''
+    get scores of the target words in Wordbank 
+    input: word counts in each chunk/month and the stat of the number of true words as well as the true data proportion
+    output: a dataframe with each word count  
+
+    we have the weighed score in case the influence of different proportions of frequency bands      
+    '''
+     
+    
+    freq_frame = freq_frame.drop(columns=['word', 'group_original'])
+    
+    # get the score based on theshold
+    score_frame = freq_frame.applymap(lambda x: 1 if x >= threshold else 0)
+    
+    avg_values = score_frame.mean()
+    return score_frame,avg_values
 
 
 def load_CDI(human_result):
@@ -81,6 +103,8 @@ def load_accum(accum_all,accum_threshold):
     return accum_result
 
 
+
+
 def load_exp(seq_frame_unprompted,target_frame,by_freq,exp_threshold):
     
     
@@ -95,9 +119,13 @@ def load_exp(seq_frame_unprompted,target_frame,by_freq,exp_threshold):
             score_frame_unprompted, avg_values_unprompted = get_score(word_group,seq_frame_unprompted,exp_threshold)
             
             avg_values_unprompted_lst.append(avg_values_unprompted.values)
-            
-        avg_unprompted = (avg_values_unprompted_lst[0] + avg_values_unprompted_lst[1]) / 2    
-    
+        
+        arrays_matrix = np.array(avg_values_unprompted_lst)
+
+        # Calculate the average array along axis 0
+        avg_unprompted = np.mean(arrays_matrix, axis=0)
+
+        
     # or we just read single subdataframe
     else:
         score_frame_unprompted, avg_unprompted = get_score(target_frame,seq_frame_unprompted,exp_threshold)
@@ -211,28 +239,5 @@ def fit_curve1(x_data_temp,y_data,threshold,color,input_type):
 
     
 
-def get_score_CHILDES(freq_frame,threshold):
-    
-    '''
-    get scores of the target words in Wordbank 
-    input: word counts in each chunk/month and the stat of the number of true words as well as the true data proportion
-    output: a dataframe with each word count  
 
-    we have the weighed score in case the influence of different proportions of frequency bands      
-    '''
-     
-    
-    freq_frame = freq_frame.drop(columns=['word', 'group_original'])
-    
-    # get each chunk's scores based on the threshold
-    columns = freq_frame.columns
-      
-    for col in columns.tolist():
-        freq_frame.loc[col] = [0] * freq_frame.shape[1]
-        
-    # get the score based on theshold
-    score_frame = freq_frame.applymap(lambda x: 1 if x >= threshold else 0)
-    
-    avg_values = score_frame.mean()
-    return score_frame,avg_values
 
