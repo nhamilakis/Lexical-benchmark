@@ -68,25 +68,6 @@ def get_freq_table(lines):
         
         return fre_table
 
-    
-    
-        # Remove empty lines using a list comprehension
-    non_empty_lines_lst = [line for line in lines if line.strip()]
-    word_lst = []
-    for script in non_empty_lines_lst: 
-            # remove annotations
-            translator = str.maketrans('', '', string.punctuation+ string.digits)
-            clean_string = script.translate(translator).lower()
-            cleaned = re.sub(' +', ' ', clean_string.strip())
-            # get the word lst
-            words = cleaned.split(' ')
-            word_lst.extend(words)
-            
-    fre_table = get_freq(word_lst)
-    
-    return fre_table
-
-
 
 
 def match_range(CDI,audiobook):
@@ -104,7 +85,6 @@ def match_range(CDI,audiobook):
     matched_audiobook = matched_audiobook.sort_values(by='Audiobook_log_freq_per_million')
     
     return matched_CDI,matched_audiobook
-
 
 
 
@@ -157,8 +137,7 @@ def get_equal_bins(data,data_frame,n_bins):
     bins=[data_sorted[0]] # left edge inclusive
     bins=np.append(bins,[(data_sorted[int(b)]+data_sorted[int(b+1)])/2 for b in bin_indices[1:-1]])
     bins = np.append(bins, data_sorted[-1]+jitter)  # this is because the extreme right edge is inclusive in plt.hits
-    
-    
+
     # computing bin membership for the original data; append bin membership to stat
     bin_membership=np.zeros(size,dtype=int)
     for i in range(0,len(bins)-1):
