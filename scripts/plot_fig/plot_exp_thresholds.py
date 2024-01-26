@@ -36,13 +36,13 @@ def parseArgs(argv):
     parser.add_argument('--word_per_sec', type=int, default=3,
                         help='the estimated number of words per second')
 
-    parser.add_argument('--sec_frame_path', type=str, default='vocal_month.csv',
+    parser.add_argument('--sec_frame_path', type=str, default='/data/Lexical-benchmark_backup/Human_eval/vocal_month.csv',
                         help='the estmated vocalization seconds per hour by month')
 
     parser.add_argument('--threshold_range', type=list, default=[50, 100, 200, 300],
                         help='threshold to decide knowing a productive word or not, one of the variable to invetigate')
 
-    parser.add_argument('--eval_path', type=str, default='Human_eval/',
+    parser.add_argument('--eval_path', type=str, default='/data/Lexical-benchmark_backup/Human_eval/',
                         help='path to the evaluation material; one of the variables to invetigate')
 
     return parser.parse_args(argv)
