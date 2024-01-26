@@ -12,14 +12,12 @@ two versions of freq: char and phoneme
 """
 import sys
 from typing import Any
-
 import pandas as pd
 import argparse
 import os
 import matplotlib.pyplot as plt
 from pandas import DataFrame
 from pandas.io.parsers import TextFileReader
-
 from stat_util import get_freq_table, match_range, get_equal_bins, match_bin_range, plot_density_hist, \
     match_bin_density, match_bin_prop
 from aochildes.dataset import AOChildesDataSet  # !!! this should be configured later
@@ -33,13 +31,10 @@ def parseArgs(argv):
     parser.add_argument('--lang', type=str, default='AE',
                         help='languages to test: AE, BE or FR')
 
-    parser.add_argument('--eval_condition', type=str, default='recep',
+    parser.add_argument('--eval_condition', type=str, default='exp',
                         help='which type of words to select; recep or exp')
 
-    parser.add_argument('--CDIPath', type=str, default='/data/Lexical-benchmark_data/test_set/human_CDI/',
-                        help='path to the human CDI references')
-
-    parser.add_argument('--freqPath', type=str, default='/data/Lexical-benchmark_data/test_set/',
+    parser.add_argument('--dataPath', type=str, default='/data/Lexical-benchmark_data/test_set/',
                         help='path to the freq corpus')
 
     parser.add_argument('--outPath', type=str, default='/data/Lexical-benchmark_output/test_set/',
@@ -48,11 +43,14 @@ def parseArgs(argv):
     parser.add_argument('--word_format', type=str, default='char',
                         help='char or phon format')
 
-    parser.add_argument('--num_bins', type=int, default=2,
+    parser.add_argument('--num_bins', type=int, default=6,
                         help='number of eaqul-sized bins of human CDI data')
 
     parser.add_argument('--freq_type', type=str, default='freq',
                         help='freq types: freq or log_freq')
+
+    parser.add_argument('--machine_set', type=str, default='audiobook',
+                        help='different sets of machine CDI: wuggy or audiobook')
 
     parser.add_argument('--match_mode', type=str, default='range_aligned',
                         help='different match modes: range_aligned, bin_range_aligned ,density_aligned or distr_aligned')
@@ -105,9 +103,13 @@ def get_freq_frame(test, train_path):
     CHILDES_lst = []
 
     for word in selected_words:
-        audiobook_lst.append(audiobook_fre_table[audiobook_fre_table['Word'] == word]['Norm_freq_per_million'].item())
-        CELEX_lst.append(CELEX[CELEX['Word'] == word]['SUBTLWF'].item())
-        CHILDES_lst.append(CHILDES_fre_table[CHILDES_fre_table['Word'] == word]['Norm_freq_per_million'].item())
+        try:
+            audiobook_lst.append(audiobook_fre_table[audiobook_fre_table['Word'] == word]['Norm_freq_per_million'].item())
+            CELEX_lst.append(CELEX[CELEX['Word'] == word]['SUBTLWF'].item())
+            CHILDES_lst.append(CHILDES_fre_table[CHILDES_fre_table['Word'] == word]['Norm_freq_per_million'].item())
+        except:
+            # remove the corresponding row in the list
+            freq_frame = freq_frame[freq_frame['word'] != word]
 
     freq_frame['Audiobook_freq_per_million'] = audiobook_lst
     freq_frame['CELEX_freq_per_million'] = CELEX_lst
@@ -154,8 +156,8 @@ def match_freq(CDI, audiobook, match_mode, num_bins, threshold):
     return matched_CDI, matched_audiobook
 
 
-def compare_histogram(matched_CDI, matched_audiobook, num_bins, freq_type, lang, eval_condition, freqPath, match_mode,
-                      threshold, alpha=0.5):
+def compare_histogram(matched_CDI, matched_audiobook, num_bins, freq_type, lang, eval_condition, dataPath, match_mode,
+                      machine_set, alpha=0.5):
 
     """
     plot figs and get freq stat of the matched groups
@@ -168,7 +170,7 @@ def compare_histogram(matched_CDI, matched_audiobook, num_bins, freq_type, lang,
     plt.title(lang + ' ' + eval_condition + ' (' + match_mode + ')')
 
     # save the plot to the target dir
-    OutputPath = freqPath + '/' + match_mode + '/' + str(num_bins) + '/Compare/'
+    OutputPath = dataPath + '/' + match_mode + '/' + str(num_bins) + '_' + machine_set + '/Compare/'
     if not os.path.exists(OutputPath):
         os.makedirs(OutputPath)
 
@@ -184,7 +186,7 @@ def compare_histogram(matched_CDI, matched_audiobook, num_bins, freq_type, lang,
 
     return stat_all
 
-def plot_all_histogram(freq, num_bins, freq_type, lang, eval_condition, freqPath, match_mode, eval_type, threshold,
+def plot_all_histogram(freq, num_bins, freq_type, lang, eval_condition, dataPath, match_mode, eval_type, machine_set,
                        alpha=0.5):
     """
     plot each freq stat with equal-sized bins
@@ -196,10 +198,9 @@ def plot_all_histogram(freq, num_bins, freq_type, lang, eval_condition, freqPath
     plot_density_hist(freq, 'CELEX_' + freq_type, freq_type, 'CELEX', alpha, 'equal_bins', num_bins)
     plt.legend()
     plt.title(lang + ' ' + eval_condition + ' ' +  eval_type + ' (' + match_mode  + ')')
-    
-    
+
     # save the plot to the target dir
-    OutputPath = freqPath + '/' + match_mode + '/' + str(num_bins) +'/Stat/'
+    OutputPath = dataPath + '/' + match_mode + '/' + str(num_bins) + '_' + machine_set + "/Stat/"
     
     if not os.path.exists(OutputPath):
         os.makedirs(OutputPath) 
@@ -231,13 +232,15 @@ def main(argv):
     # step 2: match the freq
     else:
         print('Creating the matched CDI and audiobook freq words')
-        train_path = args.freqPath + 'freq_corpus/' + args.word_format + '/'
-        testPath = args.CDIPath + args.lang + '/' + args.eval_condition
+        train_path = args.dataPath + 'freq_corpus/' + args.word_format + '/'
+        testPath = args.dataPath + 'human_CDI/' + args.lang + '/' + args.eval_condition
         for file in os.listdir(testPath):
             CDI_test = pd.read_csv(testPath + '/' + file)
 
         CDI = get_freq_frame(CDI_test, train_path)
-        audiobook_test = pd.read_csv(train_path + '/Audiobook_test.csv')
+
+        audiobook_test = pd.read_csv(train_path + '/machine_' + args.machine_set + '.csv')
+
         audiobook = get_freq_frame(audiobook_test, train_path)
 
         matched_CDI, matched_audiobook = match_freq(CDI, audiobook, args.match_mode, args.num_bins, args.threshold)
@@ -248,15 +251,15 @@ def main(argv):
     # step 3: plot the distr figures
     fig_path = args.outPath + 'fig/' + args.word_format
     stat_path = args.outPath + '/stat/'+ args.word_format + '/' + args.match_mode + '/' + str(
-        args.num_bins) + '/'
+        args.num_bins) + '_' + args.machine_set + '/'
     # plot out the matched freq results
     if not os.path.exists(stat_path):
         os.makedirs(stat_path)
     stat_all = compare_histogram(matched_CDI, matched_audiobook, args.num_bins, args.freq_type, args.lang, args.eval_condition,
-                      fig_path, args.match_mode, args.threshold, alpha=0.5)
+                      fig_path, args.match_mode, args.machine_set, alpha=0.5)
 
     plot_all_histogram(matched_CDI, args.num_bins, args.freq_type, args.lang, args.eval_condition, fig_path,
-                                  args.match_mode, 'CDI', args.threshold, alpha=0.5)
+                                  args.match_mode, 'CDI', args.machine_set, alpha=0.5)
     plot_all_histogram(matched_audiobook, args.num_bins, args.freq_type, args.lang, args.eval_condition,
                                       fig_path, args.match_mode, 'matched', args.threshold, alpha=0.5)
 

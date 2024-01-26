@@ -22,9 +22,11 @@ Alternatively, you can click on the following links to download the test sets:
 # Principles of frequency match
 
 You can apply three types of match between human and machine CDI words: 
+
 1) match by range: match the overall frequency range;
 2) match by bin range: match each bin's frequency range;
 3) match by count: match each bin's word count distribution;
+
 
 
 
