@@ -15,10 +15,10 @@ import numpy as np
 
 def parseArgs(argv):
     # Run parameters
-    parser = argparse.ArgumentParser(description='Apply threhsolds')
+    parser = argparse.ArgumentParser(description='Apply thresholds on generation/production')
     
     parser.add_argument('--lang', type=str, default = 'BE',
-                        help='langauges to test: AE or BE')
+                        help='languages to test: AE or BE')
     
     parser.add_argument('--eval_type', type=str, default = 'CDI',
                         help='languages to test: CDI or model')
@@ -149,8 +149,7 @@ def count_words(OutputPath,group_stat,eval_path,hour,word_per_sec,eval_type,lang
     sel_frame = sel_frame.cumsum(axis=1)
             
     for col in columns.tolist():
-        freq_frame[col] = sel_frame[col] 
-    
+        freq_frame[col] = sel_frame[col]
     
     freq_frame.to_csv(OutputPath + '/selected_freq.csv')
     
@@ -178,7 +177,7 @@ def main(argv):
     # step 1: load data and count words
     month_stat = load_data(TextPath,OutputPath,lang,input_condition)
     freq_frame = count_words(OutputPath,month_stat,eval_path,hour,word_per_sec,eval_type,lang,eval_condition,sec_frame)
-                            
+
 
 
    
