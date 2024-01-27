@@ -15,6 +15,9 @@ The corpora files are available here:
 Alternatively, you can click on the following links to download the test sets: 
 
 1) Human CDI: [Wordbank](https://wordbank.stanford.edu/data?name=item_data)
+    
+    Selected sets: 
+        
 2) Machine CDI: [CELEX](https://www.ugent.be/pp/experimentele-psychologie/en/research/documents/subtlexus/subtlexus4.zip)
 
 

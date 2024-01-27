@@ -13,9 +13,65 @@ import collections
 #from phonemizer.backend import EspeakBackend
 #from phonemizer.separator import Separator
 from itertools import combinations
-import re
 import os 
 import matplotlib.pyplot as plt
+import spacy
+import re
+nlp = spacy.load('en_core_web_sm')
+
+
+def preprocess(DataPath, word_type):
+    '''
+    preprocess the CDI testset
+
+        input: word list
+        output: selected word freq dataframe
+    '''
+
+    infants_data = pd.read_csv(DataPath)
+    # remove annotations or additional punctuations
+    words = infants_data['item_definition'].tolist()
+
+    cleaned_lst = []
+    for word in words:
+        # remove punctuations
+        translator = str.maketrans('', '', string.punctuation + string.digits)
+        clean_string = word.translate(translator).lower()
+        # remove annotations; problem: polysemies
+        cleaned_word = re.sub(r"\([a-z]+\)", "", clean_string)
+        cleaned_lst.append(cleaned_word)
+
+    infants_data['word'] = cleaned_lst
+    return infants_data
+
+
+def select_type(selected_words, word_type):
+
+    '''
+    select words based on POS
+    input: dataframe with column [words]
+    return dataframe with selected words adn POS tags
+    '''
+    # select open class words
+    pos_all = []
+    for word in selected_words['word']:
+        doc = nlp(word)
+        pos_lst = []
+        for token in doc:
+            pos_lst.append(token.pos_)
+        pos_all.append(pos_lst[0])
+    selected_words['POS'] = pos_all
+
+    content_POS = ['ADJ', 'NOUN', 'VERB', 'ADV', 'PROPN']
+    if word_type == 'all':
+        selected_words = selected_words
+    elif word_type == 'content':
+        selected_words = selected_words[selected_words['POS'].isin(content_POS)]
+    elif word_type == 'function':
+        selected_words = selected_words[~selected_words['POS'].isin(content_POS)]
+
+    return selected_words
+
 
 def get_ttr(freq_table):
     
@@ -87,7 +143,6 @@ def match_range(CDI,audiobook):
     return matched_CDI,matched_audiobook
 
 
-
 def get_bin_stat(bins,data_sorted):
     
     '''
@@ -110,9 +165,28 @@ def get_bin_stat(bins,data_sorted):
     # Rename the newly created column to 'group'
     bins_stats = bins_stats.reset_index()
     bins_stats = bins_stats.rename(columns={'index': 'group'})
-    # add the proportion of each freq bin
+
     return bins_stats
     
+
+def get_len_stat(df,column_header):
+    '''
+    get stat of word length
+    input: dataframe with annotated group name
+    return bin_stat
+    '''
+    # Group by 'Group' column and calculate statistics
+    stats_df = df.groupby('group')[column_header].agg(
+        min='min',
+        max='max',
+        mean='mean',
+        median='median'
+    ).reset_index()
+
+    stats_df.rename(columns={'min': 'len_min','max': 'len_max','mean': 'len_mean','median': 'len_median'}, inplace=True)
+    return stats_df
+
+
 
 def get_equal_bins(data,data_frame,n_bins):
     
@@ -176,9 +250,11 @@ def match_bin_range(CDI_bins,audiobook,audiobook_frame):
     bin_membership=np.zeros(len(audiobook),dtype=int)
     for i in range(0,len(bins)-1):
        bin_membership[(audiobook>=bins[i])&(audiobook<=bins[i+1])]=i
-       
+
     audiobook_frame['group'] = bin_membership
-       
+
+    # remove words to align word length range
+
     return bins, audiobook_frame 
 
 
@@ -293,9 +369,6 @@ def match_bin_prop(matched_audiobook,threshold):
 
 
 
-
-
-
 def plot_density_hist(matched_CDI,freq_name,freq_type,label,alpha,mode,n_bins): 
     
     def get_first_number(group):
@@ -312,7 +385,6 @@ def plot_density_hist(matched_CDI,freq_name,freq_type,label,alpha,mode,n_bins):
         
         # sort the dataframe by the required column 
         matched_CDI = matched_CDI.sort_values(by=freq_name + '_per_million')
-        
         data = matched_CDI[freq_name + '_per_million'].tolist()
         
         # preparing data (adding small jitter to remove ties)
@@ -329,7 +401,7 @@ def plot_density_hist(matched_CDI,freq_name,freq_type,label,alpha,mode,n_bins):
         bins=np.append(bins,[(data_sorted[int(b)]+data_sorted[int(b+1)])/2 for b in bin_indices[1:-1]])
         CDI_array = np.append(bins, data_sorted[-1]+jitter)  # this is because the extreme right edge is inclusive in plt.hits
         
-    
+
     # get bins based on the dataframe
     plt.hist(data_sorted,bins=CDI_array, density=True, alpha=alpha,edgecolor='black',label = label) 
     
@@ -346,8 +418,13 @@ def plot_density_hist(matched_CDI,freq_name,freq_type,label,alpha,mode,n_bins):
         
         plt.xlim(-1,4)
         plt.ylim(0,1.5)
-    
-    stat = get_bin_stat(CDI_array,data_sorted)
+
+    freq_stat = get_bin_stat(CDI_array,data_sorted)
+    len_stat = get_len_stat(matched_CDI,'Length')
+    # map the len columns with the freq stat
+    # Concatenate along the common column
+    stat = pd.concat([freq_stat.set_index('group'), len_stat.set_index('group')], axis=1, join='outer').reset_index()
+
     return stat
       
 
@@ -445,6 +522,3 @@ def filter_words(gold_path):
     filtered_frame.to_csv('/data/Lexical-benchmark/stat/corpus/char/Audiobook_test.csv')
     return filtered_frame
 
-
-
-    
