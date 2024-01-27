@@ -141,6 +141,8 @@ def get_freq_table(lines):
     return fre_table
 
 
+
+
 def get_intersections(df1,df2,column1,column2):
     '''
     match 2 dataframes by the intersected val of two columns
@@ -286,7 +288,7 @@ def match_bin_range(CDI_bins,CDI,audiobook,audiobook_frame):
     audiobook_frame['group'] = bin_membership
 
     # remove words to align word length range
-    matched_CDI, matched_audiobook = get_intersections(CDI, audiobook, 'Length','Length')
+    matched_CDI, matched_audiobook = get_intersections(CDI, audiobook_frame, 'Length','Length')
 
     return matched_CDI, matched_audiobook
 
