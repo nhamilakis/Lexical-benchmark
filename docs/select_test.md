@@ -16,7 +16,12 @@ Alternatively, you can click on the following links to download the test sets:
 
 1) Human CDI: [Wordbank](https://wordbank.stanford.edu/data?name=item_data)
     
-    Selected sets: 
+| Lang           | Type       | Dataset name | 
+|----------------|------------|--------------|
+| American Eng   | receptive  | WG           |
+|                | expressive | WS;WS_Short  |
+| British Eng    | receptive  | Oxford CDI   |
+|                | expressive | Oxford CDI   | 
         
 2) Machine CDI: [CELEX](https://www.ugent.be/pp/experimentele-psychologie/en/research/documents/subtlexus/subtlexus4.zip)
 
