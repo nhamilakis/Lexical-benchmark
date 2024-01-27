@@ -60,6 +60,7 @@ def parseArgs(argv):
 
     parser.add_argument('--word_type', type=str, default='content',
                         help='difference word types')  # for later usage
+
     return parser.parse_args(argv)
 
 
