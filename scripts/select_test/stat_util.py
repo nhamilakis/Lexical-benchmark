@@ -124,18 +124,49 @@ def get_freq_table(lines):
         
         return fre_table
 
+    # Remove empty lines using a list comprehension
+    non_empty_lines_lst = [line for line in lines if line.strip()]
+    word_lst = []
+    for script in non_empty_lines_lst:
+        # remove annotations
+        translator = str.maketrans('', '', string.punctuation + string.digits)
+        clean_string = script.translate(translator).lower()
+        cleaned = re.sub(' +', ' ', clean_string.strip())
+        # get the word lst
+        words = cleaned.split(' ')
+        word_lst.extend(words)
 
+    fre_table = get_freq(word_lst)
+
+    return fre_table
+
+
+def get_intersections(df1,df2,column1,column2):
+    '''
+    match 2 dataframes by the intersected val of two columns
+    '''
+
+    max_freq = min(df1[column1].max(), df2[column2].max())
+    min_freq = max(df1[column1].min(), df2[column2].min())
+    matched_df1 = df1[(df1[column1] >= min_freq) & (df1[column1] <= max_freq)]
+    matched_df2 = df2[(df2[column2] >= min_freq) & (df2[column2] <= max_freq)]
+
+    return matched_df1,matched_df2
 
 def match_range(CDI,audiobook):
-    
     '''
     match the audiobook sets with CHILDES of differetn modes
     Returns shrinked dataset with the matched range
+    '''
+
     '''
     max_freq = min(CDI['CHILDES_log_freq_per_million'].max(),audiobook['Audiobook_log_freq_per_million'].max())
     min_freq = max(CDI['CHILDES_log_freq_per_million'].min(),audiobook['Audiobook_log_freq_per_million'].min())
     matched_CDI = CDI[(CDI['CHILDES_log_freq_per_million'] >= min_freq) & (CDI['CHILDES_log_freq_per_million'] <= max_freq)]
     matched_audiobook = audiobook[(audiobook['Audiobook_log_freq_per_million'] >= min_freq) & (audiobook['Audiobook_log_freq_per_million'] <= max_freq)]
+    '''
+    matched_CDI,matched_audiobook = get_intersections(CDI,audiobook,'CHILDES_log_freq_per_million','Audiobook_log_freq_per_million')
+
     # sort the results by freq 
     matched_CDI = matched_CDI.sort_values(by='CHILDES_log_freq_per_million')
     matched_audiobook = matched_audiobook.sort_values(by='Audiobook_log_freq_per_million')
@@ -225,7 +256,7 @@ def get_equal_bins(data,data_frame,n_bins):
 
 
 
-def match_bin_range(CDI_bins,audiobook,audiobook_frame):
+def match_bin_range(CDI_bins,CDI,audiobook,audiobook_frame):
     
     '''
     match range of the audiobook freq of machine CDI with CHILDES freq of CDI
@@ -237,7 +268,8 @@ def match_bin_range(CDI_bins,audiobook,audiobook_frame):
         bins: machiine CDI with adjusted group array
         bins_stats: machine CDI dataframe with annotated group
     '''
-    
+
+
     audiobook = np.array(audiobook)
     def find_closest_numbers(arr, target_array):
         closest_numbers = [min(arr, key=lambda x: abs(x - target)) for target in target_array]
@@ -254,8 +286,9 @@ def match_bin_range(CDI_bins,audiobook,audiobook_frame):
     audiobook_frame['group'] = bin_membership
 
     # remove words to align word length range
+    matched_CDI, matched_audiobook = get_intersections(CDI, audiobook, 'Length','Length')
 
-    return bins, audiobook_frame 
+    return matched_CDI, matched_audiobook
 
 
 

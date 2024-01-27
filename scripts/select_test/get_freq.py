@@ -31,7 +31,7 @@ def parseArgs(argv):
     parser.add_argument('--lang', type=str, default='BE',
                         help='languages to test: AE, BE or FR')
 
-    parser.add_argument('--eval_condition', type=str, default='recep',
+    parser.add_argument('--eval_condition', type=str, default='exp',
                         help='which type of words to select; recep or exp')
 
     parser.add_argument('--dataPath', type=str, default='/data/Lexical-benchmark_data/test_set/',
@@ -49,7 +49,7 @@ def parseArgs(argv):
     parser.add_argument('--freq_type', type=str, default='freq',
                         help='freq types: freq or log_freq')
 
-    parser.add_argument('--machine_set', type=str, default='wuggy',
+    parser.add_argument('--machine_set', type=str, default='audiobook',
                         help='different sets of machine CDI: wuggy or audiobook')
 
     parser.add_argument('--match_mode', type=str, default='bin_range_aligned',
@@ -149,7 +149,7 @@ def match_freq(CDI, audiobook, match_mode, num_bins, threshold):
         _, matched_audiobook = get_equal_bins(audiobook['Audiobook_log_freq_per_million'].tolist(), audiobook, num_bins)
 
     elif match_mode == 'bin_range_aligned':
-        _, matched_audiobook = match_bin_range(CDI_bins, audiobook['Audiobook_log_freq_per_million'].tolist(),
+        matched_CDI, matched_audiobook = match_bin_range(CDI_bins, CDI, audiobook['Audiobook_log_freq_per_million'].tolist(),
                                                audiobook)
 
     elif match_mode == 'density_aligned':
