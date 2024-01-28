@@ -143,10 +143,11 @@ def get_freq_table(lines):
 
 
 
+
 def get_intersections(df1,df2,column1,column2):
-    '''
-    match 2 dataframes by the intersected val of two columns
-    '''
+    
+    #align dataframe 1 with dataframe 2
+    
 
     max_freq = min(df1[column1].max(), df2[column2].max())
     min_freq = max(df1[column1].min(), df2[column2].min())
@@ -155,17 +156,12 @@ def get_intersections(df1,df2,column1,column2):
 
     return matched_df1,matched_df2
 
+
+
 def match_range(CDI,audiobook):
     '''
     match the audiobook sets with CHILDES of differetn modes
     Returns shrinked dataset with the matched range
-    '''
-
-    '''
-    max_freq = min(CDI['CHILDES_log_freq_per_million'].max(),audiobook['Audiobook_log_freq_per_million'].max())
-    min_freq = max(CDI['CHILDES_log_freq_per_million'].min(),audiobook['Audiobook_log_freq_per_million'].min())
-    matched_CDI = CDI[(CDI['CHILDES_log_freq_per_million'] >= min_freq) & (CDI['CHILDES_log_freq_per_million'] <= max_freq)]
-    matched_audiobook = audiobook[(audiobook['Audiobook_log_freq_per_million'] >= min_freq) & (audiobook['Audiobook_log_freq_per_million'] <= max_freq)]
     '''
     matched_CDI,matched_audiobook = get_intersections(CDI,audiobook,'CHILDES_log_freq_per_million','Audiobook_log_freq_per_million')
 
@@ -287,10 +283,22 @@ def match_bin_range(CDI_bins,CDI,audiobook,audiobook_frame):
 
     audiobook_frame['group'] = bin_membership
 
-    # remove words to align word length range
-    matched_CDI, matched_audiobook = get_intersections(CDI, audiobook_frame, 'Length','Length')
+    # align length range of each freq band
+    matched_CDI = pd.DataFrame()
+    matched_audiobook = pd.DataFrame()
+
+    # get the intersection of the selected words
+    audiobook_frame = audiobook_frame[audiobook_frame['word'].isin(CDI['word'])]
+
+    for group in set(audiobook_frame['group']):
+        CDI_group = CDI[CDI['group'] == group]
+        audiobook_group = audiobook_frame[audiobook_frame['group'] == group]
+        CDI_selected, audiobook_selected = get_intersections(CDI_group, audiobook_group, 'Length', 'Length')
+        matched_CDI = pd.concat([matched_CDI,CDI_selected])
+        matched_audiobook = pd.concat([matched_audiobook, audiobook_selected])
 
     return matched_CDI, matched_audiobook
+
 
 
 
