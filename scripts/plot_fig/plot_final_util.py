@@ -230,12 +230,41 @@ def fit_curve1(x_data_temp,y_data,threshold,color,input_type):
 
     
     sns.lineplot(data=updated, x='time', y='Lexical score (5/6)')
-        
 
-    
 
-   
+def fit_sigmoid(x_data, y_data, target_y, offset):
+    '''
+    fit sigmoid curve to model/human's estimations
 
+    '''
+
+    def sigmoid(x, A, B, C):
+        return 1 / (1 + np.exp(-(x - A) / B)) + C
+
+    x_data = np.array(x_data) + offset
+    # Fit the sigmoid function to the scatter plot data
+    popt, pcov = curve_fit(sigmoid, x_data, y_data, maxfev=10000)
+
+    # Generate x values for the fitted curve
+    x_fit = np.linspace(min(x_data), max(x_data), 500)
+
+    # Use the optimized parameters to generate y values for the fitted curve
+    y_fit = sigmoid(x_fit, *popt)
+
+    while y_fit[-1] < target_y:
+        x_fit = np.append(x_fit, x_fit[-1] + 1)
+        y_fit = np.append(y_fit, sigmoid(x_fit[-1], *popt))
+
+    # Plot the scatter points, fitted sigmoid curve, and extended line
+    plt.scatter(x_data, y_data)
+
+    '''
+    plt.plot(x_fit, y_fit, color=color, label=label)
+    '''
+    # return the optimized parameters of the sigmoid function
+    para_dict = {"Center": popt[0], "Width": popt[1], "Plateau": popt[2]}
+
+    return x_data, y_data, x_fit, y_fit, para_dict
     
 
 
