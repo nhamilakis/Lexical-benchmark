@@ -147,8 +147,6 @@ def get_freq_table(lines):
 def get_intersections(df1,df2,column1,column2):
     
     #align dataframe 1 with dataframe 2
-    
-
     max_freq = min(df1[column1].max(), df2[column2].max())
     min_freq = max(df1[column1].min(), df2[column2].min())
     matched_df1 = df1[(df1[column1] >= min_freq) & (df1[column1] <= max_freq)]
@@ -267,15 +265,27 @@ def match_bin_range(CDI_bins,CDI,audiobook,audiobook_frame):
         bins_stats: machine CDI dataframe with annotated group
     '''
 
+    def align_group(CDI,audiobook_frame):
 
-    audiobook = np.array(audiobook)
+        matched_CDI = pd.DataFrame()
+        matched_audiobook = pd.DataFrame()
+
+        for group in set(audiobook_frame['group']):
+            CDI_group = CDI[CDI['group'] == group]
+            audiobook_group = audiobook_frame[audiobook_frame['group'] == group]
+            CDI_selected, audiobook_selected = get_intersections(CDI_group, audiobook_group, 'Length', 'Length')
+            matched_CDI = pd.concat([matched_CDI, CDI_selected])
+            matched_audiobook = pd.concat([matched_audiobook, audiobook_selected])
+
+        return matched_CDI, matched_audiobook
+
     def find_closest_numbers(arr, target_array):
         closest_numbers = [min(arr, key=lambda x: abs(x - target)) for target in target_array]
         return np.array(closest_numbers)
-     
+
+    audiobook = np.array(audiobook)
     # Creating the bins with approx equal number of observations
     bins = find_closest_numbers(audiobook, CDI_bins)
-    
     # computing bin membership for the original data; append bin membership to stat
     bin_membership=np.zeros(len(audiobook),dtype=int)
     for i in range(0,len(bins)-1):
@@ -283,24 +293,26 @@ def match_bin_range(CDI_bins,CDI,audiobook,audiobook_frame):
 
     audiobook_frame['group'] = bin_membership
 
+    '''
     # align length range of each freq band
     matched_CDI = pd.DataFrame()
     matched_audiobook = pd.DataFrame()
-
-    # get the intersection of the selected words
-    audiobook_frame = audiobook_frame[audiobook_frame['word'].isin(CDI['word'])]
-
     for group in set(audiobook_frame['group']):
         CDI_group = CDI[CDI['group'] == group]
         audiobook_group = audiobook_frame[audiobook_frame['group'] == group]
         CDI_selected, audiobook_selected = get_intersections(CDI_group, audiobook_group, 'Length', 'Length')
         matched_CDI = pd.concat([matched_CDI,CDI_selected])
         matched_audiobook = pd.concat([matched_audiobook, audiobook_selected])
+    '''
 
+    # get the intersection of the selected words for more words
+    unprompted_generation = pd.read_csv('/data/Lexical-benchmark_backup/Final_scores/Model_eval/AE/exp/matched/unprompted.csv')
+    audiobook_frame = audiobook_frame[audiobook_frame['word'].isin(unprompted_generation['word'])]
+    # the version with word intersections
+    matched_CDI, matched_audiobook = align_group(CDI, audiobook_frame)
+
+    # match freq bands between the word intersections and no intersection results
     return matched_CDI, matched_audiobook
-
-
-
 
                  
 def match_bin_density(matched_CDI,matched_audiobook,CDI_bins,audiobook_bins, threshold):

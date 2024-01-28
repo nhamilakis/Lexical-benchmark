@@ -129,6 +129,8 @@ def count_words(OutputPath,group_stat,eval_path,hour,word_per_sec,eval_type,lang
         # save the overall freq dataframe for further use
         fre_table = get_freq(word_lst)
 
+
+
         freq_lst = []
         for word in eval_lst:
             try: 
