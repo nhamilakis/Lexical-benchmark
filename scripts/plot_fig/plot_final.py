@@ -461,7 +461,7 @@ def plot_cal_freq(vocab_type, human_dir, model_dir, exp_threshold, test_set, lan
             month_list_unprompted = [int(x)
                                      for x in score_frame_unprompted.columns]
 
-            x_data, y_data, x_fit, y_fit, para_dict = fit_sigmoid(month_list_unprompted, avg_unprompted, 0.5, 5)
+            x_data, y_data, x_fit, y_fit, para_dict = fit_sigmoid(month_list_unprompted, avg_unprompted, 0.8, 5)
             plt.scatter(x_data, y_data)
             plt.plot(x_fit, y_fit, linewidth=3, label=str(freq))
     # set the limits of the x-axis for each line
