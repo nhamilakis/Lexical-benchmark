@@ -55,7 +55,6 @@ def get_score_CHILDES(freq_frame,threshold):
     we have the weighed score in case the influence of different proportions of frequency bands      
     '''
      
-    
     freq_frame = freq_frame.drop(columns=['word', 'group_original'])
     
     # get the score based on theshold
@@ -172,11 +171,54 @@ def fit_curve_backup(x_data,y_data_temp,target_y,color,input_type):
     
     
 
+def fit_log(x_data, y_data, target_y,color,label):
+    
+    
+    # Define the logarithmic function
+    '''
+    def logarithmic(x, a, b):
+        return a * np.log(x) + b
+    '''
+    def logarithmic(x, a):
+           return a * np.log2(x)
+    # Fit the logarithmic function to the scatter plot data
+    popt, pcov = curve_fit(logarithmic, x_data, y_data)
+    
+    # Generate x values for the fitted curve
+    x_fit = np.linspace(min(x_data), max(x_data), 1000)
+    
+    # Use the optimized parameters to generate y values for the fitted curve
+    y_fit = logarithmic(x_fit, *popt)
 
+    while y_fit[-1] < target_y:
+        x_fit = np.append(x_fit, x_fit[-1] + 100)
+        y_fit = np.append(y_fit, logarithmic(x_fit[-1], *popt))
+        
+        # Break the loop if the condition is met
+        if y_fit[-1] >= target_y:
+            break
+
+    # Find the index of the target y-value
+    target_y_index = np.argmin(np.abs(y_fit - target_y))
+    
+    # Retrieve the corresponding x-value
+    target_x = x_fit[target_y_index]
+    
+    plt.scatter(x_data, y_data, c=color)
+    plt.plot(x_fit, y_fit, linewidth=3.5, color=color, label= label + f': month = {target_x:.2f}')
+    # Marking the point where y reaches the target value
+    plt.axvline(x=int(target_x), color=color, linestyle='dotted')
+
+    # return the optimized parameters of the sigmoid function
+    para_dict = {}
+    
+    return para_dict
+
+    
 
 def fit_sigmoid(x_data, y_data, target_y, offset,color,label):
     '''
-    fit sigmoid curve to model/human's estimations
+    fit sigmoid curve of extrapolated exp vocab
 
     '''
 
@@ -194,16 +236,13 @@ def fit_sigmoid(x_data, y_data, target_y, offset,color,label):
     y_fit = sigmoid(x_fit, *popt)
 
     while y_fit[-1] < target_y:
-        x_fit = np.append(x_fit, x_fit[-1] + 1)
+        x_fit = np.append(x_fit, x_fit[-1] + 10000)
         y_fit = np.append(y_fit, sigmoid(x_fit[-1], *popt))
         
         # Break the loop if the condition is met
         if y_fit[-1] >= target_y:
             break
-        
-    # Return x value corresponding to the target_y
-    #target_x = x_fit[-1]
-    
+
     # Find the index of the target y-value
     target_y_index = np.argmin(np.abs(y_fit - target_y))
     
