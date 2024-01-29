@@ -173,66 +173,8 @@ def fit_curve_backup(x_data,y_data_temp,target_y,color,input_type):
     
 
 
-def fit_curve(x_data,y_data,target_y,color,input_type):
-    
-    x = np.array(x_data)
-    y = np.array(y_data)
-    log_x = np.log(x.reshape(-1, 1))
-    
-    
-    # Fit linear regression
-    model = LinearRegression()
-    model.fit(log_x, y)
-    
-    
-    # Predict x for the target y
-    predicted_x = np.exp((target_y - model.intercept_) / model.coef_)
-    
-    # Plotting the fitted line
-    
-    plt.scatter(x_data, y, label='Data')
-    plt.plot(x_data, model.predict(log_x), color=color, label=input_type)
-    
-    # Marking the point where y reaches the target value
-    plt.plot(predicted_x, target_y, 'go', markersize=10, label=f'X = {predicted_x} at y={target_y}')
-    plt.axhline(y=target_y, color='gray', linestyle='--', label=f'Target y = {target_y}')
-   
 
-    
-def fit_curve1(x_data_temp,y_data,threshold,color,input_type):
-    
-    # Define the logarithmic function
-    def logarithmic_function(x, a, b):
-        return a * x + b
-    
-    x_data = np.log2(x_data_temp)
-    popt, _ = curve_fit(logarithmic_function, x_data, y_data)
-    
-    # Generate points until y-axis reaches a threshold
-    
-    x_fit = np.linspace(1, 10, 100)
-    extra_points = []
-    
-    y_fit = logarithmic_function(x_fit, *popt)
-    while y_fit[-1] < threshold:
-            x_fit = np.append(x_fit, x_fit[-1] + 1)
-            y_fit = np.append(y_fit, logarithmic_function(x_fit[-1], *popt))
-    extra_points.append({'month': x_fit, 'Lexical score (5/6)': y_fit})
-    
-    # convert into dataframe
-    updated = pd.DataFrame()
-    for points in extra_points:
-        
-        subframe = pd.DataFrame([points['month'].tolist(),points['Lexical score (5/6)'].tolist()]).T
-        subframe = subframe.rename(columns={0: 'time', 1: 'Lexical score (5/6)'})
-        
-        updated = pd.concat([updated,subframe])
-
-    
-    sns.lineplot(data=updated, x='time', y='Lexical score (5/6)')
-
-
-def fit_sigmoid(x_data, y_data, target_y, offset):
+def fit_sigmoid(x_data, y_data, target_y, offset,color,label):
     '''
     fit sigmoid curve to model/human's estimations
 
@@ -254,17 +196,29 @@ def fit_sigmoid(x_data, y_data, target_y, offset):
     while y_fit[-1] < target_y:
         x_fit = np.append(x_fit, x_fit[-1] + 1)
         y_fit = np.append(y_fit, sigmoid(x_fit[-1], *popt))
+        
+        # Break the loop if the condition is met
+        if y_fit[-1] >= target_y:
+            break
+        
+    # Return x value corresponding to the target_y
+    #target_x = x_fit[-1]
+    
+    # Find the index of the target y-value
+    target_y_index = np.argmin(np.abs(y_fit - target_y))
+    
+    # Retrieve the corresponding x-value
+    target_x = x_fit[target_y_index]
+    
+    plt.scatter(x_data, y_data, c=color)
+    plt.plot(x_fit, y_fit, linewidth=3.5, color=color, label= label + f': month = {target_x:.2f}')
+    # Marking the point where y reaches the target value
+    plt.axvline(x=int(target_x), color=color, linestyle='dotted')
 
-    # Plot the scatter points, fitted sigmoid curve, and extended line
-    plt.scatter(x_data, y_data)
-
-    '''
-    plt.plot(x_fit, y_fit, color=color, label=label)
-    '''
     # return the optimized parameters of the sigmoid function
-    para_dict = {"Center": popt[0], "Width": popt[1], "Plateau": popt[2]}
-
-    return x_data, y_data, x_fit, y_fit, para_dict
+    para_dict = {'Type':label,"Center": popt[0], "Width": popt[1], "Plateau": popt[2]}
+    
+    return para_dict
     
 
 
