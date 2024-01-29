@@ -112,8 +112,8 @@ def load_exp(seq_frame_unprompted,target_frame,by_freq,exp_threshold):
     if not by_freq:
         avg_values_unprompted_lst = []
         # decompose the results by freq groups
-        for freq in set(list(target_frame['group_original'].tolist())):
-            word_group = target_frame[target_frame['group_original']==freq]
+        for freq in set(list(target_frame['group'].tolist())):
+            word_group = target_frame[target_frame['group']==freq]
             # take the weighted average by the proportion of different frequency types
             score_frame_unprompted, avg_values_unprompted = get_score(word_group,seq_frame_unprompted,exp_threshold)
             
