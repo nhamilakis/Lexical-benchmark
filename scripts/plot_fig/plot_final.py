@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-@author: jliu
-"""
 '''
+@author: jliu
+
 color setting
 human: red
 freq-based:purpl -> pink for matched
@@ -30,7 +29,7 @@ def parseArgs(argv):
     # Run parameters
     parser = argparse.ArgumentParser(description='Plot all figures in the paper')
 
-    parser.add_argument('--lang_lst', default=['AE'],
+    parser.add_argument('--lang_lst', default=['AE','BE'],
                         help='languages to test: AE, BE or FR')
 
     parser.add_argument('--vocab_type_lst', default=['recep'],
@@ -57,7 +56,7 @@ def parseArgs(argv):
     parser.add_argument('--by_freq', default=False,
                         help='whether to decompose the results by frequency bands')
 
-    parser.add_argument('--extrapolation', default=True,
+    parser.add_argument('--extrapolation', default=False,
                         help='whether to plot the extrapolation figure')
     
     parser.add_argument('--aggregate_freq', default=False,
@@ -66,7 +65,7 @@ def parseArgs(argv):
     parser.add_argument('--set_type', default='speech',
                         help='different sets in a more fine-grained frequency bands: human, model, CHILDES')
     
-    parser.add_argument('--target_y', type=float, default=0.5,
+    parser.add_argument('--target_y', type=float, default=0.8,
                         help='target y to reach for extrapolation')
     
     return parser.parse_args(argv)
@@ -109,8 +108,7 @@ def plot_all(vocab_type, human_dir,model_dir, test_set, accum_threshold, exp_thr
         
         # plot speech-based model
         phones_result = pd.read_csv(model_dir + 'phones.csv')
-        
-        
+        phones_result = phones_result.groupby(['month','chunk'])['mean_score'].mean().reset_index()
         ax = sns.lineplot(x="month", y="mean_score", data=phones_result,
                           color="Purple", linewidth=2, label='LSTM-phones')
 
@@ -200,14 +198,11 @@ def plot_by_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_thr
             
             human_frame = human_frame_all[human_frame_all['group_original']==freq]
             human_frame = human_frame.iloc[:, 5:-6]
-            
             human_result = load_CDI(human_frame)
             ax = sns.lineplot(x="month", y="Proportion of acquired words", data=human_result, linewidth=3.5, label= freq)
             
     
     if vocab_type == 'recep':
-            
-            
             
             for freq in freq_lst:   
                 
@@ -308,119 +303,136 @@ def plot_by_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_thr
     
     
 
-#!!! TO DO: add more     
-def aggre_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_threshold,lang):
+     
+def aggre_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_threshold
+               ,lang,extrapolation,target_y):
     
     '''
     plot mdifferent freq bands in one figure
     aggregate into 2 bands: high or low      
      
     '''
-    
+    style = ['solid','dotted']
     sns.set_style('whitegrid')
     sub_dict = {0: 'low', 1: 'low',2: 'low', 3: 'high',4: 'high', 5: 'high'}
-
-    for file in os.listdir(human_dir):
-        human_frame_all = pd.read_csv(human_dir + '/' + file)
-        human_frame_all['group_original'] = human_frame_all['group_original'].replace(sub_dict)
-        freq_lst = set(human_frame_all['group_original'].tolist())
-        
+    freq_lst = ['high', 'low']
     
-        for freq in freq_lst:
-        
-            # read the results recursively
+    if not extrapolation:
+        for file in os.listdir(human_dir):
+            human_frame_all = pd.read_csv(human_dir + '/' + file)
+            human_frame_all['group_original'] = human_frame_all['group_original'].replace(sub_dict)
             
-            human_frame = human_frame_all[human_frame_all['group_original']==freq]
-            human_frame = human_frame.iloc[:, 5:-6]
             
-            human_result = load_CDI(human_frame)
-            ax = sns.lineplot(x="month", y="Proportion of acquired words", data=human_result, linewidth=3.5, label= freq)
+            n = 0
+            for freq in freq_lst:
             
+                # read the results recursively
+                human_frame = human_frame_all[human_frame_all['group_original']==freq]
+                human_frame = human_frame.iloc[:, 5:-6]
+                
+                human_result = load_CDI(human_frame)
+                ax = sns.lineplot(x="month", y="Proportion of acquired words", data=human_result
+                                  , linewidth=3.5, label= 'human: ' + freq, color = 'Red',linestyle = style[n])
+                n += 1
     
     if vocab_type == 'recep':
             
         # replace freq group
-        accum_all_freq = pd.read_csv(model_dir + test_set +'/accum.csv')
+        # accum_all_freq = pd.read_csv(model_dir + test_set +'/accum.csv')
+        
         speech_result_all = pd.read_csv(model_dir + 'speech.csv')  
-        phone_result_all = pd.read_csv(model_dir + test_set + '/phones.csv')
+        #phone_result_all = pd.read_csv(model_dir + test_set + '/phones.csv')
         
-        accum_all_freq['group'] = accum_all_freq['group'].replace(sub_dict)
-        speech_result_all = speech_result_all['group'].replace(sub_dict)
-        phone_result_all = phone_result_all['group'].replace(sub_dict)
+        # accum_all_freq['group'] = accum_all_freq['group'].replace(sub_dict)
+        speech_result_all['group'] = speech_result_all['group'].replace(sub_dict)
+        #phone_result_all = phone_result_all['group'].replace(sub_dict)
         
+        n = 0
         for freq in freq_lst:   
                 
-                
+                '''
                 accum_all = accum_all_freq[accum_all_freq['group']==freq]
                 accum_result = load_accum(accum_all,accum_threshold)
                 ax = sns.lineplot(x="month", y="Lexical score", data=accum_result, color="Green", linewidth=3, label = freq)
-                
+                '''
                 # seelct speech model based on the freq band
                 speech_result = speech_result_all[speech_result_all['group']==freq]
-                ax = sns.lineplot(x="month", y="mean_score", data=speech_result, linewidth=3,label= freq)
+                if extrapolation:
+                    fit_log(speech_result.index.tolist(), speech_result.tolist(),target_y, 'Blue', 'speech')
+                else:    
+                    ax = sns.lineplot(x="month", y="mean_score", data=speech_result, linewidth=3,label= 'speech: ' + freq
+                                  ,linestyle = style[n], color = 'Blue')
                   
                 # plot phone-LSTM model
                 
                 # seelct speech model based on the freq band
+                '''
                 phone_result = phone_result_all[phone_result_all['group']==freq]
                 ax = sns.lineplot(x="month", y="group", data=phone_result,linewidth=3, label= freq)
-                    
-                
+                '''  
+                n += 1
          
     elif vocab_type == 'exp':
             
+            # add human-estimation here
+            CHILDES_frame = pd.read_csv('Final_scores/Model_eval/' + lang + '/exp/CDI/CHILDES.csv')
+            # read the generated file
+            target_dir = human_dir.replace('CDI', test_set)
+            for file in os.listdir(target_dir):
+                target_frame = pd.read_csv(target_dir + '/' + file)
+            target_frame['group']=target_frame['group'].replace(sub_dict)
+            CHILDES_frame['group_original'] = CHILDES_frame['group_original'].replace(sub_dict)
             
             
+            n = 0
             # unprompted generations
             for freq in freq_lst:   
                 
                 # CHILDES 
-                target_dir = human_dir.replace('CDI', test_set)
-            
                 
-                    # add human-estimation here
-                CHILDES_frame = pd.read_csv('Final_scores/Model_eval/' + lang + '/exp/CDI/CHILDES.csv')
                 CHILDES_freq = CHILDES_frame[CHILDES_frame['group_original']==freq]
                 CHIDES_result, avg_values = get_score_CHILDES(CHILDES_freq, exp_threshold)
                 month_list_CHILDES = [int(x) for x in CHIDES_result.columns]
-                ax = sns.lineplot(month_list_CHILDES, avg_values,
-                                      linewidth=3, label=freq)
+                if extrapolation:
+                    fit_sigmoid(month_list_CHILDES, avg_values,target_y, 5, 'orange','CHILDES',style[n])
+                else:    
+                    ax = sns.lineplot(month_list_CHILDES, avg_values,linestyle = style[n],
+                                      linewidth=3, label= 'CHILDES ' + freq, color = 'Orange')
                 
+                n += 1 
                 
-                
-                    # unprompted generation
-                for file in os.listdir(target_dir):
-                        target_frame = pd.read_csv(target_dir + '/' + file)
-                        
-                    # read the generated file
+            n = 0
+           # unprompted generations
+            for freq in freq_lst:      
+                # unprompted generation
+                   
                 seq_frame_all = pd.read_csv(model_dir + 'unprompted.csv', index_col=0)
-                    # get the sub-dataframe by frequency  
+                # get the sub-dataframe by frequency  
                 score_frame_all, avg_unprompted_all = load_exp(seq_frame_all,target_frame,True,exp_threshold)   
                     
                 word_group = target_frame[target_frame['group']==freq]['word'].tolist()
                 score_frame = score_frame_all.loc[word_group]
                 avg_values = score_frame.mean()
                 month_list_unprompted = [int(x) for x in score_frame.columns]
-                ax = sns.lineplot(month_list_unprompted, avg_values.values, linewidth=3, label= freq)
-                    
-        
-      
+                if extrapolation:
+                    fit_sigmoid(month_list_unprompted, avg_values,target_y, 5, 'grey','model',style[n])
+                else:   
+                    ax = sns.lineplot(month_list_unprompted, avg_values.values, linewidth=3
+                                  , label= 'Char: ' + freq, color = 'Grey',linestyle = style[n])
+                
+                n += 1
+       
     # set the limits of the x-axis for each line
-    for line in ax.lines:
-        plt.xlim(0,36)
-        plt.ylim(0,1)
+    if not extrapolation:
+        for line in ax.lines:
+            plt.xlim(0,36)
+            plt.ylim(0,1)
     
     plt.title('{} {} vocab'.format(lang,vocab_type), fontsize=15, fontweight='bold')
     
+    ylabel = 'Proportion of children/models'
+    xlabel = '(Pseudo) age in month'
     
-    if set_type == 'model':
-        ylabel = 'Proportion of models'
-        xlabel = 'Pseudo age in month'
-        
-    else:
-        ylabel = 'Proportion of children'
-        xlabel = 'Age in month'
-        
     plt.ylabel(ylabel, fontsize=15)
     plt.xlabel(xlabel, fontsize=15)
     plt.tick_params(axis='both')
@@ -435,14 +447,12 @@ def aggre_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_thres
     else:
         legend_loc = 'upper right'
         plt.legend(fontsize='small', loc=legend_loc)
-    plt.legend(title='Freq bands')  
-    plt.savefig('Final_scores/Figures/freq/' + lang + '_' + vocab_type + '_' + set_type + '_freq.png',dpi=800)
+    
+    plt.savefig('Final_scores/Figures/freq/' + lang + '_' + vocab_type + '_freq.png',dpi=800)
     plt.show()
     
     
-
-    
-    
+  
     
 def plot_cal(vocab_type, human_dir, model_dir, test_set, exp_threshold,lang,target_y):
     '''
@@ -494,7 +504,7 @@ def plot_cal(vocab_type, human_dir, model_dir, test_set, exp_threshold,lang,targ
         month_list_CHILDES = [int(x) for x in score_frame.columns]
 
 
-        para_dict = fit_sigmoid(month_list_CHILDES, avg_values,target_y, 5, 'orange','CHILDES')
+        para_dict = fit_sigmoid(month_list_CHILDES, avg_values,target_y, 5, 'orange','CHILDES','solid')
         
 
         # unprompted generation
@@ -507,7 +517,7 @@ def plot_cal(vocab_type, human_dir, model_dir, test_set, exp_threshold,lang,targ
         month_list_unprompted = [int(x)
                                  for x in score_frame_unprompted.columns]
 
-        para_dict = fit_sigmoid(month_list_unprompted, avg_unprompted,target_y, 5, 'grey','model')
+        para_dict = fit_sigmoid(month_list_unprompted, avg_unprompted,target_y, 5, 'grey','model','solid')
       
     # set the limits of the x-axis for each line
     plt.title('{} {} vocab'.format(
@@ -631,6 +641,7 @@ def plot_cal_freq(vocab_type, human_dir, model_dir, exp_threshold, test_set, lan
     plt.show()
 
 
+   
 
 
 def main(argv):
@@ -660,29 +671,19 @@ def main(argv):
                                  accum_threshold,exp_threshold,lang,args.set_type)
                             
                         else:
-                            pass
-                        
-                            '''
-                            plot_aggre_freq(vocab_type,human_dir,model_dir,test_set,
-                                 accum_threshold,exp_threshold,lang,set_type)
-                            '''
+                            aggre_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_threshold
+                                               ,lang,False,args.target_y)
                         
                 else:
                     if not args.by_freq:
-                    
+                        print('plotting cal')
                         plot_cal(vocab_type, human_dir, model_dir, test_set, exp_threshold,lang,args.target_y)
                         
                     else:
-                        
-                        if not args.aggregate_freq:
-                            plot_cal_freq(vocab_type, human_dir, model_dir, exp_threshold, test_set, lang)
-                        else:
-                            pass
+                       
+                        aggre_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_threshold
+                                           ,lang,True,args.target_y)
                             
-                            '''
-                            plot_aggre_cal(vocab_type,human_dir,model_dir,test_set,
-                                 accum_threshold,exp_threshold,lang,set_type)
-                            '''
 
 if __name__ == "__main__":
     args = sys.argv[1:]

@@ -216,7 +216,7 @@ def fit_log(x_data, y_data, target_y,color,label):
 
     
 
-def fit_sigmoid(x_data, y_data, target_y, offset,color,label):
+def fit_sigmoid(x_data, y_data, target_y, offset,color,label,style):
     '''
     fit sigmoid curve of extrapolated exp vocab
 
@@ -236,7 +236,7 @@ def fit_sigmoid(x_data, y_data, target_y, offset,color,label):
     y_fit = sigmoid(x_fit, *popt)
 
     while y_fit[-1] < target_y:
-        x_fit = np.append(x_fit, x_fit[-1] + 10000)
+        x_fit = np.append(x_fit, x_fit[-1] + 100)
         y_fit = np.append(y_fit, sigmoid(x_fit[-1], *popt))
         
         # Break the loop if the condition is met
@@ -250,7 +250,8 @@ def fit_sigmoid(x_data, y_data, target_y, offset,color,label):
     target_x = x_fit[target_y_index]
     
     plt.scatter(x_data, y_data, c=color)
-    plt.plot(x_fit, y_fit, linewidth=3.5, color=color, label= label + f': month = {target_x:.2f}')
+    plt.plot(x_fit, y_fit, linewidth=3.5, color=color, linestyle = style,
+             label= label + f': month = {target_x:.2f}')
     # Marking the point where y reaches the target value
     plt.axvline(x=int(target_x), color=color, linestyle='dotted')
 

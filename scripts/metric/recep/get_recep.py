@@ -232,13 +232,10 @@ def main(argv):
                 print('Calculating scores from ' + score_dir)
                 
                 try:
-                    
-                    
+
                     score_frame_all = match_orth(score_dir, gold, args.modality,testset)
                     
                     freq_frame = match_band(score_frame_all,testset)
-
-        		    
                     freq_path = score_dir +  '/' + args.modality + '/' 
                     if not os.path.exists(freq_path):
                         os.makedirs(freq_path)
