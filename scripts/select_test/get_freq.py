@@ -23,6 +23,8 @@ from stat_util import get_freq_table, match_range, get_equal_bins, match_bin_ran
 from aochildes.dataset import AOChildesDataSet  # !!! this should be configured later
 import math
 
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+
 
 def parseArgs(argv):
     # Run parameters
@@ -34,10 +36,10 @@ def parseArgs(argv):
     parser.add_argument('--eval_condition', type=str, default='exp',
                         help='which type of words to select; recep or exp')
 
-    parser.add_argument('--dataPath', type=str, default='/data/Lexical-benchmark_data/test_set/',
+    parser.add_argument('--dataPath', type=str, default='Lexical-benchmark_data/test_set/',
                         help='path to the freq corpus')
 
-    parser.add_argument('--outPath', type=str, default='/data/Lexical-benchmark_output/test_set/',
+    parser.add_argument('--outPath', type=str, default='Lexical-benchmark_output/test_set/',
                         help='output path to the freq corpus')
 
     parser.add_argument('--word_format', type=str, default='char',
@@ -46,7 +48,7 @@ def parseArgs(argv):
     parser.add_argument('--num_bins', type=int, default=6,
                         help='number of eaqul-sized bins of human CDI data')
 
-    parser.add_argument('--freq_type', type=str, default='freq',
+    parser.add_argument('--freq_type', type=str, default='log_freq',
                         help='freq types: freq or log_freq')
 
     parser.add_argument('--machine_set', type=str, default='audiobook',
@@ -59,7 +61,7 @@ def parseArgs(argv):
                         help='difference threshold of each bin')  # for later usage
 
     parser.add_argument('--word_type', type=str, default='content',
-                        help='difference word types')  # for later usage
+                        help='difference word types')  
 
     return parser.parse_args(argv)
 
@@ -250,7 +252,7 @@ def main(argv):
             CDI_test = pd.read_csv(testPath + '/' + file)
 
         CDI = get_freq_frame(CDI_test, train_path, args.word_type)
-
+        print('finished getting human data')
         audiobook_test = pd.read_csv(train_path + '/machine_' + args.machine_set + '.csv')
 
         audiobook = get_freq_frame(audiobook_test, train_path, args.word_type)
@@ -271,14 +273,11 @@ def main(argv):
     stat_all = compare_histogram(matched_CDI, matched_audiobook, args.num_bins, args.freq_type, args.lang,
                                  args.eval_condition,
                                  fig_path, args.match_mode, args.machine_set, alpha=0.5)
-    '''
+
     plot_all_histogram(matched_CDI, args.num_bins, args.freq_type, args.lang, args.eval_condition, fig_path,
                        args.match_mode, 'CDI', args.machine_set, alpha=0.5)
     plot_all_histogram(matched_audiobook, args.num_bins, args.freq_type, args.lang, args.eval_condition,
                        fig_path, args.match_mode, 'matched', args.machine_set, alpha=0.5)
-    
-    '''
-
 
     stat_all.to_csv(stat_path + args.lang + '_' + args.eval_condition + '.csv')
 

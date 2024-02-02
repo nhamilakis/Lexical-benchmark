@@ -17,6 +17,8 @@ import os
 import matplotlib.pyplot as plt
 import spacy
 import re
+import statistics
+import random
 nlp = spacy.load('en_core_web_sm')
 
 
@@ -156,6 +158,97 @@ def get_intersections(df1,df2,column1,column2):
 
 
 
+def match_medians(word_freq_dict, target_median):
+    def find_closest_number(lst, target):
+        closest_number = lst[0]
+        min_difference = abs(target - lst[0])
+        
+        for number in lst:
+            difference = abs(target - number)
+            if difference < min_difference:
+                min_difference = difference
+                closest_number = number
+                
+        return closest_number
+    
+    def generate_index(start,end,num,max_len_index,min_len_index):
+        
+        # generate index randomly
+        generated_numbers = set()
+        while len(generated_numbers) < num:
+            generated_numbers.add(random.randint(start, end - 1))
+            if index != max_len_index and index != min_len_index:
+                generated_numbers.add(index)
+        return list(generated_numbers)
+    
+    def select_sublist(lst, indices):
+        sublist = []
+        for index in indices:
+            if 0 <= index < len(lst):
+                sublist.append(lst[index])
+        return sublist
+    
+    def get_len_index(word_freq_len_dict):
+        # Initialize variables to store max and min length indices
+        max_len_index = None
+        min_len_index = None
+        max_len_value = float('-inf')
+        min_len_value = float('inf')
+        
+        # Iterate through the dictionary items and track the indices of max and min length values
+        for word, freq_len_list in word_freq_len_dict.items():
+            length = freq_len_list[1]  # Get the length value from the list
+            if length > max_len_value:
+                max_len_value = length
+                max_len_index = word
+            if length < min_len_value:
+                min_len_value = length
+                min_len_index = word
+        return min_len_index,max_len_index
+
+    def slice_dict(word_freq_dict,selected_freq):
+        
+        # Initialize an empty subdictionary
+        sub_dict = {}
+        # Counter to keep track of the number of elements added to the subdictionary
+        count = 0
+        
+        # Iterate through the original dictionary and select subdictionary based on selected frequencies
+        for word, freq_list in word_freq_dict.items():
+            freq = freq_list[0]  # Get the frequency
+            if freq in selected_freq and count < len(selected_freq):  
+                sub_dict[word] = freq_list  # Add the word and its frequency list to the subdictionary
+                count += 1  # Increment the counter
+    
+        return sub_dict
+    
+    word_freq_dict = dict(sorted(word_freq_dict.items(), key=lambda item: item[1][0]))
+    lst = sorted([freq_len[0] for freq_len in word_freq_dict.values()])
+    closest_number = find_closest_number(lst, target_median)
+    index = lst.index(closest_number)
+    min_len_index,max_len_index = get_len_index(word_freq_dict)
+    # generate the index to remove in the given range
+    if index > len(lst)-index:
+        print('remove indices in the left')
+        index_to_preserve = generate_index(1,index-1,len(lst)-index-1,min_len_index,max_len_index)
+        index_to_preserve.append(0)
+        rest_lst = lst[index:]
+    else:
+        print('remove indices in the right')
+        index_to_preserve = generate_index(index + 1,len(lst)-1,index-1,min_len_index,max_len_index)
+        index_to_preserve.append(-1)
+        rest_lst = lst[:index]
+        
+    updated_lst = select_sublist(lst, index_to_preserve)  
+    updated_lst.extend(rest_lst)
+    
+    updated_lst = sorted(updated_lst)
+    current_median = statistics.median(updated_lst)
+    updated_dict = slice_dict(word_freq_dict,updated_lst)
+    
+    return updated_dict
+
+
 def match_range(CDI,audiobook):
     '''
     match the audiobook sets with CHILDES of differetn modes
@@ -292,27 +385,36 @@ def match_bin_range(CDI_bins,CDI,audiobook,audiobook_frame):
        bin_membership[(audiobook>=bins[i])&(audiobook<=bins[i+1])]=i
 
     audiobook_frame['group'] = bin_membership
-
-    '''
-    # align length range of each freq band
-    matched_CDI = pd.DataFrame()
+    
+    CDI,audiobook_frame = align_group(CDI,audiobook_frame)
+    
+    
+    
+    # match freq and len medians of each freq bin
+    target_frame_grouped = CDI.groupby('group')
+    
+    
     matched_audiobook = pd.DataFrame()
-    for group in set(audiobook_frame['group']):
-        CDI_group = CDI[CDI['group'] == group]
-        audiobook_group = audiobook_frame[audiobook_frame['group'] == group]
-        CDI_selected, audiobook_selected = get_intersections(CDI_group, audiobook_group, 'Length', 'Length')
-        matched_CDI = pd.concat([matched_CDI,CDI_selected])
-        matched_audiobook = pd.concat([matched_audiobook, audiobook_selected])
-    '''
-
-    # get the intersection of the selected words for more words
-    unprompted_generation = pd.read_csv('/data/Lexical-benchmark_backup/Final_scores/Model_eval/AE/exp/matched/unprompted.csv')
-    audiobook_frame = audiobook_frame[audiobook_frame['word'].isin(unprompted_generation['word'])]
-    # the version with word intersections
-    matched_CDI, matched_audiobook = align_group(CDI, audiobook_frame)
-
-    # match freq bands between the word intersections and no intersection results
-    return matched_CDI, matched_audiobook
+    
+    for group, target_frame_group in target_frame_grouped:
+        
+        target_freq = target_frame_group['CHILDES_log_freq_per_million'].median()
+        freq_tol = target_frame_group['CHILDES_log_freq_per_million'].max() - target_frame_group['CHILDES_log_freq_per_million'].min()
+        target_len = target_frame_group['Length'].median()
+        len_tol = target_frame_group['Length'].max() - target_frame_group['Length'].min()
+        machine_group_frame = audiobook_frame[audiobook_frame['group'] == group]
+        machine_group = {}
+        for _, row in machine_group_frame.iterrows():
+            key = row['word']
+            values = (row['Audiobook_log_freq_per_million'], row['Length'])
+            machine_group[key] = values
+            
+        audiobook_group = match_medians(machine_group, target_freq)
+        
+        matched_audiobook = pd.concat([matched_audiobook,audiobook_group])
+    
+        
+    return CDI, matched_audiobook
 
                  
 def match_bin_density(matched_CDI,matched_audiobook,CDI_bins,audiobook_bins, threshold):
