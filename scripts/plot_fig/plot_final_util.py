@@ -7,13 +7,13 @@ Created on Sat Dec 16 22:36:20 2023
 """
 
 import pandas as pd
-import seaborn as sns
+#import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import linregress
-from sklearn.linear_model import LinearRegression
+#from sklearn.linear_model import LinearRegression
 from scipy.optimize import curve_fit
-
+from scipy.optimize import fsolve
 
 def get_score(target_frame,seq_frame,threshold):
     
@@ -214,9 +214,109 @@ def fit_log(x_data, y_data, target_y,color,label):
     
     return para_dict
 
+
+'''
+exp_threshold = 60
+model_dir = "Final_scores/Model_eval/AE/" + 'exp/matched/'
+freq_lst = ['high', 'low']
+sub_dict = {0: 'low', 1: 'low',2: 'low', 3: 'high',4: 'high', 5: 'high'}
+
+# read the generated file
+target_dir = "Final_scores/Human_eval/CDI/" + 'AE/exp/'
+for file in os.listdir(target_dir):
+    target_frame = pd.read_csv(target_dir + '/' + file)
+target_frame['group']=target_frame['group'].replace(sub_dict)
+
+for freq in freq_lst:      
+    # unprompted generation
+       
+    seq_frame_all = pd.read_csv(model_dir + 'unprompted.csv', index_col=0)
+    # get the sub-dataframe by frequency  
+    score_frame_all, avg_unprompted_all = load_exp(seq_frame_all,target_frame,True,exp_threshold)   
+        
+    word_group = target_frame[target_frame['group']==freq]['word'].tolist()
+    score_frame = score_frame_all.loc[word_group]
+    avg_values = score_frame.mean()
+    month_list_unprompted = [int(x) for x in score_frame.columns]
+
+x_data = month_list_unprompted
+
+
+score_frame = pd.read_csv('AE_generation.csv')
+score_frame = score_frame.drop(score_frame.columns[0], axis=1)
+y_data = score_frame.mean()
+x_data = [int(x) for x in score_frame.columns]
+
+offset = 5
+color = 'grey'
+style = 'solid'
+target_y = 0.8
+'''
+def fit_sigmoid(x_data, y_data, target_y, offset,color,label,style):
+    '''
+    fit sigmoid curve of extrapolated exp vocab
+
+    '''
+
+    def sigmoid(x, A, B, C):
+        return 1 / (1 + np.exp(-(x - A) / B)) + C
+
+    x_data = np.array(x_data) + offset
+    # Fit the sigmoid function to the scatter plot data
+    popt, pcov = curve_fit(sigmoid, x_data, y_data, maxfev=100000, bounds=([0, 0, 0], [10, 10, 1]))
+    
+    # Given the target y value, set up an equation to solve for x
+    def equation_to_solve(x, target_y, *popt):
+        return sigmoid(x, *popt) - target_y
+    
+    # Use fsolve to solve the equation for x
+    def find_x_for_target_y(target_y, popt):
+        x_initial_guess = 50  # Initial guess for x
+        x_solution = fsolve(equation_to_solve, x_initial_guess, args=(target_y, *popt))
+        return x_solution[0]
+    
+    
+    plt.scatter(x_data, y_data, c=color)
+    
+    
+    # first find the target x in the given scatter plots
+    if max(y_data) > target_y:
+        # Generate x values for the fitted curve
+        x_fit = np.linspace(min(x_data), max(x_data), 1000)
+        
+        # Use the optimized parameters to generate y values for the fitted curve
+        y_fit = sigmoid(x_fit, *popt)
+        
+        # Find the index of the target y-value
+        target_y_index = np.argmin(np.abs(y_fit - target_y))
+        
+        # Retrieve the corresponding x-value
+        target_x = x_fit[target_y_index]
+    else:
+        
+        target_x = find_x_for_target_y(target_y, popt)
+        
+        # Generate x values for the fitted curve
+        x_fit = np.linspace(min(x_data), target_x, 500)
+    
+        # Use the optimized parameters to generate y values for the fitted curve
+        y_fit = sigmoid(x_fit, *popt)
+    
+    plt.plot(x_fit, y_fit, linewidth=3.5, color=color, linestyle = style,
+              label= label + f': month = {target_x:.2f}')
+    # Marking the point where y reaches the target value
+    plt.axvline(x=int(target_x), color=color, linestyle='dotted')
+
+    # return the optimized parameters of the sigmoid function
+    para_dict = {'Type':label,"Center": popt[0], "Width": popt[1], "Plateau": popt[2]}
+    
+    
+    return para_dict,target_x
     
 
-def fit_sigmoid(x_data, y_data, target_y, offset,color,label,style):
+
+
+def get_sigmoid(x_data, y_data, target_y, offset,label):
     '''
     fit sigmoid curve of extrapolated exp vocab
 
@@ -229,37 +329,168 @@ def fit_sigmoid(x_data, y_data, target_y, offset,color,label,style):
     # Fit the sigmoid function to the scatter plot data
     popt, pcov = curve_fit(sigmoid, x_data, y_data, maxfev=10000)
 
-    # Generate x values for the fitted curve
-    x_fit = np.linspace(min(x_data), max(x_data), 500)
-
-    # Use the optimized parameters to generate y values for the fitted curve
-    y_fit = sigmoid(x_fit, *popt)
-
-    while y_fit[-1] < target_y:
-        x_fit = np.append(x_fit, x_fit[-1] + 100)
-        y_fit = np.append(y_fit, sigmoid(x_fit[-1], *popt))
+    
+    
+    # Given the target y value, set up an equation to solve for x
+    def equation_to_solve(x, target_y, *popt):
+        return sigmoid(x, *popt) - target_y
+    
+    # Use fsolve to solve the equation for x
+    def find_x_for_target_y(target_y, popt):
+        x_initial_guess = 50  # Initial guess for x
+        x_solution = fsolve(equation_to_solve, x_initial_guess, args=(target_y, *popt))
+        return x_solution[0]
+    
+    # first find the target x in the given scatter plots
+    if max(y_data) > target_y:
+        # Generate x values for the fitted curve
+        x_fit = np.linspace(min(x_data), max(x_data), 1000)
         
-        # Break the loop if the condition is met
-        if y_fit[-1] >= target_y:
-            break
+        # Use the optimized parameters to generate y values for the fitted curve
+        y_fit = sigmoid(x_fit, *popt)
+        
+        # Find the index of the target y-value
+        target_y_index = np.argmin(np.abs(y_fit - target_y))
+        
+        # Retrieve the corresponding x-value
+        target_x = x_fit[target_y_index]
+    else:
+        
+        target_x = find_x_for_target_y(target_y, popt)
+        
+        # Generate x values for the fitted curve
+        x_fit = np.linspace(min(x_data), target_x, 500)
+    
+        # Use the optimized parameters to generate y values for the fitted curve
+        y_fit = sigmoid(x_fit, *popt)
 
-    # Find the index of the target y-value
-    target_y_index = np.argmin(np.abs(y_fit - target_y))
+    # return the optimized parameters of the sigmoid function
+    para_dict = {'Type':label,'target_y':target_y,'estimated_month':target_x,
+                 "Center": popt[0], "Width": popt[1], "Plateau": popt[2]}
     
-    # Retrieve the corresponding x-value
-    target_x = x_fit[target_y_index]
     
-    plt.scatter(x_data, y_data, c=color)
-    plt.plot(x_fit, y_fit, linewidth=3.5, color=color, linestyle = style,
-             label= label + f': month = {target_x:.2f}')
+    return para_dict,x_fit,y_fit
+    
+
+
+
+def get_linear(x_data, y_data, target_y,label):
+    '''
+    fit sigmoid curve of extrapolated exp vocab
+
+    '''
+
+    def linear(x, m, c):
+        return m * x + c
+
+    x_data = np.array(x_data)
+    # Fit the sigmoid function to the scatter plot data
+    popt, _ = curve_fit(linear, x_data, y_data, maxfev=10000)
+
+    
+    # Given the target y value, set up an equation to solve for x
+    def equation_to_solve(x, target_y, *popt):
+        return linear(x, *popt) - target_y
+    
+    # Use fsolve to solve the equation for x
+    def find_x_for_target_y(target_y, popt):
+        x_initial_guess = 0  # Initial guess for x
+        x_solution = fsolve(equation_to_solve, x_initial_guess, args=(target_y, *popt))
+        return x_solution[0]
+    
+    # first find the target x in the given scatter plots
+    if max(y_data) > target_y:
+        # Generate x values for the fitted curve
+        x_fit = np.linspace(min(x_data), max(x_data), 1000)
+        
+        # Use the optimized parameters to generate y values for the fitted curve
+        y_fit = linear(x_fit, *popt)
+        
+        # Find the index of the target y-value
+        target_y_index = np.argmin(np.abs(y_fit - target_y))
+        
+        # Retrieve the corresponding x-value
+        target_x = x_fit[target_y_index]
+    else:
+        
+        target_x = find_x_for_target_y(target_y, popt)
+        
+        # Generate x values for the fitted curve
+        x_fit = np.linspace(min(x_data), target_x, 500)
+    
+        # Use the optimized parameters to generate y values for the fitted curve
+        y_fit = linear(x_fit, *popt)
+
+    # return the optimized parameters of the sigmoid function
+    para_dict = {'Type':label,'target_y':target_y,'estimated_month':target_x,
+                 "Center": popt[0], "Width": popt[1], "Plateau":' NA'}
+    
+    
+    return para_dict,x_fit,y_fit
+    
+
+
+def fit_sigmoid1(x_data, y_data, target_y, offset,label,style):
+    '''
+    fit sigmoid curve of extrapolated exp vocab
+
+    '''
+
+    def sigmoid(x, A, B, C):
+        return 1 / (1 + np.exp(-(x - A) / B)) + C
+
+    x_data = np.array(x_data) + offset
+    # Fit the sigmoid function to the scatter plot data
+    popt, pcov = curve_fit(sigmoid, x_data, y_data, maxfev=10000)
+
+    
+    
+    # Given the target y value, set up an equation to solve for x
+    def equation_to_solve(x, target_y, *popt):
+        return sigmoid(x, *popt) - target_y
+    
+    # Use fsolve to solve the equation for x
+    def find_x_for_target_y(target_y, popt):
+        x_initial_guess = 70  # Initial guess for x
+        x_solution = fsolve(equation_to_solve, x_initial_guess, args=(target_y, *popt))
+        return x_solution[0]
+    
+    
+    plt.scatter(x_data, y_data)
+    
+    
+    # first find the target x in the given scatter plots
+    if max(y_data) > target_y:
+        # Generate x values for the fitted curve
+        x_fit = np.linspace(min(x_data), max(x_data), 1000)
+        
+        # Use the optimized parameters to generate y values for the fitted curve
+        y_fit = sigmoid(x_fit, *popt)
+        
+        # Find the index of the target y-value
+        target_y_index = np.argmin(np.abs(y_fit - target_y))
+        
+        # Retrieve the corresponding x-value
+        target_x = x_fit[target_y_index]
+    else:
+        
+        target_x = find_x_for_target_y(target_y, popt)
+        
+        # Generate x values for the fitted curve
+        x_fit = np.linspace(min(x_data), target_x, 500)
+    
+        # Use the optimized parameters to generate y values for the fitted curve
+        y_fit = sigmoid(x_fit, *popt)
+    
+    plt.plot(x_fit, y_fit, linewidth=3.5, linestyle = style,
+              label= label + f': month = {target_x:.2f}')
     # Marking the point where y reaches the target value
-    plt.axvline(x=int(target_x), color=color, linestyle='dotted')
+    plt.axvline(x=int(target_x), linestyle='dotted')
 
     # return the optimized parameters of the sigmoid function
     para_dict = {'Type':label,"Center": popt[0], "Width": popt[1], "Plateau": popt[2]}
     
-    return para_dict
     
-
-
+    return para_dict,target_x
+    
 
