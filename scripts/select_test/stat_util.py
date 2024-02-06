@@ -12,13 +12,15 @@ import numpy as np
 import collections
 #from phonemizer.backend import EspeakBackend
 #from phonemizer.separator import Separator
-from itertools import combinations
 import os 
 import matplotlib.pyplot as plt
 import spacy
 import re
-import statistics
 import random
+from itertools import islice
+from collections import deque
+
+random.seed(66)
 nlp = spacy.load('en_core_web_sm')
 
 
@@ -144,8 +146,6 @@ def get_freq_table(lines):
 
 
 
-
-
 def get_intersections(df1,df2,column1,column2):
     
     #align dataframe 1 with dataframe 2
@@ -157,8 +157,86 @@ def get_intersections(df1,df2,column1,column2):
     return matched_df1,matched_df2
 
 
+    
+# def match_medians(word_freq_dict, target_median):
+#     def find_closest_number(lst, target):
+#         closest_number = lst[0]
+#         min_difference = abs(target - lst[0])
+        
+#         for number in lst:
+#             difference = abs(target - number)
+#             if difference < min_difference:
+#                 min_difference = difference
+#                 closest_number = number
+                
+#         return closest_number
+    
+#     def generate_index(start,end,num,range_index):
+        
+#         # generate index randomly
+#         generated_numbers = set()
+#         while len(generated_numbers) < num:
+#             generated_numbers.add(random.randint(start, end))
+#             if index not in range_index:
+#                 generated_numbers.add(index)
+#         return list(generated_numbers)
+    
+#     def select_sublist(lst, indices):
+#         '''
+#         select sublist based on index
+#         '''
+        
+#         sublist = []
+#         for index in indices:
+#             if 0 <= index < len(lst):
+#                 sublist.append(lst[index])
+#         return sublist
 
-def match_medians(word_freq_dict, target_median):
+#     word_freq_dict = dict(sorted(word_freq_dict.items(), key=lambda item: item[1][0]))
+#     lst = sorted([freq_len[0] for freq_len in word_freq_dict.values()])
+#     closest_number = find_closest_number(lst, target_median)
+#     index = lst.index(closest_number)
+#     len_lst = [length for _, length in word_freq_dict.values()]
+#     min_len_index = len_lst.index(min(len_lst))
+#     max_len_index = len_lst.index(max(len_lst))
+#     # put the preserved indices in a list
+#     range_index = [min_len_index,max_len_index,0,len(lst)]
+    
+#     # generate the index to remove in the given range
+#     if index > len(lst)-index:
+#         print('remove indices in the left')
+#         index_to_preserve = generate_index(0,index,len(lst)-index,range_index)
+#         rest_lst = lst[index:]
+#     else:
+#         print('remove indices in the right')
+#         index_to_preserve = generate_index(index,len(lst),index,range_index)
+#         rest_lst = lst[:index+1]
+    
+#     index_to_preserve.extend(range_index)
+#     updated_lst = select_sublist(lst, index_to_preserve)  
+#     updated_lst.extend(rest_lst)
+    
+#     updated_lst = sorted(updated_lst)
+#     current_median = statistics.median(updated_lst)
+    
+#     return updated_lst
+
+
+
+
+  
+def match_medians(word_freq_dict, target_median, target_len):
+    
+    '''
+    match the freq and len median while preserving their range
+    
+    add another constraints on len: median
+    
+    operate on dict bc we need to take word as index
+    
+    return a selected nested list candidate
+    '''
+    
     def find_closest_number(lst, target):
         closest_number = lst[0]
         min_difference = abs(target - lst[0])
@@ -171,82 +249,132 @@ def match_medians(word_freq_dict, target_median):
                 
         return closest_number
     
-    def generate_index(start,end,num,max_len_index,min_len_index):
-        
-        # generate index randomly
-        generated_numbers = set()
-        while len(generated_numbers) < num:
-            generated_numbers.add(random.randint(start, end - 1))
-            if index != max_len_index and index != min_len_index:
-                generated_numbers.add(index)
-        return list(generated_numbers)
     
-    def select_sublist(lst, indices):
-        sublist = []
-        for index in indices:
-            if 0 <= index < len(lst):
-                sublist.append(lst[index])
-        return sublist
     
-    def get_len_index(word_freq_len_dict):
-        # Initialize variables to store max and min length indices
-        max_len_index = None
-        min_len_index = None
-        max_len_value = float('-inf')
-        min_len_value = float('inf')
+    def divide_dict(candi_dict,target_len,condi):
         
-        # Iterate through the dictionary items and track the indices of max and min length values
-        for word, freq_len_list in word_freq_len_dict.items():
-            length = freq_len_list[1]  # Get the length value from the list
-            if length > max_len_value:
-                max_len_value = length
-                max_len_index = word
-            if length < min_len_value:
-                min_len_value = length
-                min_len_index = word
-        return min_len_index,max_len_index
+        '''
+        divide a dictionary based on target medians
+        input: unsorted dictionary
+        return two dictionaries
+        '''
+        if condi == 'freq':
+            sorted_candi_dict = dict(sorted(candi_dict.items(), key=lambda item: item[1][0]))
+            # get the closest num to target word
+            rest_len_sorted = [length for length, _ in sorted_candi_dict.values()]
+            
+        else:
+            sorted_candi_dict = dict(sorted(candi_dict.items(), key=lambda item: item[1][1]))
+            # get the closest num to target word
+            rest_len_sorted = [length for _, length in sorted_candi_dict.values()]
+        
+        # get the closest len num; assume it's in the rest of the list
+        closest_number = find_closest_number(rest_len_sorted, target_len)
+        # initialize left and right dict in the fixed dict
+        index = rest_len_sorted.index(closest_number)
+        
+        left_dict = dict(islice(sorted_candi_dict.items(), index))
+        right_dict = dict(deque(sorted_candi_dict.items(), maxlen=len(rest_len_sorted)-index))
+        
+        return left_dict,right_dict,index
+    
+    
+    
+    def generate_index(candi_dict,rest_dict,target_len,num):
+        
+        '''
+        input: rest of index, index lst to select from, num, range_index
+        return a list of selected index 
+        '''
+        
+        def select_index(candi_dict,index):
+            
+            def shuffle_dict(my_dict):
+                # Get a list of key-value tuples and shuffle it
+                items = list(my_dict.items())
+                random.shuffle(items)
+                # Convert the shuffled list back to a dictionary
+                shuffled_dict = dict(items)
+                return shuffled_dict
+            
+            candi_dict = shuffle_dict(candi_dict)
+            
+            selected_dict = dict(islice(candi_dict.items(), index))
+            return selected_dict
+        
+        # divide the fixed rest dictionary into 2 parts
+        left_dict_rest,right_dict_rest,_ = divide_dict(rest_dict,target_len,'len')
+        left_dict_candi,right_dict_candi,_ = divide_dict(candi_dict,target_len,'len')
+        # select the results based on fixed num
+        added_num = abs(len(left_dict_rest) - len(right_dict_rest))
+        # equally allocate the rest of index
+        mod = (num - added_num) % 2
+        allo_num = (num - added_num) // 2
+            
+        if len(left_dict_rest) >= len(right_dict_rest):      
+            # select the index to align right side
+            right_candi_num = added_num + allo_num + mod
+            left_candi_num = added_num
+            
+        elif len(right_dict_rest) > len(left_dict_rest):
+            # select the index from left side
+            left_candi_num = added_num + allo_num + mod
+            right_candi_num = added_num
+            
+        # select from candi dict based on the number of index 
+        selected_left = select_index(left_dict_candi,left_candi_num)
+        selected_right = select_index(right_dict_candi,right_candi_num)
+        rest_dict.update(selected_left) 
+        rest_dict.update(selected_right) 
+        return rest_dict
+    
 
-    def slice_dict(word_freq_dict,selected_freq):
+    def get_range_dict(word_freq_dict):
         
-        # Initialize an empty subdictionary
-        sub_dict = {}
-        # Counter to keep track of the number of elements added to the subdictionary
-        count = 0
+        items = list(word_freq_dict.items())
+        range_dict = {}
+        len_lst = [length for _, length in word_freq_dict.values()]
+        freq_lst = [freq for freq, _ in word_freq_dict.values()]
         
-        # Iterate through the original dictionary and select subdictionary based on selected frequencies
-        for word, freq_list in word_freq_dict.items():
-            freq = freq_list[0]  # Get the frequency
-            if freq in selected_freq and count < len(selected_freq):  
-                sub_dict[word] = freq_list  # Add the word and its frequency list to the subdictionary
-                count += 1  # Increment the counter
-    
-        return sub_dict
-    
+        # get range of freq and len lists
+        min_len_index = len_lst.index(min(len_lst))
+        max_len_index = len_lst.index(max(len_lst))
+        min_freq_index = freq_lst.index(min(freq_lst))
+        max_freq_index = freq_lst.index(max(freq_lst))
+        
+        # get key-value pairs
+        range_dict[items[min_len_index][0]]=items[min_len_index][1]
+        range_dict[items[max_len_index][0]]=items[max_len_index][1]
+        range_dict[items[min_freq_index][0]]=items[min_freq_index][1]
+        range_dict[items[max_freq_index][0]]=items[max_freq_index][1]
+        
+        return range_dict
+
+    # initialize the dict sorted by freq 
     word_freq_dict = dict(sorted(word_freq_dict.items(), key=lambda item: item[1][0]))
-    lst = sorted([freq_len[0] for freq_len in word_freq_dict.values()])
-    closest_number = find_closest_number(lst, target_median)
-    index = lst.index(closest_number)
-    min_len_index,max_len_index = get_len_index(word_freq_dict)
-    # generate the index to remove in the given range
-    if index > len(lst)-index:
+    left_dict,right_dict,index = divide_dict(word_freq_dict,target_median,'freq')
+    range_dict = get_range_dict(word_freq_dict)
+    
+    # update left or right dict
+    if index > len(word_freq_dict)-index:
         print('remove indices in the left')
-        index_to_preserve = generate_index(1,index-1,len(lst)-index-1,min_len_index,max_len_index)
-        index_to_preserve.append(0)
-        rest_lst = lst[index:]
+        # remove range datapoints from candi dict
+        for key in range_dict:
+            left_dict.pop(key, None)
+        right_dict.update(range_dict)
+        updated_dict = generate_index(left_dict,right_dict,target_len,len(word_freq_dict)-index)   
+        
     else:
         print('remove indices in the right')
-        index_to_preserve = generate_index(index + 1,len(lst)-1,index-1,min_len_index,max_len_index)
-        index_to_preserve.append(-1)
-        rest_lst = lst[:index]
-        
-    updated_lst = select_sublist(lst, index_to_preserve)  
-    updated_lst.extend(rest_lst)
-    
-    updated_lst = sorted(updated_lst)
-    current_median = statistics.median(updated_lst)
-    updated_dict = slice_dict(word_freq_dict,updated_lst)
-    
+        # put range index into the fixed dict
+        for key in range_dict:
+            right_dict.pop(key, None)
+        left_dict.update(range_dict)
+        updated_dict = generate_index(right_dict,left_dict,target_len,index)
+     
     return updated_dict
+
+
 
 
 def match_range(CDI,audiobook):
@@ -342,10 +470,7 @@ def get_equal_bins(data,data_frame,n_bins):
     return bins, data_frame
 
 
-
-
-
-def match_bin_range(CDI_bins,CDI,audiobook,audiobook_frame):
+def match_bin_range(CDI_bins,CDI,audiobook,audiobook_frame,match_median):
     
     '''
     match range of the audiobook freq of machine CDI with CHILDES freq of CDI
@@ -388,34 +513,49 @@ def match_bin_range(CDI_bins,CDI,audiobook,audiobook_frame):
     
     CDI,audiobook_frame = align_group(CDI,audiobook_frame)
     
-    
-    
-    # match freq and len medians of each freq bin
-    target_frame_grouped = CDI.groupby('group')
-    
-    
-    matched_audiobook = pd.DataFrame()
-    
-    for group, target_frame_group in target_frame_grouped:
-        
-        target_freq = target_frame_group['CHILDES_log_freq_per_million'].median()
-        freq_tol = target_frame_group['CHILDES_log_freq_per_million'].max() - target_frame_group['CHILDES_log_freq_per_million'].min()
-        target_len = target_frame_group['Length'].median()
-        len_tol = target_frame_group['Length'].max() - target_frame_group['Length'].min()
-        machine_group_frame = audiobook_frame[audiobook_frame['group'] == group]
-        machine_group = {}
-        for _, row in machine_group_frame.iterrows():
-            key = row['word']
-            values = (row['Audiobook_log_freq_per_million'], row['Length'])
-            machine_group[key] = values
-            
-        audiobook_group = match_medians(machine_group, target_freq)
-        
-        matched_audiobook = pd.concat([matched_audiobook,audiobook_group])
-    
-        
-    return CDI, matched_audiobook
+    if not match_median:
+        return CDI, audiobook_frame
 
+    else:
+        # match freq and len medians of each freq bin
+        target_frame_grouped = CDI.groupby('group')
+        matched_audiobook = pd.DataFrame()   
+        
+        for group, target_frame_group in target_frame_grouped:
+            
+            target_freq = target_frame_group['CHILDES_log_freq_per_million'].median()
+            
+            target_len = target_frame_group['Length'].median()
+            
+            machine_group_frame = audiobook_frame[audiobook_frame['group'] == group]
+            machine_group = {}
+            for _, row in machine_group_frame.iterrows():
+                key = row['word']
+                values = (row['Audiobook_log_freq_per_million'], row['Length'])
+                machine_group[key] = values
+                
+            updated_dict = match_medians(machine_group, target_freq,target_len)
+            
+            frequencyDict = collections.Counter(updated_dict.values()) 
+            count_lst = list(frequencyDict.values())
+            freq_lst = list(frequencyDict.keys())   
+            # Randomize the row orders
+            randomized_df = machine_group_frame.sample(frac=1)
+            word_frame = pd.DataFrame()   
+            n = 0
+            while n < len(freq_lst):
+                selected_frame_words = randomized_df[randomized_df['Audiobook_log_freq_per_million']==freq_lst[n][0]]
+                selected_frame_words = selected_frame_words[selected_frame_words['Length']==freq_lst[n][1]]
+                # generate the index randomly 
+                selected_frame_words = selected_frame_words.reindex()
+                selected_frame = selected_frame_words.iloc[:count_lst[n]]
+                word_frame = pd.concat([word_frame,selected_frame])
+                n += 1
+           
+            matched_audiobook = pd.concat([matched_audiobook,word_frame])
+    
+        return CDI, matched_audiobook
+    
                  
 def match_bin_density(matched_CDI,matched_audiobook,CDI_bins,audiobook_bins, threshold):
     
@@ -537,6 +677,8 @@ def plot_density_hist(matched_CDI,freq_name,freq_type,label,alpha,mode,n_bins):
                               ,matched_CDI[freq_name + '_per_million'].tolist()[-1])
         
         data_sorted = matched_CDI[freq_name + '_per_million'].tolist()
+        
+        
         
     elif mode == 'equal_bins':
         

@@ -14,6 +14,7 @@ import spacy
 
 nlp = spacy.load('en_core_web_sm')
 
+
 def match_words(DataPath, fre_table, word_type):
 
     '''
@@ -56,23 +57,5 @@ def match_words(DataPath, fre_table, word_type):
     df['Log_norm_freq_per_million'] = log_freq_lst
     df['Norm_freq_per_million'] = norm_freq_lst
     selected_words = df.sort_values('Log_norm_freq_per_million')
-
-    # select open class words
-    pos_all = []
-    for word in selected_words['word']:
-        doc = nlp(word)
-        pos_lst = []
-        for token in doc:
-            pos_lst.append(token.pos_)
-        pos_all.append(pos_lst[0])
-    selected_words['POS'] = pos_all
-
-    content_POS = ['ADJ', 'NOUN', 'VERB', 'ADV','PROPN']
-    if word_type == 'all':
-        selected_words = selected_words
-    elif word_type == 'content':
-        selected_words = selected_words[selected_words['POS'].isin(content_POS)]
-    elif word_type == 'function':
-        selected_words = selected_words[~selected_words['POS'].isin(content_POS)]
 
     return selected_words

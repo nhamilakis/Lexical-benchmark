@@ -30,10 +30,10 @@ def parseArgs(argv):
                         help='modalities: phoneme or speech')
     
     parser.add_argument('--voice_thre', type=float, default = 0.75,
-                        help='modalities: phoneme or speech')
+                        help='threshold across different voice groups')
     
     parser.add_argument('--word_thre', type=float, default = 0.8,
-                        help='modalities: phoneme or speech')
+                        help='threshold across different word groups')
     
     parser.add_argument('--pair_num', type=int, default = 5,
                         help='the number of phoneme pairs to compare')
@@ -169,7 +169,6 @@ def get_score(freq_frame,modality,voice_thre, word_thre,pair_num,band_num):
         mean_score_frame = pd.concat([mean_score_frame,single_score_frame])
     
     
-    
     # apply voice threshold
     if modality == 'speech':
         score_frame = mean_score_frame
@@ -185,12 +184,24 @@ def get_score(freq_frame,modality,voice_thre, word_thre,pair_num,band_num):
             mean_score_frame = pd.concat([mean_score_frame,single_score_frame])
     
     
+    selected_frame = mean_score_frame[mean_score_frame['freq_' + str(band_num)]==0]
+    selected_frame0 = selected_frame.sort_values(by=['phon_score']).head(24)
+    
+    selected_frame = mean_score_frame[mean_score_frame['freq_' + str(band_num)]==1]
+    selected_frame1 = selected_frame.sort_values(by=['phon_score']).head(24)
+    
+    mean_score_frame = mean_score_frame[~mean_score_frame['freq_' + str(band_num)].isin([0,1])]
+    mean_score_frame = pd.concat([mean_score_frame,selected_frame0,selected_frame1])
     # average by freq bands
     grouped_frame = mean_score_frame.groupby(['freq_' + str(band_num)])['phon_score']
-    final_frame = grouped_frame.mean().reset_index()
-    final_frame['word_num'] = grouped_frame.size()
-    final_frame.rename(columns={'freq_'+ str(band_num):'group','phon_score':'mean_score'}, inplace=True)
     
+    # reduce low-freq words
+    for group, frame_group in grouped_frame:
+        
+        final_frame = grouped_frame.mean().reset_index()
+        final_frame['word_num'] = grouped_frame.size()
+        final_frame.rename(columns={'freq_'+ str(band_num):'group','phon_score':'mean_score'}, inplace=True)
+        
     return final_frame
 
 
@@ -232,18 +243,21 @@ def main(argv):
                 print('Calculating scores from ' + score_dir)
                 
                 try:
-
+                    
+                    
+                    freq_path = score_dir +  '/' + args.modality + '/new/'
+                    '''
                     score_frame_all = match_orth(score_dir, gold, args.modality,testset)
                     
                     freq_frame = match_band(score_frame_all,testset)
-                    freq_path = score_dir +  '/' + args.modality + '/' 
+                     
                     if not os.path.exists(freq_path):
                         os.makedirs(freq_path)
                        
                     freq_frame.to_csv(freq_path + file)
-                     
+                    '''
                     
-                    #freq_frame = pd.read_csv(freq_path + file)
+                    freq_frame = pd.read_csv(freq_path + file)
                     mean_score_frame = get_score(freq_frame,args.modality,args.voice_thre, args.word_thre,args.pair_num,args.band_num)
                     
                     # save the result to the target dir

@@ -20,7 +20,7 @@ import pandas as pd
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
-from plot_final_util import load_CDI,load_accum,load_exp,get_score_CHILDES,fit_sigmoid,fit_log,fit_sigmoid1,get_sigmoid,get_linear
+from plot_final_util import load_CDI,load_accum,load_exp,get_score_CHILDES,fit_sigmoid,fit_log,get_linear
 import numpy as np
 import sys
 import argparse
@@ -57,10 +57,10 @@ def parseArgs(argv):
                                                 'CDI':'Red','CHILDES':'Orange','char':'Grey'},
                         help='thresho, offsetld for accumulator model')
 
-    parser.add_argument('--by_freq', default=True,
+    parser.add_argument('--by_freq', default=False,
                         help='whether to decompose the results by frequency bands')
 
-    parser.add_argument('--extrapolation', default=True,
+    parser.add_argument('--extrapolation', default=False,
                         help='whether to plot the extrapolation figure')
     
     parser.add_argument('--aggregate_freq', default=False,
@@ -75,6 +75,9 @@ def parseArgs(argv):
     return parser.parse_args(argv)
 
 sns.set_style('whitegrid')
+
+test_type = 'unaligned'
+
 
 def plot_all(vocab_type, human_dir,model_dir, test_set, accum_threshold, exp_threshold,lang):
 
@@ -123,12 +126,14 @@ def plot_all(vocab_type, human_dir,model_dir, test_set, accum_threshold, exp_thr
         # add human-estimation here
         CHILDES_freq = pd.read_csv('Final_scores/Model_eval/' + lang + '/exp/CDI/CHILDES.csv')
         avg_values_lst = []
+        score_frame = pd.DataFrame()
         # averaged by different groups
         for freq in set(list(CHILDES_freq['group_original'].tolist())):
             word_group = CHILDES_freq[CHILDES_freq['group_original']==freq]
-            score_frame,avg_value = get_score_CHILDES(word_group, exp_threshold)
+            score_frame_temp,avg_value = get_score_CHILDES(word_group, exp_threshold)
             avg_values_lst.append(avg_value.values)
-
+            score_frame = pd.concat([score_frame,score_frame_temp])
+        score_frame.to_csv(lang + test_type +'_CHILDES.csv')
         arrays_matrix = np.array(avg_values_lst)
 
         # Calculate the average array along axis 0
@@ -140,12 +145,21 @@ def plot_all(vocab_type, human_dir,model_dir, test_set, accum_threshold, exp_thr
         
         
         # unprompted generation: different freq bands
-        for file in os.listdir(target_dir):
-            target_frame = pd.read_csv(target_dir + '/' + file)
-
+        if test_type == 'aligned':
+            target_frame = pd.read_csv(target_dir + '/median_aligned.csv' )
+            
+        else:
+            if test_type == 'unaligned':
+                target_frame = pd.read_csv(target_dir + '/median_unaligned.csv' )
+                
+        
         seq_frame_all = pd.read_csv(model_dir + 'unprompted.csv', index_col=0)
         score_frame_unprompted, avg_unprompted = load_exp(
             seq_frame_all, target_frame, False, exp_threshold)
+        
+        score_frame_unprompted.to_csv(lang + test_type + '_unprompted_score.csv')
+        
+        
         month_list_unprompted = [int(x)
                                  for x in score_frame_unprompted.columns]
         ax = sns.lineplot(month_list_unprompted, avg_unprompted,
@@ -252,12 +266,16 @@ def plot_by_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_thr
                         ax = sns.lineplot(month_list_CHILDES, avg_values,
                                       linewidth=3, label=freq)
                     if extrapolation:
-                        fit_sigmoid1(month_list_CHILDES, avg_values, target_y,5, 'CHILDES','solid')
+                        fit_sigmoid(month_list_CHILDES, avg_values, target_y,0, 'CHILDES','solid')
                         
                 if set_type == 'model':
                     # unprompted generation
-                    for file in os.listdir(target_dir):
-                        target_frame = pd.read_csv(target_dir + '/' + file)
+                    if test_type == 'aligned':
+                        target_frame = pd.read_csv(target_dir + '/median_aligned.csv' )
+                        
+                    else:
+                        if test_type == 'unaligned':
+                            target_frame = pd.read_csv(target_dir + '/median_unaligned.csv' )
                         
                     # read the generated file
                     seq_frame_all = pd.read_csv(model_dir + 'unprompted.csv', index_col=0)
@@ -271,7 +289,7 @@ def plot_by_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_thr
                     if not extrapolation:
                         ax = sns.lineplot(month_list_unprompted, avg_values.values, linewidth=3, label= freq)
                     if extrapolation:
-                        fit_sigmoid1(month_list_unprompted, avg_values.values,target_y, 5,str(freq),'solid')
+                        fit_sigmoid(month_list_unprompted, avg_values.values,target_y, 0,str(freq),'solid')
                         
         
       
@@ -419,8 +437,13 @@ def aggre_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_thres
             CHILDES_frame = pd.read_csv('Final_scores/Model_eval/' + lang + '/exp/CDI/CHILDES.csv')
             # read the generated file
             target_dir = human_dir.replace('CDI', test_set)
-            for file in os.listdir(target_dir):
-                target_frame = pd.read_csv(target_dir + '/' + file)
+            if test_type == 'aligned':
+                target_frame = pd.read_csv(target_dir + '/median_aligned.csv' )
+                
+            else:
+                if test_type == 'unaligned':
+                    target_frame = pd.read_csv(target_dir + '/median_unaligned.csv' )
+                    
             target_frame['group']=target_frame['group'].replace(sub_dict)
             CHILDES_frame['group_original'] = CHILDES_frame['group_original'].replace(sub_dict)
             
@@ -435,7 +458,7 @@ def aggre_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_thres
                 CHIDES_result, avg_values = get_score_CHILDES(CHILDES_freq, exp_threshold)
                 month_list_CHILDES = [int(x) for x in CHIDES_result.columns]
                 if extrapolation:
-                    para_dict,corresponding_x = fit_sigmoid(month_list_CHILDES, avg_values,target_y, 5, 'orange','CHILDES',style[n])
+                    para_dict,corresponding_x = fit_sigmoid(month_list_CHILDES, avg_values,target_y, 0, 'orange','CHILDES',style[n])
                     print(lang + ' CHILDES ' + str(corresponding_x))
                     print('CHILDES para ' + freq)
                     print(para_dict)
@@ -461,7 +484,7 @@ def aggre_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_thres
                 
                 score_frame.to_csv(lang + '_generation.csv')
                 if extrapolation:
-                    para_dict,corresponding_x = fit_sigmoid(month_list_unprompted, avg_values,target_y, 5, 'grey','model',style[n])
+                    para_dict,corresponding_x = fit_sigmoid(month_list_unprompted, avg_values,target_y, 0, 'grey','model',style[n])
                 
                     print(lang + ' generation ' + str(corresponding_x))
                     
@@ -524,7 +547,7 @@ def plot_cal(vocab_type, human_dir, model_dir, test_set, exp_threshold,lang,targ
         speech_frame_selected = speech_frame[speech_frame['month'] > 4]
         speech_result = speech_frame_selected.groupby('month')['mean_score'].mean()
         #fit_log(speech_result.index.tolist(), speech_result.tolist(),target_y, 'Blue', 'speech')
-        fit_sigmoid(speech_result.index.tolist(), speech_result.tolist(),target_y, 0,'Blue', 'speech')
+        fit_sigmoid(speech_result.index.tolist(), speech_result.tolist(),target_y, 0, 'speech')
         '''
         phones_frame = pd.read_csv(model_dir + 'phones.csv')
         phones_frame_selected = phones_frame[phones_frame['month'] > 4]
@@ -556,12 +579,16 @@ def plot_cal(vocab_type, human_dir, model_dir, test_set, exp_threshold,lang,targ
         month_list_CHILDES = [int(x) for x in score_frame.columns]
 
 
-        para_dict,corresponding_x = fit_sigmoid(month_list_CHILDES, avg_values,target_y, 5, 'orange','CHILDES','solid')
+        para_dict,corresponding_x = fit_sigmoid(month_list_CHILDES, avg_values,target_y,0, 'CHILDES','solid')
         print(lang + ' CHILDES ' + str(corresponding_x))
 
         # unprompted generation
-        for file in os.listdir(target_dir):
-            target_frame = pd.read_csv(target_dir + '/' + file)
+        if test_type == 'aligned':
+            target_frame = pd.read_csv(target_dir + '/median_aligned.csv' )
+            
+        else:
+            if test_type == 'unaligned':
+                target_frame = pd.read_csv(target_dir + '/median_unaligned.csv' )
 
         seq_frame_all = pd.read_csv(model_dir + 'unprompted.csv', index_col=0)
         score_frame_unprompted, avg_unprompted = load_exp(
@@ -569,8 +596,8 @@ def plot_cal(vocab_type, human_dir, model_dir, test_set, exp_threshold,lang,targ
         month_list_unprompted = [int(x)
                                  for x in score_frame_unprompted.columns]
 
-        para_dict,corresponding_x = fit_sigmoid(month_list_unprompted, avg_unprompted,target_y, 5, 'grey','model','solid')
-        print(lang + ' generation ' + str(corresponding_x))
+        para_dict,corresponding_x = fit_sigmoid(month_list_unprompted, avg_unprompted,target_y, 0, 'model','solid')
+        print(lang + ' generation ' + str(para_dict))
     # set the limits of the x-axis for each line
     plt.title('{} {} vocab'.format(
         lang, vocab_type), fontsize=15, fontweight='bold')
@@ -661,7 +688,7 @@ def plot_extra_curve(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp
                 CHIDES_result, avg_values = get_score_CHILDES(CHILDES_freq, exp_threshold)
                 month_list_CHILDES = [int(x) for x in CHIDES_result.columns]
                     
-                para_CHILDES,_,_ = get_sigmoid(month_list_CHILDES, avg_values, target_y, 5,'CHILDES')
+                para_CHILDES,_,_ = get_sigmoid(month_list_CHILDES, avg_values, target_y, 0,'CHILDES')
                     # unprompted generation
                 for file in os.listdir(target_dir):
                         target_frame = pd.read_csv(target_dir + '/' + file)
@@ -676,7 +703,7 @@ def plot_extra_curve(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp
                 avg_values = score_frame.mean()
                 month_list_unprompted = [int(x) for x in score_frame.columns]
                 
-                para_model,_,_ = get_sigmoid(month_list_unprompted, avg_values, target_y, 5,'model')
+                para_model,_,_ = get_sigmoid(month_list_unprompted, avg_values, target_y, 0,'model')
             
                 # concatnate the result dict
                 result = [para_CHILDES,para_model,para_human]
@@ -695,7 +722,7 @@ def plot_extra_curve(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp
     final_frame.to_csv('Final_scores/Figures/' + lang + '_' + vocab_type + '_extra.csv')
     return final_frame
 
-
+'''
 lang = 'AE'
 vocab_type = 'exp'
 final_frame = pd.read_csv('Final_scores/Figures/' + lang + '_' + vocab_type + '_extra.csv')
@@ -705,7 +732,7 @@ for testset, final_frame_group in final_frame_grouped:
     sns.lineplot(x="Freq", y="estimated_month", data=final_frame_group, linewidth=2,label= testset)
 plt.title(lang + ' extrapolated months', fontsize=15, fontweight='bold')
 
-    
+'''
 
 
 
@@ -724,7 +751,7 @@ def main(argv):
                             '/' + vocab_type + '/' + test_set + '/'
                 human_dir = args.human_dir + lang + '/' + vocab_type
                 
-                '''
+                
                 if not args.extrapolation:
                     
                     if not args.by_freq:
@@ -745,7 +772,7 @@ def main(argv):
                     if not args.by_freq:
                         print('plotting cal')
                         plot_cal(vocab_type, human_dir, model_dir, test_set, exp_threshold,lang,args.target_y)
-                        
+                    
                     if args.aggregate_freq:
                         
                        aggre_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_threshold
@@ -756,13 +783,12 @@ def main(argv):
                               accum_threshold,exp_threshold,lang,args.set_type
                               ,args.extrapolation,args.target_y)
                         
-                       
-                       
+                      
                 '''   
                 plot_extra_curve(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_threshold
                                  ,lang,args.target_y)  
                 
-                
+                '''
                         
 if __name__ == "__main__":
     args = sys.argv[1:]
