@@ -11,13 +11,10 @@ different datasets:
 two versions of freq: char and phoneme
 """
 import sys
-from typing import Any
 import pandas as pd
 import argparse
 import os
 import matplotlib.pyplot as plt
-from pandas import DataFrame
-from pandas.io.parsers import TextFileReader
 from stat_util import preprocess, get_freq_table, match_range, get_equal_bins, match_bin_range, plot_density_hist, \
     match_bin_density, match_bin_prop, select_type
 from aochildes.dataset import AOChildesDataSet  # !!! this should be configured later
@@ -30,7 +27,7 @@ def parseArgs(argv):
     # Run parameters
     parser = argparse.ArgumentParser(description='Select test sets by freq')
 
-    parser.add_argument('--lang', type=str, default='BE',
+    parser.add_argument('--lang', type=str, default='AE',
                        help='languages to test: AE, BE or FR')
 
     parser.add_argument('--eval_condition', type=str, default='exp',
@@ -48,10 +45,10 @@ def parseArgs(argv):
     parser.add_argument('--num_bins', type=int, default=6,
                         help='number of eaqul-sized bins of human CDI data')
 
-    parser.add_argument('--freq_type', type=str, default='freq',
+    parser.add_argument('--freq_type', type=str, default='log_freq',
                         help='freq types: freq or log_freq')
 
-    parser.add_argument('--machine_set', type=str, default='wuggy',
+    parser.add_argument('--machine_set', type=str, default='audiobook',
                         help='different sets of machine CDI: wuggy or audiobook')
 
     parser.add_argument('--match_mode', type=str, default='bin_range_aligned',
@@ -63,7 +60,7 @@ def parseArgs(argv):
     parser.add_argument('--word_type', type=str, default='content',
                         help='difference word types')  
     
-    parser.add_argument('--match_median', default=True,
+    parser.add_argument('--match_median', default=False,
                         help='whether to match median freq and length of each freq bin')
 
     return parser.parse_args(argv)
@@ -116,10 +113,12 @@ def get_freq_frame(test, train_path, word_type,CDI_type):
 
     # append freq with CDI data
     freq_frame = test[test['word'].isin(selected_words)]
-    freq_frame = select_type(freq_frame, word_type)
+    
     freq_frame= freq_frame.dropna()
+    freq_frame = select_type(freq_frame, word_type)
+    
     selected_words = list(set(freq_frame['word'].tolist()))
-
+    
     
     audiobook_lst = []
     CELEX_lst = []
@@ -269,11 +268,12 @@ def main(argv):
                 audiobook_test.to_csv(train_path + 'Audiobook_fre_table.csv')
             else:
                 audiobook_test = pd.read_csv(train_path + 'Audiobook_fre_table.csv')
+            audiobook_test.rename(columns={'Word': 'word'}, inplace=True)
 
-         # filter words based on intersection with wuggy test set
+        # filter words based on intersection with wuggy test set
         elif args.machine_set == 'wuggy':
             if not os.path.exists(test_path + '/machine_CDI/machine_' + args.machine_set + '.csv'):
-                df = pd.read_csv(test_path + 'gold_test.csv')
+                df = pd.read_csv(test_path + '/machine_CDI/gold_test.csv')
                 # filter the candi number with the given pair num
                 word_counts = df.groupby('word')['id'].nunique()
                 # Filter groups where the count of unique 'id' values is greater than 5

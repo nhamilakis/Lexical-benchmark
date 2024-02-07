@@ -59,7 +59,7 @@ def select_type(selected_words, word_type):
     '''
     # select open class words
     pos_all = []
-    for word in selected_words['word']:
+    for word in selected_words['word'].tolist():
         doc = nlp(word)
         pos_lst = []
         for token in doc:
