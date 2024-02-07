@@ -107,7 +107,8 @@ def count_words(OutputPath,group_stat,eval_path,hour,word_per_sec,eval_type,lang
     freq_frame = pd.DataFrame()
     freq_frame['word'] = eval_lst
     freq_frame['group_original'] = eval_frame['group_original'].tolist()
-    
+
+
     # loop each month
     for file in set(group_stat['end_month'].tolist()):
         
@@ -128,7 +129,6 @@ def count_words(OutputPath,group_stat,eval_path,hour,word_per_sec,eval_type,lang
                     word_lst.append(cleaned_word)
         # save the overall freq dataframe for further use
         fre_table = get_freq(word_lst)
-
 
 
         freq_lst = []

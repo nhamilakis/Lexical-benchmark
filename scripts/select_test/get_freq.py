@@ -18,7 +18,7 @@ import os
 import matplotlib.pyplot as plt
 from pandas import DataFrame
 from pandas.io.parsers import TextFileReader
-from stat_util import get_freq_table, match_range, get_equal_bins, match_bin_range, plot_density_hist, \
+from stat_util import preprocess, get_freq_table, match_range, get_equal_bins, match_bin_range, plot_density_hist, \
     match_bin_density, match_bin_prop, select_type
 from aochildes.dataset import AOChildesDataSet  # !!! this should be configured later
 import math
@@ -36,10 +36,10 @@ def parseArgs(argv):
     parser.add_argument('--eval_condition', type=str, default='exp',
                         help='which type of words to select; recep or exp')
 
-    parser.add_argument('--dataPath', type=str, default='Lexical-benchmark_data/test_set/',
-                        help='path to the freq corpus')
+    parser.add_argument('--dataPath', type=str, default='/data/Machine_CDI/Lexical-benchmark_data/test_set/',
+                        help='path to the freq corpus and test sets')
 
-    parser.add_argument('--outPath', type=str, default='Lexical-benchmark_output/test_set/',
+    parser.add_argument('--outPath', type=str, default='/data/Machine_CDI/Lexical-benchmark_output/test_set/',
                         help='output path to the freq corpus')
 
     parser.add_argument('--word_format', type=str, default='char',
@@ -51,7 +51,7 @@ def parseArgs(argv):
     parser.add_argument('--freq_type', type=str, default='freq',
                         help='freq types: freq or log_freq')
 
-    parser.add_argument('--machine_set', type=str, default='audiobook',
+    parser.add_argument('--machine_set', type=str, default='wuggy',
                         help='different sets of machine CDI: wuggy or audiobook')
 
     parser.add_argument('--match_mode', type=str, default='bin_range_aligned',
@@ -69,22 +69,27 @@ def parseArgs(argv):
     return parser.parse_args(argv)
 
 
-def get_freq_frame(test, train_path, word_type):
+def get_freq_frame(test, train_path, word_type,CDI_type):
     """
+    preprocess: clean and get POS
     get the overall freq of CHILDES and train data fre
     """
 
+    # get log 10
+    def convert_to_log(freq):
+        return math.log10(freq)
+    # load freq corpora
     # check whether the overall freq file exists
     if os.path.exists(train_path + 'Audiobook_fre_table.csv'):
         audiobook_fre_table = pd.read_csv(train_path + 'Audiobook_fre_table.csv')
 
     else:
-        # calculate fre table respectively
+            # calculate fre table respectively
         with open(train_path + 'Audiobook_train.txt', encoding="utf8") as f:
             Audiobook_lines = f.readlines()
-
         audiobook_fre_table = get_freq_table(Audiobook_lines)
         audiobook_fre_table.to_csv(train_path + 'Audiobook_fre_table.csv')
+        
 
     if os.path.exists(train_path + 'CHILDES_fre_table.csv'):
         CHILDES_fre_table = pd.read_csv(train_path + 'CHILDES_fre_table.csv')
@@ -95,22 +100,27 @@ def get_freq_frame(test, train_path, word_type):
         CHILDES_fre_table = get_freq_table(CHILDES_lines)
         CHILDES_fre_table.to_csv(train_path + 'CHILDES_fre_table.csv')
 
-    CELEX = pd.read_excel(train_path + 'SUBTLEX_US.xls')
+    if os.path.exists(train_path + 'SUBTLEX_US.xls'):
+        CELEX = pd.read_excel(train_path + 'SUBTLEX_US.xls')
 
-    # !!! TO DO: add preprocessing steps of CDI tests sets
+    else:
+        print('Downloading the SUBTLEX_US from: ')
+        #TO DO: add automatic downloading from the website
+
+    test = preprocess(test,CDI_type)
 
     # Find the intersection of the three lists
     selected_words = list(set(test['word'].tolist()).intersection(set(CHILDES_fre_table['Word'].tolist()),
                                                                   set(audiobook_fre_table['Word'].tolist()),
                                                                   set(CELEX['Word'].tolist())))
 
-    # get the dataframe with all the dataset
-    freq_frame = pd.DataFrame([selected_words]).T
-    freq_frame.rename(columns={0: 'word'}, inplace=True)
+    # append freq with CDI data
+    freq_frame = test[test['word'].isin(selected_words)]
+    freq_frame = select_type(freq_frame, word_type)
     freq_frame= freq_frame.dropna()
-    freq_frame= select_type(freq_frame, word_type)
     selected_words = list(set(freq_frame['word'].tolist()))
 
+    
     audiobook_lst = []
     CELEX_lst = []
     CHILDES_lst = []
@@ -129,11 +139,8 @@ def get_freq_frame(test, train_path, word_type):
     freq_frame['Audiobook_freq_per_million'] = audiobook_lst
     freq_frame['CELEX_freq_per_million'] = CELEX_lst
     freq_frame['CHILDES_freq_per_million'] = CHILDES_lst
-    freq_frame['Length'] = freq_frame['word'].apply(len)
-    # get log 10
-    def convert_to_log(freq):
-        return math.log10(freq)
-
+    freq_frame['word_len'] = freq_frame['word'].apply(len)
+    
     freq_frame['CELEX_log_freq_per_million'] = freq_frame['CELEX_freq_per_million'].apply(convert_to_log)
     freq_frame['Audiobook_log_freq_per_million'] = freq_frame['Audiobook_freq_per_million'].apply(convert_to_log)
     freq_frame['CHILDES_log_freq_per_million'] = freq_frame['CHILDES_freq_per_million'].apply(convert_to_log)
@@ -190,8 +197,7 @@ def compare_histogram(matched_CDI, matched_audiobook, num_bins, freq_type, lang,
     
     plt.legend()
     plt.title(lang + ' ' + eval_condition + ' (' + match_mode + ')')
-    
-    
+
     # concat results
     stat_audiobook['freq_type'] = 'Audiobook_' + freq_type
     stat_CHILDES['freq_type'] = 'CHILDES_' + freq_type
@@ -225,7 +231,6 @@ def main(argv):
     
     if args.match_median:
         match_median_name = 'aligned'
-    
     else:
         match_median_name = 'unaligned'
         
@@ -241,28 +246,56 @@ def main(argv):
     # check whether there exists the matched data
     if os.path.exists(CDI_freqOutput) and os.path.exists(matched_freqOutput):
         print('There exist the matched CDI and audiobook freq words! Skip')
-        matched_CDI: TextFileReader | DataFrame | Any = pd.read_csv(CDI_freqOutput)
+        matched_CDI = pd.read_csv(CDI_freqOutput)
         matched_audiobook = pd.read_csv(matched_freqOutput)
 
     # step 2: match the freq
     else:
         print('Creating the matched CDI and audiobook freq words')
+
         train_path = args.dataPath + 'freq_corpus/' + args.word_format + '/'
-        testPath = args.dataPath + 'human_CDI/' + args.lang + '/' + args.eval_condition
-        for file in os.listdir(testPath):
-            CDI_test = pd.read_csv(testPath + '/' + file)
+        test_path = args.dataPath + 'CDI/'
+        for file in os.listdir(test_path + 'human_CDI/' + args.lang + '/' + args.eval_condition):
+            CDI_test = pd.read_csv(test_path + 'human_CDI/' + args.lang + '/' + args.eval_condition + '/' + file)
 
-        CDI = get_freq_frame(CDI_test, train_path, args.word_type)
-        print('finished getting human data')
-        audiobook_test = pd.read_csv(train_path + '/machine_' + args.machine_set + '.csv')
+        CDI = get_freq_frame(CDI_test, train_path, args.word_type,'human')
+        print('finished loading human CDI')
 
-        audiobook = get_freq_frame(audiobook_test, train_path, args.word_type)
+        if args.machine_set == 'audiobook':
+            if not os.path.exists(train_path + 'Audiobook_fre_table.csv'):
+                with open(train_path + 'Audiobook_train.txt', encoding="utf8") as f:
+                    Audiobook_lines = f.readlines()
+                audiobook_test = get_freq_table(Audiobook_lines)
+                audiobook_test.to_csv(train_path + 'Audiobook_fre_table.csv')
+            else:
+                audiobook_test = pd.read_csv(train_path + 'Audiobook_fre_table.csv')
 
-        matched_CDI, matched_audiobook = match_freq(CDI, audiobook, args.match_mode
-                                                , args.num_bins, args.threshold, args.match_median)
+         # filter words based on intersection with wuggy test set
+        elif args.machine_set == 'wuggy':
+            if not os.path.exists(test_path + '/machine_CDI/machine_' + args.machine_set + '.csv'):
+                df = pd.read_csv(test_path + 'gold_test.csv')
+                # filter the candi number with the given pair num
+                word_counts = df.groupby('word')['id'].nunique()
+                # Filter groups where the count of unique 'id' values is greater than 5
+                selected_groups = word_counts[word_counts > 4].index
+                # Select rows where 'word' is in the selected groups
+                audiobook_fre_table = df[df['word'].isin(selected_groups)]
+                audiobook_test = audiobook_fre_table.drop_duplicates(subset=['word'])
+                audiobook_test.to_csv(test_path + '/machine_CDI/machine_' + args.machine_set + '.csv')
+
+            else:
+                audiobook_test = pd.read_csv(test_path + '/machine_CDI/machine_' + args.machine_set + '.csv')
+
+        audiobook = get_freq_frame(audiobook_test, train_path, args.word_type,'machine')
+
+        print('finished loading machine CDI')
+
+        matched_CDI, matched_audiobook = match_freq(CDI, audiobook, args.match_mode,
+                                                 args.num_bins, args.threshold, args.match_median)
         # save the filtered results
         matched_CDI.to_csv(CDI_freqOutput)
         matched_audiobook.to_csv(matched_freqOutput)
+        print('finished matching human and machine CDI')
 
     # step 3: plot the distr figures
 
