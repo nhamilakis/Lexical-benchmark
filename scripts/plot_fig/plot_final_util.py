@@ -15,6 +15,9 @@ from scipy.stats import linregress
 from scipy.optimize import curve_fit
 from scipy.optimize import fsolve
 
+target_frame = pd.read_csv('/data/Machine_CDI/Lexical-benchmark_output/test_set/matched_set/char/bin_range_aligned/backup/6_audiobook_aligned/' + 'machine_BE_exp.csv')
+seq_frame = pd.read_csv('/data/Machine_CDI/Lexical-benchmark_output/Final_scores/Model_eval/BE/exp/unprompted.csv')
+
 
 
 def get_score(target_frame,seq_frame,threshold):
@@ -22,7 +25,6 @@ def get_score(target_frame,seq_frame,threshold):
     
     '''
     get the weighted score based on different frequency range
-    
     '''
     
     overlapping_words = [col for col in target_frame['word'].tolist() if col in seq_frame.index.tolist()]
@@ -31,14 +33,11 @@ def get_score(target_frame,seq_frame,threshold):
     
     # use weighted class to decrase the effect of the unbalanced dataset
     extra_word_lst = [element for element in target_frame['word'].tolist() if element not in overlapping_words]
-    
-    
     for word in extra_word_lst:
         selected_frame.loc[word] = [0] * selected_frame.shape[1]
      
     # get the score based on theshold
     score_frame_all = selected_frame.applymap(lambda x: 1 if x >= threshold else 0)
-    
     avg_values = score_frame_all.mean()
     
     return score_frame_all, avg_values
@@ -64,11 +63,14 @@ def get_score_CHILDES(freq_frame,threshold):
     return score_frame,avg_values
 
 
-def load_CDI(human_result):
+def load_CDI(human_frame):
     
     '''
-    load human CDI data for figure plot
+    load human CDI data for figure plot; x_axis; y_axis data 
     '''
+    start_idx = human_frame.columns.get_loc('category')
+    end_idx = human_frame.columns.get_loc('word')
+    human_result = human_frame.iloc[:, start_idx+1:end_idx]
     
     size_lst = []
     month_lst = []
@@ -89,9 +91,61 @@ def load_CDI(human_result):
     data_frame = pd.DataFrame([month_lst_transformed,size_lst_final]).T
     data_frame.rename(columns={0:'month',1:'Proportion of acquired words'}, inplace=True)
     data_frame_final = data_frame.dropna(axis=0)
-    return data_frame_final
+    
+    return data_frame_final, data_frame_final["month"], data_frame_final["Proportion of acquired words"]
 
 
+
+def load_exp(seq_frame_unprompted,target_frame,exp_threshold):
+    
+    
+    def get_score(target_frame,seq_frame,threshold):
+    
+    
+        '''
+        get the weighted score based on different frequency range
+        
+        '''
+        overlapping_words = [col for col in target_frame['word'].tolist() if col in seq_frame.index.tolist()]
+        # get the subdataframe
+        selected_frame = seq_frame.loc[overlapping_words]
+        
+        # use weighted class to decrase the effect of the unbalanced dataset
+        extra_word_lst = [element for element in target_frame['word'].tolist() if element not in overlapping_words]
+        
+        
+        for word in extra_word_lst:
+            selected_frame.loc[word] = [0] * selected_frame.shape[1]
+         
+        # get the score based on theshold
+        score_frame_all = selected_frame.applymap(lambda x: 1 if x >= threshold else 0)
+        
+        avg_values = score_frame_all.mean()
+        
+        return score_frame_all, avg_values
+    
+    seq_frame_unprompted = seq_frame_unprompted.rename_axis('Index')
+    
+    avg_values_unprompted_lst = []
+    score_frame_unprompted = pd.DataFrame()
+    
+    # decompose the results by freq groups
+    for freq in set(list(target_frame['group'].tolist())):
+        word_group = target_frame[target_frame['group']==freq]
+        # take the weighted average by the proportion of different frequency types
+        score_frame_unprompted_temp, avg_values_unprompted = get_score(word_group,seq_frame_unprompted,exp_threshold)
+        score_frame_unprompted = pd.concat([score_frame_unprompted,score_frame_unprompted_temp])
+        avg_values_unprompted_lst.append(avg_values_unprompted.values)
+        
+    arrays_matrix = np.array(avg_values_unprompted_lst)
+    
+    # Calculate the average array along axis 0
+    avg_unprompted = np.mean(arrays_matrix, axis=0)
+    month_list_unprompted = [int(x) for x in score_frame_unprompted.columns]
+    
+    return score_frame_unprompted, month_list_unprompted, avg_unprompted
+    
+  
 
 def load_accum(accum_all,accum_threshold):
     
@@ -101,35 +155,6 @@ def load_accum(accum_all,accum_threshold):
     return accum_result
 
 
-
-
-def load_exp(seq_frame_unprompted,target_frame,by_freq,exp_threshold):
-    
-    
-    seq_frame_unprompted = seq_frame_unprompted.rename_axis('Index')
-    
-    if not by_freq:
-        avg_values_unprompted_lst = []
-        score_frame_unprompted = pd.DataFrame()
-        # decompose the results by freq groups
-        for freq in set(list(target_frame['group'].tolist())):
-            word_group = target_frame[target_frame['group']==freq]
-            # take the weighted average by the proportion of different frequency types
-            score_frame_unprompted_temp, avg_values_unprompted = get_score(word_group,seq_frame_unprompted,exp_threshold)
-            score_frame_unprompted = pd.concat([score_frame_unprompted,score_frame_unprompted_temp])
-            avg_values_unprompted_lst.append(avg_values_unprompted.values)
-        
-        arrays_matrix = np.array(avg_values_unprompted_lst)
-
-        # Calculate the average array along axis 0
-        avg_unprompted = np.mean(arrays_matrix, axis=0)
-
-        
-    # or we just read single subdataframe
-    else:
-        score_frame_unprompted, avg_unprompted = get_score(target_frame,seq_frame_unprompted,exp_threshold)
-    
-    return score_frame_unprompted, avg_unprompted 
 
 
 def fit_curve_backup(x_data,y_data_temp,target_y,color,input_type):

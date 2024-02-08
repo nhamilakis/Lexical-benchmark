@@ -52,8 +52,8 @@ def parseArgs(argv):
                         help='thresho, offsetld for accumulator model')
     
     parser.add_argument('--color_dict', type=int, default={'speech': 'Blue','phones':'Green',
-                                                'CDI':'Red','CHILDES':'Orange','char':'Grey'},
-                        help='threshold, offset for accumulator model')
+                                                'human':'Red','CHILDES':'Orange','unprompted':'Grey'},
+                        help='color settings of differnt test sets')
 
     parser.add_argument('--by_freq', default=False,
                         help='whether to decompose the results by frequency bands')
@@ -75,7 +75,20 @@ def parseArgs(argv):
 sns.set_style('whitegrid')
 
 
-def load_data(test_dir,eval_dir,lang,vocab_type,set_name):
+
+test_dir = '/data/Machine_CDI/Lexical-benchmark_output/test_set/matched_set/char/bin_range_aligned/6_audiobook_aligned/'
+
+eval_dir = '/data/Machine_CDI/Lexical-benchmark_output/Final_scores/Model_eval/BE/exp/'
+
+lang = 'BE'
+
+vocab_type = 'exp'
+
+color_dict = {'speech': 'Blue','phones':'Green','human':'Red','CHILDES':'Orange','unprompted':'Grey'}
+
+exp_threshold = 1
+
+def load_results(test_dir,eval_dir,lang,vocab_type,set_name,color_dict,exp_threshold):
 
     """
     load data for plotting
@@ -87,122 +100,65 @@ def load_data(test_dir,eval_dir,lang,vocab_type,set_name):
     return
         dict {SetName: [dataframe,color]}
     """
-
+    
+    def load_data(vocab_type,set_name,eval_dir,test_dir,exp_threshold):
+        
+        '''
+        load data based on vocab type and set name
+        '''
+        data_dict = {}
+        # load human
+        if set_name == 'human':
+            human_frame = pd.read_csv(test_dir + 'human_' + lang + '_' + vocab_type +'.csv')
+            test_frame,test_x,test_y = load_CDI(human_frame)
+            
+        elif vocab_type == 'exp':
+            data_frame = pd.read_csv(eval_dir + set_name + '.csv')
+            target_frame = pd.read_csv(test_dir + 'machine_' + lang + '_' + vocab_type +'.csv')
+            test_frame,test_x,test_y = load_exp(data_frame,target_frame,exp_threshold)
+        
+        data_dict[set_name] = [test_frame,test_x,test_y,color_dict[set_name]]
+        return data_dict
+    
+    
     if vocab_type == 'recep':
         pass
     elif vocab_type == 'exp':
-        # load human     !!! TO DO: add the condition with more than one human data
-        human_frame = pd.read_csv(test_dir + 'human_' + file).iloc[:, 5:-6]
-        human_result = load_CDI(human_frame)
-
+        # load human CDI  
+        human_dict = load_data(vocab_type,'human',eval_dir,test_dir,exp_threshold)
         # load CHILDES
-
+        #CHILDES_dict = load_data(vocab_type,'CHILDES',eval_dir,test_dir,exp_threshold)
         # load unprompted generation
-
+        unprompted_dict = load_data(vocab_type,'unprompted',eval_dir,test_dir,exp_threshold)
         # load prompted generation
+        #prompted_dict = load_data(vocab_type,'prompted',eval_dir,test_dir,exp_threshold)
+        #final_dict = {**human_dict,**CHILDES_dict,**unprompted_dict}
+        
+        final_dict = {**human_dict,**unprompted_dict}
+    # load the testset name to plot by freq
+    # elif vocab_type == 'individual':
+       
+    return final_dict
 
-    elif vocab_type == 'individual':
-        # load the testset name to plot by freq
 
 
 
-    return
-
-
-
-
-    return data_dict
-def plot_all(vocab_type, human_dir,model_dir, test_set, accum_threshold, exp_threshold,lang):
+def plot_all(final_dict):
 
     """
     input: dataframes of input data to print
 
     """
-    # plot the curve averaged by freq bands
-    # plot human
-    linestyle_lst = ['solid', 'dotted']
-    n = 0
-    for file in os.listdir(human_dir):
-
-        ax = sns.lineplot(x="month", y="Proportion of acquired words", data=human_result,
-                          color="Red", linestyle=linestyle_lst[n], linewidth=3.5, label='CDI')
-        n += 1
-
-    # load speech-based and phones-based models
-    if vocab_type == 'recep':
-
-        # plot accumulator model
-        accum_all = pd.read_csv(model_dir + 'accum.csv')
-        accum_result = load_accum(accum_all, accum_threshold)
-        ax = sns.lineplot(x="month", y="Lexical score", data=accum_result,
-                          color="Green", linewidth=3, label='Accumulator')
-
-        speech_result = pd.read_csv(model_dir + 'speech.csv')
-
-        # remove the chunk in which there is only one word in each freq band
-        # merge among similar freq band of the same chunk
-        speech_result = speech_result.groupby(['month','chunk'])['mean_score'].mean().reset_index()
-        ax = sns.lineplot(x="month", y="mean_score", data=speech_result,       
-                          color='Blue', linewidth=3.5, label='speech')     # show the freq band's level range 
+    
+    
+    for label, data in final_dict.items():
         
-        
-        # plot speech-based model
-        phones_result = pd.read_csv(model_dir + 'phones.csv')
-        phones_result = phones_result.groupby(['month','chunk'])['mean_score'].mean().reset_index()
-        ax = sns.lineplot(x="month", y="mean_score", data=phones_result,
-                          color="Purple", linewidth=3.5, label='phones')
-
-    elif vocab_type == 'exp':
-
-        # group by different frequencies
-        target_dir = human_dir.replace('CDI', test_set)
-        # add human-estimation here
-        CHILDES_freq = pd.read_csv('Final_scores/Model_eval/' + lang + '/exp/CDI/CHILDES.csv')
-        avg_values_lst = []
-        score_frame = pd.DataFrame()
-        # averaged by different groups
-        for freq in set(list(CHILDES_freq['group_original'].tolist())):
-            word_group = CHILDES_freq[CHILDES_freq['group_original']==freq]
-            score_frame_temp,avg_value = get_score_CHILDES(word_group, exp_threshold)
-            avg_values_lst.append(avg_value.values)
-            score_frame = pd.concat([score_frame,score_frame_temp])
-        score_frame.to_csv(lang + test_type +'_CHILDES.csv')
-        arrays_matrix = np.array(avg_values_lst)
-
-        # Calculate the average array along axis 0
-        avg_values = np.mean(arrays_matrix, axis=0)
-
-        # Plotting the line curve
-        month_list_CHILDES = [int(x) for x in score_frame.columns]
-        ax = sns.lineplot(month_list_CHILDES, avg_values,color="Orange", linewidth=3, label= 'CHILDES')
-        
-        
-        # unprompted generation: different freq bands
-        if test_type == 'aligned':
-            target_frame = pd.read_csv(target_dir + '/median_aligned.csv' )
-            
-        else:
-            if test_type == 'unaligned':
-                target_frame = pd.read_csv(target_dir + '/median_unaligned.csv' )
-                
-        
-        seq_frame_all = pd.read_csv(model_dir + 'unprompted.csv', index_col=0)
-        score_frame_unprompted, avg_unprompted = load_exp(
-            seq_frame_all, target_frame, False, exp_threshold)
-        
-        score_frame_unprompted.to_csv(lang + test_type + '_unprompted_score.csv')
-        
-        
-        month_list_unprompted = [int(x)
-                                 for x in score_frame_unprompted.columns]
-        ax = sns.lineplot(month_list_unprompted, avg_unprompted,
-                          color="Grey", linewidth=3, label='LSTM')
-
-
+        # plot the curve recursively 
+        sns.lineplot(data[1], data[2],linewidth=3, label=label,color = data[3])
     # set the limits of the x-axis for each line
-    for line in ax.lines:
-        plt.xlim(0, 36)
-        plt.ylim(0, 1)
+    
+    plt.xlim(0, 36)
+    plt.ylim(0, 1)
 
     plt.title('{} {} vocab'.format(
         lang, vocab_type, test_set), fontsize=15, fontweight='bold')
