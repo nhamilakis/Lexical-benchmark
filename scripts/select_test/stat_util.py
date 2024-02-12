@@ -25,7 +25,7 @@ random.seed(66)
 nlp = spacy.load('en_core_web_sm')
 
 
-def preprocess(DataPath, word_type):
+def preprocess(infants_data):
     '''
     preprocess the CDI testset
 
@@ -33,21 +33,25 @@ def preprocess(DataPath, word_type):
         output: selected word freq dataframe
     '''
 
-    infants_data = pd.read_csv(DataPath)
+    #infants_data = pd.read_csv(DataPath)
     # remove annotations or additional punctuations
-    words = infants_data['item_definition'].tolist()
+    try:
+        words = infants_data['item_definition'].tolist()
 
-    cleaned_lst = []
-    for word in words:
-        # remove punctuations
-        translator = str.maketrans('', '', string.punctuation + string.digits)
-        clean_string = word.translate(translator).lower()
-        # remove annotations; problem: polysemies
-        cleaned_word = re.sub(r"\([a-z]+\)", "", clean_string)
-        cleaned_lst.append(cleaned_word)
+        cleaned_lst = []
+        for word in words:
+            # remove punctuations
+            translator = str.maketrans('', '', string.punctuation + string.digits)
+            clean_string = word.translate(translator).lower()
+            # remove annotations; problem: polysemies
+            cleaned_word = re.sub(r"\([a-z]+\)", "", clean_string)
+            cleaned_lst.append(cleaned_word)
 
-    infants_data['word'] = cleaned_lst
-    return infants_data
+        infants_data['word'] = cleaned_lst
+        return infants_data
+    except:
+        print('Pre-processing audiobook testset')
+        return infants_data
 
 
 def select_type(selected_words, word_type):
