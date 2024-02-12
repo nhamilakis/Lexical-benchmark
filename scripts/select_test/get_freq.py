@@ -30,7 +30,7 @@ def parseArgs(argv):
     # Run parameters
     parser = argparse.ArgumentParser(description='Select test sets by freq')
 
-    parser.add_argument('--lang', type=str, default='BE',
+    parser.add_argument('--lang', type=str, default='AE',
                        help='languages to test: AE, BE or FR')
 
     parser.add_argument('--eval_condition', type=str, default='exp',
@@ -48,7 +48,7 @@ def parseArgs(argv):
     parser.add_argument('--num_bins', type=int, default=6,
                         help='number of eaqul-sized bins of human CDI data')
 
-    parser.add_argument('--freq_type', type=str, default='freq',
+    parser.add_argument('--freq_type', type=str, default='log_freq',
                         help='freq types: freq or log_freq')
 
     parser.add_argument('--machine_set', type=str, default='audiobook',
