@@ -14,15 +14,13 @@ import spacy
 
 nlp = spacy.load('en_core_web_sm')
 
-
 def match_words(DataPath, fre_table, word_type):
 
-    '''
+    """
     preprocess the test set
-
         input: word freq dataframe; CDI path
         output: selected word freq dataframe
-    '''
+    """
 
     infants_data = pd.read_csv(DataPath)
     # remove annotations in wordbank

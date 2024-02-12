@@ -89,15 +89,44 @@ def fit_sigmoid(x_data, y_data, target_y, offset,label,color,by_freq,style='soli
     plt.ylim(0, 1)
     # Marking the point where y reaches the target value
     plt.axvline(x=int(target_x), linestyle='dotted')
-    header_lst = ['Type',"Month","Slope" , "Weighted_offset" ]
+    header_lst = ['Label',"Month","Slope" , "Weighted_offset" ]
     # return the optimized parameters of the sigmoid function
     para_frame = pd.DataFrame([label,target_x,popt[0],popt[1]]).T
     para_frame.columns = header_lst
-    
+    plt.xlabel('(Pseudo) age in month', fontsize=15)
+    plt.ylabel('Proportion of children/models', fontsize=15)
+    plt.tick_params(axis='both', labelsize=10)
     return para_frame
     
 
+   
+def fit_log(x_data, y_data, label,color):
+    '''
+    fit sigmoid curve of extrapolated exp vocab
 
+    '''
+
+    def log_curve(x, a, b):
+        return a * np.log2(x) + b
+
+    # Fit the sigmoid function to the scatter plot data
+    popt, pcov = curve_fit(log_curve, x_data, y_data, maxfev=100000, method = 'trf')
+    
+    # Generate x values for the fitted curve
+    x_fit = np.linspace(0, max(x_data), 40)
+    # Use the optimized parameters to generate y values for the fitted curve
+    y_fit = log_curve(x_fit, *popt)    
+    # first find the target x in the given scatter plots
+    plt.scatter(x_data, y_data, c= color)
+    # plot until it has reached the target x
+    plt.plot(x_fit, y_fit, linewidth=3.5, color = color,label= label)
+    plt.xlabel('Median freq', fontsize=15)
+    plt.ylabel('Estimated months', fontsize=15)
+    plt.tick_params(axis='both', labelsize=10)
+    
+    
+    
+  
 def plot_exp(model_dir, target_frame, exp_threshold, label
              ,extrapolation,target_y,color_dict,curve_label,by_freq = False):
     
@@ -173,7 +202,6 @@ def plot_exp(model_dir, target_frame, exp_threshold, label
         plt.xlim(0, 36)
         plt.ylim(0, 1)
     
-    plt.xlabel('(Pseudo) age in month', fontsize=15)
-    plt.ylabel('Proportion of children/models', fontsize=15)
-    plt.tick_params(axis='both', labelsize=10)
+    
     return para_dict
+

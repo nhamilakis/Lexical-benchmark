@@ -157,7 +157,8 @@ def match_freq(CDI, audiobook, match_mode, num_bins, threshold, match_median):
 
     CDI, audiobook = match_range(CDI, audiobook)
     CDI_bins, matched_CDI = get_equal_bins(CDI['CHILDES_log_freq_per_million'].tolist(), CDI, num_bins)
-
+    print(CDI_bins)
+    '''
     if match_mode == 'range_aligned':
         _, matched_audiobook = get_equal_bins(audiobook['Audiobook_log_freq_per_million'].tolist(), audiobook, num_bins)
 
@@ -176,9 +177,9 @@ def match_freq(CDI, audiobook, match_mode, num_bins, threshold, match_median):
         _, matched_audiobook_temp = match_bin_range(CDI_bins, audiobook['Audiobook_log_freq_per_million'].tolist(),
                                                     audiobook)
         matched_audiobook = match_bin_prop(matched_audiobook_temp, threshold)
-
+    
     return matched_CDI, matched_audiobook
-
+    '''
 
 def compare_histogram(matched_CDI, matched_audiobook, num_bins, freq_type, lang, eval_condition, dataPath, match_mode,
                       machine_set, alpha=0.5):
@@ -287,9 +288,10 @@ def main(argv):
                 audiobook_test = pd.read_csv(test_path + '/machine_CDI/machine_' + args.machine_set + '.csv')
 
         audiobook = get_freq_frame(audiobook_test, train_path, args.word_type,'machine')
-
+        match_freq(CDI, audiobook, args.match_mode,
+                   args.num_bins, args.threshold, args.match_median)
         print('finished loading machine CDI')
-
+'''
         matched_CDI, matched_audiobook = match_freq(CDI, audiobook, args.match_mode,
                                                  args.num_bins, args.threshold, args.match_median)
         # save the filtered results
@@ -298,7 +300,6 @@ def main(argv):
         print('finished matching human and machine CDI')
 
     # step 3: plot the distr figures
-
     # save the plot to the target dir
     fig_path = (args.outPath + 'fig/' + args.word_format+ '/' + args.match_mode + '/' + str(args.num_bins) + '_'
                   + args.machine_set + '_' + match_median_name)
@@ -340,7 +341,7 @@ def main(argv):
     stat_all.to_csv(stat_path + args.lang + '_' + args.eval_condition + '_' + args.freq_type + '.csv')
 
     print('Finished getting stat!')
-
+'''
 
 if __name__ == "__main__":
     args = sys.argv[1:]
