@@ -179,8 +179,8 @@ def plot_exp(model_dir, target_frame, exp_threshold, label
     score_frame_unprompted, avg_unprompted = load_exp(
             seq_frame_all, target_frame, exp_threshold)
     
-    month_list_unprompted = [int(x) for x in score_frame_unprompted.columns]
-    
+    #month_list_unprompted = [int(x) for x in score_frame_unprompted.columns]
+    month_list_unprompted = [float(x) for x in score_frame_unprompted.columns]
     if not extrapolation:
         
         sns.lineplot(month_list_unprompted, avg_unprompted,

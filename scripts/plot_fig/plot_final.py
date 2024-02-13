@@ -19,7 +19,7 @@ import pandas as pd
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
-from plot_final_util import load_CDI,fit_sigmoid,plot_exp,fit_log
+from plot_final_util import load_CDI,fit_sigmoid,plot_exp,fit_log,load_accum
 import sys
 import argparse
 
@@ -45,20 +45,21 @@ def parseArgs(argv):
     parser.add_argument('--fig_dir', type=str, default="Final_scores/Figures/",
                         help='directory of human CDI')
 
-    parser.add_argument('--exp_threshold', type=int, default=60,
+    parser.add_argument('--exp_threshold', type=int, default=600,
                         help='threshold for expressive vocab')
 
-    parser.add_argument('--accum_threshold', type=int, default=200,
+    parser.add_argument('--accum_threshold', type=int, default=60,
                         help='thresho, offsetld for accumulator model')
     
     parser.add_argument('--color_dict', type=int, default={'speech': 'Blue','phones':'Green',
-                        'human':'Red','CHILDES':'Orange','unprompted':'Grey','prompted':'Blue'},
+                        'human':'Red','CHILDES':'Orange','unprompted':'Grey','prompted':'Blue',
+                        'train':'Grey','Adult':'Orange'},
                         help='thresho, offsetld for accumulator model')
 
-    parser.add_argument('--by_freq', default=True,
+    parser.add_argument('--by_freq', default=False,
                         help='whether to decompose the results by frequency bands')
 
-    parser.add_argument('--extrapolation', default=True,
+    parser.add_argument('--extrapolation', default=False,
                         help='whether to plot the extrapolation figure')
     
     parser.add_argument('--aggregate_freq', default=False,
@@ -70,6 +71,9 @@ def parseArgs(argv):
     parser.add_argument('--target_y', type=float, default=0.8,
                         help='target y to reach for extrapolation')
     
+    parser.add_argument('--condition', type=str, default='exposure',
+                        help='either to investigate test set or exposure set')
+    
     return parser.parse_args(argv)
 
 sns.set_style('whitegrid')
@@ -77,11 +81,12 @@ sns.set_style('whitegrid')
 
 
 def plot_all(vocab_type, human_dir,model_dir, test_set, accum_threshold, exp_threshold
-              ,lang,extrapolation,color_dict,target_y):
+              ,lang,extrapolation,color_dict,target_y,condition):
 
     # plot the curve averaged by freq bands
     # plot human
     linestyle_lst = ['solid', 'dotted']
+    
     
     n = 0
     for file in os.listdir(human_dir):
@@ -97,7 +102,7 @@ def plot_all(vocab_type, human_dir,model_dir, test_set, accum_threshold, exp_thr
                               linestyle=linestyle_lst[n], linewidth=3.5, label=label)
         else:
             # only shows the by_month prop here 
-            para_human = fit_sigmoid(month_lst,prop_lst, target_y,0,label,color_dict[label]
+            para_human = fit_sigmoid(month_lst,prop_lst, target_y,True,label,color_dict[label]
                                                     ,by_freq=False,style=linestyle_lst[n])
             
         n += 1
@@ -128,26 +133,43 @@ def plot_all(vocab_type, human_dir,model_dir, test_set, accum_threshold, exp_thr
 
     elif vocab_type == 'exp':
         
-        # group by different frequencies
-        
-        para_CHILDES = plot_exp(model_dir, human_frame, exp_threshold, 'CHILDES'
-                      ,extrapolation,target_y,color_dict, 'CHILDES')
-        
-        
         target_dir = human_dir.replace('CDI', test_set)
         target_frame = pd.read_csv(target_dir + '/median_aligned.csv' )
+        # group by different frequencies
         
-        para_unprompted = plot_exp(model_dir, target_frame, exp_threshold, 'unprompted'
-                      ,extrapolation,target_y,color_dict, 'unprompted')
+        if condition == 'exposure':
         
-        para_prompted = plot_exp(model_dir, target_frame, exp_threshold, 'prompted'
-                      ,extrapolation,target_y,color_dict, 'prompted')
+            para_train = plot_exp(model_dir, target_frame, exp_threshold, 'train'
+                      ,extrapolation,target_y,color_dict, 'train')
+            
+            para_adult = plot_exp(model_dir, human_frame, exp_threshold, 'Adult'
+                      ,extrapolation,target_y,color_dict, 'Adult')
+            
+        
+        elif condition == 'test':
+        
+            para_CHILDES = plot_exp(model_dir, human_frame, exp_threshold, 'CHILDES'
+                          ,extrapolation,target_y,color_dict, 'CHILDES')
+            
+            
+            target_dir = human_dir.replace('CDI', test_set)
+            target_frame = pd.read_csv(target_dir + '/median_aligned.csv' )
+            
+            para_unprompted = plot_exp(model_dir, target_frame, exp_threshold, 'unprompted'
+                          ,extrapolation,target_y,color_dict, 'unprompted')
+            
+            para_prompted = plot_exp(model_dir, target_frame, exp_threshold, 'prompted'
+                          ,extrapolation,target_y,color_dict, 'prompted')
+        
+        
     # concatenate the result
-    if extrapolation:
-        para_all = pd.concat([para_human,para_CHILDES, para_unprompted,para_prompted], ignore_index=True)
+    
+        
     plt.title('{} {} vocab'.format(
         lang, vocab_type), fontsize=15, fontweight='bold') 
-    if args.extrapolation:
+    
+    
+    if extrapolation:
         parent_dir = 'extrapolation'
         # convert into dataframe   
     else:    
@@ -155,17 +177,30 @@ def plot_all(vocab_type, human_dir,model_dir, test_set, accum_threshold, exp_thr
         
     legend_loc = 'upper left'
     plt.legend(loc=legend_loc)
-    fig_dir = 'Final_scores/Figures/' + parent_dir + '/' + freq + '/' 
+    
+    fig_dir = 'Final_scores/Figures/' + parent_dir + '/avg/' 
     # save the dataframe
-    para_all.to_csv(fig_dir + vocab_type + '_' + test_set+'.csv')
+    
+    if extrapolation:
+        
+        if condition == 'exposure':
+            
+            para_all = pd.concat([para_human,para_train, para_adult], ignore_index=True)
+            
+        else:
+            para_all = pd.concat([para_human,para_CHILDES, para_unprompted,para_prompted], ignore_index=True)
+        
+        
+        para_all.to_csv(fig_dir + vocab_type + '_' + test_set + '_' + condition+'.csv')
+    
     if not os.path.exists(fig_dir):
         os.makedirs(fig_dir)
-    fig_path = fig_dir + lang + '_' + vocab_type + '_' + test_set+'.png'
+    fig_path = fig_dir + lang + '_' + vocab_type + '_' + test_set +'.png'
     plt.savefig(fig_path, dpi=800)
     
     plt.show()
 
-    return para_all
+    
     
     
 
@@ -238,7 +273,7 @@ def plot_by_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_thr
             # map the legend label to freq median
             median_freq = "{:.2f}".format(human_frame['freq_median'].tolist()[0])
             para = plot_exp(model_dir, human_frame, exp_threshold, 'CHILDES'
-                          ,extrapolation,target_y,color_dict,str(median_freq),by_freq=True,)
+                          ,extrapolation,target_y,color_dict,str(median_freq),by_freq=True)
                         
         
         if set_type == 'unprompted':
@@ -256,6 +291,22 @@ def plot_by_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_thr
             median_freq = "{:.2f}".format(word_group['freq_median'].tolist()[0])
             para = plot_exp(model_dir, word_group, exp_threshold, 'prompted'
                           ,extrapolation,target_y,color_dict,str(median_freq),by_freq=True)
+            
+        if set_type == 'train':
+                
+            word_group = target_frame[target_frame['group']==freq]
+            # map the legend label to freq median
+            median_freq = "{:.2f}".format(word_group['freq_median'].tolist()[0])
+            para = plot_exp(model_dir, word_group, exp_threshold, 'train'
+                          ,extrapolation,target_y,color_dict,str(median_freq),by_freq=True)
+            
+        if set_type == 'Adult':
+            human_frame = human_frame_all[human_frame_all['group']==freq]
+            # map the legend label to freq median
+            median_freq = "{:.2f}".format(human_frame['freq_median'].tolist()[0])
+            para = plot_exp(model_dir, human_frame, exp_threshold, 'Adult'
+                          ,extrapolation,target_y,color_dict,str(median_freq),by_freq=True)
+            
         
         para['group'] = freq
         para_frame = pd.concat([para_frame,para])
@@ -532,7 +583,7 @@ def freq_sensitivity(lang, vocab_type,color_dict):
     input: a dataframe with freq bins adn estimated months
     output: curves in months
     '''
-    para_all = pd.read_csv('Final_scores/Figures/extrapolation/by_freq/exp.csv')
+    para_all = pd.read_csv('Final_scores/Figures/extrapolation/by_freq/exp_exposure.csv')
     
     para_frame = para_all[para_all['lang']==lang]
     para_frame_grouped = para_frame.groupby(['set'])
@@ -563,6 +614,7 @@ def main(argv):
     accum_threshold = args.accum_threshold
     exp_threshold = args.exp_threshold
     color_dict = args.color_dict
+    condition = args.condition
     
     para_all = pd.DataFrame()
     for vocab_type in args.vocab_type_lst:
@@ -573,6 +625,8 @@ def main(argv):
                             '/' + vocab_type + '/'
                 human_dir = args.human_dir + lang + '/' + vocab_type
                 
+                
+                
                 if args.aggregate_freq:
                     
                     aggre_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_threshold
@@ -580,8 +634,13 @@ def main(argv):
                     
                 elif args.by_freq:
                     
-                    set_lst = ['human','CHILDES','unprompted','prompted']
+                    if condition == 'test':
+                        set_lst = ['human','CHILDES','unprompted','prompted']
                     
+                    elif condition == 'exposure':
+                        set_lst = ['human','train','Adult']
+                        
+                        
                     if args.extrapolation:
                         para_frame = pd.DataFrame()
                         for set_type in set_lst:
@@ -594,7 +653,7 @@ def main(argv):
                             para_frame = pd.concat([para_frame,para_set])
                         para_frame['lang'] = lang
                         para_all = pd.concat([para_all,para_frame])
-                        para_all.to_csv('Final_scores/Figures/extrapolation/by_freq/exp.csv' )
+                        para_all.to_csv('Final_scores/Figures/extrapolation/by_freq/exp_' + condition +'.csv' )
                         
                     else:
                         for set_type in set_lst:
@@ -604,14 +663,18 @@ def main(argv):
                     freq_sensitivity(lang, vocab_type,color_dict)
                     
                 else:
+                    
+                    plot_all(vocab_type, human_dir,model_dir, test_set, accum_threshold
+                         ,exp_threshold,lang,args.extrapolation,color_dict,args.target_y,condition) 
+                    '''
                     para_frame = plot_all(vocab_type, human_dir,model_dir, test_set, accum_threshold
-                         ,exp_threshold,lang,args.extrapolation,color_dict,args.target_y) 
+                         ,exp_threshold,lang,args.extrapolation,color_dict,args.target_y,condition) 
                     
                     freq = 'avg'
                     para_frame['lang'] = lang
                     para_frame['freq'] = freq
                     para_all = pd.concat([para_all,para_frame])
-                    
+                    '''
                 
                 
                 
