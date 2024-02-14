@@ -205,3 +205,34 @@ def plot_exp(model_dir, target_frame, exp_threshold, label
     
     return para_dict
 
+
+
+
+
+def plot_exp_freq(human_frame_all,freq,set_type,model_dir,exp_threshold
+                 ,extrapolation,target_y,color_dict):
+    
+    human_frame = human_frame_all[human_frame_all['group']==freq]
+    # map the legend label to freq median
+    median_freq = "{:.2f}".format(human_frame['freq_median'].tolist()[0])
+    para = plot_exp(model_dir, human_frame, exp_threshold, set_type
+                  ,extrapolation,target_y,color_dict,str(median_freq),by_freq=True)
+    
+    return para
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

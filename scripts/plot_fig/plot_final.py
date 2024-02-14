@@ -19,7 +19,7 @@ import pandas as pd
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
-from plot_final_util import load_CDI,fit_sigmoid,plot_exp,fit_log,load_accum
+from plot_final_util import load_CDI,fit_sigmoid,plot_exp,fit_log,load_accum,plot_exp_freq
 import sys
 import argparse
 
@@ -56,10 +56,10 @@ def parseArgs(argv):
                         'train':'Grey','Adult':'Orange'},
                         help='thresho, offsetld for accumulator model')
 
-    parser.add_argument('--by_freq', default=False,
+    parser.add_argument('--by_freq', default=True,
                         help='whether to decompose the results by frequency bands')
 
-    parser.add_argument('--extrapolation', default=False,
+    parser.add_argument('--extrapolation', default=True,
                         help='whether to plot the extrapolation figure')
     
     parser.add_argument('--aggregate_freq', default=False,
@@ -71,7 +71,7 @@ def parseArgs(argv):
     parser.add_argument('--target_y', type=float, default=0.8,
                         help='target y to reach for extrapolation')
     
-    parser.add_argument('--condition', type=str, default='exposure',
+    parser.add_argument('--condition', type=str, default='test',
                         help='either to investigate test set or exposure set')
     
     return parser.parse_args(argv)
@@ -265,49 +265,17 @@ def plot_by_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_thr
                     # seelct speech model based on the freq band
                     phone_result = phone_result_all[phone_result_all['group_median']==freq]
                     ax = sns.lineplot(x="month", y="group", data=phone_result,linewidth=3, label= freq)
-                    
-                
-        if set_type == 'CHILDES':
-            # add human-estimation here
-            human_frame = human_frame_all[human_frame_all['group']==freq]
-            # map the legend label to freq median
-            median_freq = "{:.2f}".format(human_frame['freq_median'].tolist()[0])
-            para = plot_exp(model_dir, human_frame, exp_threshold, 'CHILDES'
-                          ,extrapolation,target_y,color_dict,str(median_freq),by_freq=True)
-                        
         
-        if set_type == 'unprompted':
-                
-            word_group = target_frame[target_frame['group']==freq]
-            # map the legend label to freq median
-            median_freq = "{:.2f}".format(word_group['freq_median'].tolist()[0])
-            para = plot_exp(model_dir, word_group, exp_threshold, 'unprompted'
-                          ,extrapolation,target_y,color_dict,str(median_freq),by_freq=True)
-            
-        if set_type == 'prompted':
-                
-            word_group = target_frame[target_frame['group']==freq]
-            # map the legend label to freq median
-            median_freq = "{:.2f}".format(word_group['freq_median'].tolist()[0])
-            para = plot_exp(model_dir, word_group, exp_threshold, 'prompted'
-                          ,extrapolation,target_y,color_dict,str(median_freq),by_freq=True)
-            
-        if set_type == 'train':
-                
-            word_group = target_frame[target_frame['group']==freq]
-            # map the legend label to freq median
-            median_freq = "{:.2f}".format(word_group['freq_median'].tolist()[0])
-            para = plot_exp(model_dir, word_group, exp_threshold, 'train'
-                          ,extrapolation,target_y,color_dict,str(median_freq),by_freq=True)
-            
-        if set_type == 'Adult':
-            human_frame = human_frame_all[human_frame_all['group']==freq]
-            # map the legend label to freq median
-            median_freq = "{:.2f}".format(human_frame['freq_median'].tolist()[0])
-            para = plot_exp(model_dir, human_frame, exp_threshold, 'Adult'
-                          ,extrapolation,target_y,color_dict,str(median_freq),by_freq=True)
-            
         
+        if set_type == 'CHILDES' or set_type == 'Adult':
+            para = plot_exp_freq(human_frame_all,freq,set_type,model_dir,exp_threshold
+                         ,extrapolation,target_y,color_dict)
+            
+        if set_type == 'unprompted' or set_type == 'prompted'or set_type == 'train':
+            
+            para = plot_exp_freq(target_frame,freq,set_type,model_dir,exp_threshold
+                         ,extrapolation,target_y,color_dict)
+
         para['group'] = freq
         para_frame = pd.concat([para_frame,para])
         
