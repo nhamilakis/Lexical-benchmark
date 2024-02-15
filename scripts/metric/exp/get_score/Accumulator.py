@@ -15,7 +15,7 @@ filename_path = '/data/Machine_CDI/Lexical-benchmark_data/exp/Audiobook/'
 text_path = '/data/Machine_CDI/Lexical-benchmark_data/train_phoneme/dataset/'
 out_path = '/data/Machine_CDI/Lexical-benchmark_data/exp/Audiobook/freq_by_chunk/'
 test_path = '/data/Machine_CDI/Lexical-benchmark_output/test_set/matched_set/char/bin_range_aligned/6_audiobook_aligned/'
-
+lang = 'AE'
 # get freq table recursively
 
 def get_freq_table(lines):
@@ -102,12 +102,7 @@ def count_chunk(filename_path,text_path,out_path):
 
 
 def select_words(lang,out_path,filename_path):
-    '''
-    Returns
-    -------
-    
-    '''
-    
+   
     
     testset = pd.read_csv(test_path + 'machine_' + lang + '_exp.csv')
     
@@ -121,22 +116,22 @@ def select_words(lang,out_path,filename_path):
         fre_lst = []
         for word in testset['word']:
             try:
-                
                 fre_lst.append(freq_table[freq_table['Word']==word]['Freq'].item())
             except:
-                
                 fre_lst.append(0)
            
-        freq_frame[int(file[:-4])] =  fre_lst
+        freq_frame[(int(file[:-4]) + 1) * 50/89] =  fre_lst
         
     freq_frame = freq_frame.reindex(sorted(freq_frame.columns), axis=1)
     freq_frame['word'] = testset['word']
-    
     sel_frame = freq_frame.iloc[:,:-1]
     columns = freq_frame.columns[:-1]
     sel_frame = sel_frame.cumsum(axis=1)
     for col in columns.tolist():
         freq_frame[col] = sel_frame[col] 
     
-    freq_frame.to_csv('BE_freq.csv')
+    freq_frame.to_csv(filename_path + lang + '_freq.csv')
     
+
+
+
