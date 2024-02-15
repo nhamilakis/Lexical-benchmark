@@ -179,8 +179,8 @@ def plot_exp(model_dir, target_frame, exp_threshold, label
     score_frame_unprompted, avg_unprompted = load_exp(
             seq_frame_all, target_frame, exp_threshold)
     
-    month_list_unprompted = [int(x) for x in score_frame_unprompted.columns]
-    
+    #month_list_unprompted = [int(x) for x in score_frame_unprompted.columns]
+    month_list_unprompted = [float(x) for x in score_frame_unprompted.columns]
     if not extrapolation:
         
         sns.lineplot(month_list_unprompted, avg_unprompted,
@@ -205,3 +205,34 @@ def plot_exp(model_dir, target_frame, exp_threshold, label
     
     return para_dict
 
+
+
+
+
+def plot_exp_freq(human_frame_all,freq,set_type,model_dir,exp_threshold
+                 ,extrapolation,target_y,color_dict):
+    
+    human_frame = human_frame_all[human_frame_all['group']==freq]
+    # map the legend label to freq median
+    median_freq = "{:.2f}".format(human_frame['freq_median'].tolist()[0])
+    para = plot_exp(model_dir, human_frame, exp_threshold, set_type
+                  ,extrapolation,target_y,color_dict,str(median_freq),by_freq=True)
+    
+    return para
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

@@ -33,10 +33,10 @@ def parseArgs(argv):
     parser.add_argument('--eval_condition', type=str, default='exp',
                         help='which type of words to select; recep or exp')
 
-    parser.add_argument('--dataPath', type=str, default='/data/Machine_CDI/Lexical-benchmark_data/test_set/',
+    parser.add_argument('--dataPath', type=str, default='Lexical-benchmark_data/test_set/',
                         help='path to the freq corpus and test sets')
 
-    parser.add_argument('--outPath', type=str, default='/data/Machine_CDI/Lexical-benchmark_output/test_set/',
+    parser.add_argument('--outPath', type=str, default='Lexical-benchmark_output/test_set/',
                         help='output path to the freq corpus')
 
     parser.add_argument('--word_format', type=str, default='char',
@@ -60,7 +60,7 @@ def parseArgs(argv):
     parser.add_argument('--word_type', type=str, default='content',
                         help='difference word types')  
     
-    parser.add_argument('--match_median', default=False,
+    parser.add_argument('--match_median', default=True,
                         help='whether to match median freq and length of each freq bin')
 
     return parser.parse_args(argv)
@@ -104,7 +104,7 @@ def get_freq_frame(test, train_path, word_type,CDI_type):
         print('Downloading the SUBTLEX_US from: ')
         #TO DO: add automatic downloading from the website
 
-    test = preprocess(test,CDI_type)
+    test = preprocess(test)
 
     # Find the intersection of the three lists
     selected_words = list(set(test['word'].tolist()).intersection(set(CHILDES_fre_table['Word'].tolist()),
@@ -157,8 +157,7 @@ def match_freq(CDI, audiobook, match_mode, num_bins, threshold, match_median):
 
     CDI, audiobook = match_range(CDI, audiobook)
     CDI_bins, matched_CDI = get_equal_bins(CDI['CHILDES_log_freq_per_million'].tolist(), CDI, num_bins)
-    print(CDI_bins)
-    '''
+
     if match_mode == 'range_aligned':
         _, matched_audiobook = get_equal_bins(audiobook['Audiobook_log_freq_per_million'].tolist(), audiobook, num_bins)
 
@@ -179,7 +178,7 @@ def match_freq(CDI, audiobook, match_mode, num_bins, threshold, match_median):
         matched_audiobook = match_bin_prop(matched_audiobook_temp, threshold)
     
     return matched_CDI, matched_audiobook
-    '''
+
 
 def compare_histogram(matched_CDI, matched_audiobook, num_bins, freq_type, lang, eval_condition, dataPath, match_mode,
                       machine_set, alpha=0.5):
@@ -291,7 +290,7 @@ def main(argv):
         match_freq(CDI, audiobook, args.match_mode,
                    args.num_bins, args.threshold, args.match_median)
         print('finished loading machine CDI')
-'''
+
         matched_CDI, matched_audiobook = match_freq(CDI, audiobook, args.match_mode,
                                                  args.num_bins, args.threshold, args.match_median)
         # save the filtered results
@@ -341,7 +340,7 @@ def main(argv):
     stat_all.to_csv(stat_path + args.lang + '_' + args.eval_condition + '_' + args.freq_type + '.csv')
 
     print('Finished getting stat!')
-'''
+
 
 if __name__ == "__main__":
     args = sys.argv[1:]
