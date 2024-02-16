@@ -182,7 +182,33 @@ def count_by_month(OutputPath,file_stat_sorted):
     group_stat.to_csv(OutputPath + '/month/Stat_chunk.csv')
     return group_stat
   
+def lemmatize(seq_lst):
     
+    '''
+    get words and lemmas from sequences respectively
+    input: sequence list
+    output: 1.word list; 2.lemma dict{lemma: words}
+    '''
+    # select the word from the dataframe
+    word_lst = []
+    lemma_dict = {}
+    for seq in seq_lst:
+        try: 
+            if d.check(seq) == True:
+                word_lst.append(seq)
+                # Process the word using spaCy
+                doc = nlp(seq)
+                # lemmatize the word 
+                lemma = doc[0].lemma_
+                
+                if lemma in lemma_dict:
+                    lemma_dict[lemma].append(seq)
+                else:
+                    lemma_dict[lemma] = [seq]
+        except:
+            pass
+
+    return word_lst, lemma_dict
   
 def get_score(freq_frame,OutputPath,threshold):
     
@@ -243,8 +269,6 @@ def get_freq(result):
     fre_table['Log_norm_freq_per_million'] = norm_log_freq_lst
     
     return fre_table
-
-
 
 
 
