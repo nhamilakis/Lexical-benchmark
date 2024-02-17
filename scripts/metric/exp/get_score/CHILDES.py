@@ -36,7 +36,7 @@ def parseArgs(argv):
     parser.add_argument('--OutputPath', type=str, default = '/data/Machine_CDI/Lexical-benchmark_output/CHILDES',
                         help='Path to the freq output.')
     
-    parser.add_argument('--input_condition', type=str, default = 'exp',
+    parser.add_argument('--input_condition', type=str, default = 'recep',
                         help='recep for parent production or exp for children production')
     
     parser.add_argument('--hour', type=dict, default = 10,
@@ -208,6 +208,7 @@ def count_all_words(OutputPath,hour,word_per_sec,sec_frame,estimation_mode):
                 cleaned_frame.loc[word] = 0
             # Calculate the value for the cell
             value = freq / len(word_lst) * 30 * word_per_sec * hour * sec_per_hour
+            
             # Assign the value to the corresponding cell
             cleaned_frame.loc[word, file] = value
     # get cumulative frequency
@@ -334,10 +335,11 @@ def main(argv):
         
     # step 1: load data and count words
     month_stat = load_data(TextPath,OutputPath,input_condition)
-    freq_frame = count_words(OutputPath,month_stat,eval_path,hour,word_per_sec,eval_type,lang,eval_condition,sec_frame,estimation_mode)
-                            
+    count_all_words(OutputPath,hour,word_per_sec,sec_frame,estimation_mode)
+    #freq_frame = count_words(OutputPath,month_stat,eval_path,hour,word_per_sec,eval_type,lang,eval_condition,sec_frame,estimation_mode)
+    
     # step 2: get the score based on different thresholds
-    plot_multiple(OutputPath,eval_path,threshold_range,month_stat,eval_condition,freq_frame,hour,lang,eval_type,estimation_mode)
+    #plot_multiple(OutputPath,eval_path,threshold_range,month_stat,eval_condition,freq_frame,hour,lang,eval_type,estimation_mode)
     
 
    
