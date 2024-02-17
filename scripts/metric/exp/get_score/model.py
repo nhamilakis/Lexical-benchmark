@@ -12,7 +12,7 @@ import pandas as pd
 import collections
 import argparse
 import enchant
-#from util import lemmatize
+from util import lemmatize
 
 #d = enchant.Dict("en_US")
 
