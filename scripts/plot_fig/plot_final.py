@@ -45,7 +45,7 @@ def parseArgs(argv):
     parser.add_argument('--fig_dir', type=str, default="Final_scores/Figures/",
                         help='directory of human CDI')
 
-    parser.add_argument('--exp_threshold', type=int, default=600,
+    parser.add_argument('--exp_threshold', type=int, default=60,
                         help='threshold for expressive vocab')
 
     parser.add_argument('--accum_threshold', type=int, default=60,
@@ -56,16 +56,16 @@ def parseArgs(argv):
                         'train':'Grey','Adult':'Orange'},
                         help='thresho, offsetld for accumulator model')
 
-    parser.add_argument('--by_freq', default=True,
+    parser.add_argument('--by_freq', default=False,
                         help='whether to decompose the results by frequency bands')
 
-    parser.add_argument('--extrapolation', default=True,
+    parser.add_argument('--extrapolation', default=False,
                         help='whether to plot the extrapolation figure')
     
     parser.add_argument('--aggregate_freq', default=False,
                         help='whether to aggregate frequency bands into 2')
     
-    parser.add_argument('--freq_analysis', default=False,
+    parser.add_argument('--freq_analysis', default=True,
                         help='whether to analyze freq sensitivity')
     
     parser.add_argument('--target_y', type=float, default=0.8,
@@ -80,7 +80,7 @@ sns.set_style('whitegrid')
 
 
 
-def plot_all(vocab_type, human_dir,model_dir, test_set, accum_threshold, exp_threshold
+def plot_all(vocab_type, human_dir,model_dir,test_set, accum_threshold, exp_threshold
               ,lang,extrapolation,color_dict,target_y,condition):
 
     # plot the curve averaged by freq bands
@@ -163,7 +163,8 @@ def plot_all(vocab_type, human_dir,model_dir, test_set, accum_threshold, exp_thr
         
         
     # concatenate the result
-    
+    plt.xlabel('(Pseudo) age in month', fontsize=15)
+    plt.ylabel('Proportion of children/models', fontsize=15)
         
     plt.title('{} {} vocab'.format(
         lang, vocab_type), fontsize=15, fontweight='bold') 
@@ -174,10 +175,14 @@ def plot_all(vocab_type, human_dir,model_dir, test_set, accum_threshold, exp_thr
         # convert into dataframe   
     else:    
         parent_dir = 'stat'
-        
-    legend_loc = 'upper left'
-    plt.legend(loc=legend_loc)
     
+    if condition == 'exposure':
+        legend_loc = 'lower right'
+    else:    
+        legend_loc = 'upper left'
+    plt.legend(loc=legend_loc)
+    plt.xlabel('(Pseudo) age in month', fontsize=15)
+    plt.ylabel('Proportion of children/models', fontsize=15)
     fig_dir = 'Final_scores/Figures/' + parent_dir + '/avg/' 
     # save the dataframe
     
@@ -195,9 +200,8 @@ def plot_all(vocab_type, human_dir,model_dir, test_set, accum_threshold, exp_thr
     
     if not os.path.exists(fig_dir):
         os.makedirs(fig_dir)
-    fig_path = fig_dir + lang + '_' + vocab_type + '_' + test_set +'.png'
+    fig_path = fig_dir + lang + '_' + vocab_type + '_' + test_set + '_' + condition+ '_' + str(exp_threshold) +'.png'
     plt.savefig(fig_path, dpi=800)
-    
     plt.show()
 
     
@@ -285,9 +289,12 @@ def plot_by_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_thr
     fig_dir = 'Final_scores/Figures/extrapolation/by_freq/' 
     if not os.path.exists(fig_dir):
          os.makedirs(fig_dir)
-    fig_path = fig_dir + lang + '_' + vocab_type + '_' + set_type+'.png'
-    
-    legend_loc = 'upper left'
+    fig_path = fig_dir + lang + '_' + vocab_type + '_' + set_type+ '_' + str(exp_threshold) +'.png'
+    if set_type == 'human':
+        legend_loc = 'upper left'
+        
+    else: 
+        legend_loc = 'lower right'
     plt.legend(loc=legend_loc) 
     plt.savefig(fig_path, dpi=800)
     plt.show()          
@@ -545,13 +552,13 @@ def aggre_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_thres
     
   
     
-def freq_sensitivity(lang, vocab_type,color_dict):
+def freq_sensitivity(lang, vocab_type,color_dict,condition,exp_threshold):
     
     '''
     input: a dataframe with freq bins adn estimated months
     output: curves in months
     '''
-    para_all = pd.read_csv('Final_scores/Figures/extrapolation/by_freq/exp_exposure.csv')
+    para_all = pd.read_csv('Final_scores/Figures/extrapolation/by_freq/exp_' + condition + str(exp_threshold) + '.csv')
     
     para_frame = para_all[para_all['lang']==lang]
     para_frame_grouped = para_frame.groupby(['set'])
@@ -567,10 +574,11 @@ def freq_sensitivity(lang, vocab_type,color_dict):
         lang, vocab_type), fontsize=15, fontweight='bold') 
     legend_loc = 'upper right'
     plt.legend(loc=legend_loc)
+    plt.ylim(-10, 90)
     fig_dir = 'Final_scores/Figures/extrapolation/by_freq/' 
     if not os.path.exists(fig_dir):
          os.makedirs(fig_dir)
-    fig_path = fig_dir + lang + '_' + vocab_type +  '_sensitivity.png'
+    fig_path = fig_dir + lang + '_' + vocab_type + '_' + condition + '_sensitivity_' + str(exp_threshold) + '.png'
     plt.savefig(fig_path, dpi=800)
     plt.show()
     plt.clf()
@@ -583,7 +591,7 @@ def main(argv):
     exp_threshold = args.exp_threshold
     color_dict = args.color_dict
     condition = args.condition
-    
+    fig_dir = args.fig_dir
     para_all = pd.DataFrame()
     for vocab_type in args.vocab_type_lst:
         for lang in args.lang_lst:
@@ -621,14 +629,14 @@ def main(argv):
                             para_frame = pd.concat([para_frame,para_set])
                         para_frame['lang'] = lang
                         para_all = pd.concat([para_all,para_frame])
-                        para_all.to_csv('Final_scores/Figures/extrapolation/by_freq/exp_' + condition +'.csv' )
+                        para_all.to_csv('Final_scores/Figures/extrapolation/by_freq/exp_' + condition + str(args.exp_threshold) +'.csv' )
                         
                     else:
                         for set_type in set_lst:
                             para_set = plot_by_freq(vocab_type,human_dir,model_dir,test_set,accum_threshold,exp_threshold
                                          ,lang,set_type,args.extrapolation,args.target_y,color_dict)
                 elif args.freq_analysis:
-                    freq_sensitivity(lang, vocab_type,color_dict)
+                    freq_sensitivity(lang, vocab_type,color_dict,condition,exp_threshold)
                     
                 else:
                     
