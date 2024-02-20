@@ -21,7 +21,7 @@ def parseArgs(argv):
     # Run parameters
     parser = argparse.ArgumentParser(description='Investigate CHILDES corpus')
     
-    parser.add_argument('--lang', type=str, default = 'AE',
+    parser.add_argument('--lang', type=str, default = 'BE',
                         help='languages to test: AE, BE or FR')
     
     parser.add_argument('--eval_type', type=str, default = 'CDI',
@@ -61,7 +61,7 @@ def parseArgs(argv):
 
 
 
-def load_data(TextPath,OutputPath,input_condition):
+def load_data(TextPath,OutputPath,lang,input_condition):
     
     '''
     get word counts from the cleaned transcripts
@@ -103,6 +103,7 @@ def count_words(OutputPath,group_stat,eval_path,hour,word_per_sec,eval_type,lang
     
     '''
     count words of the given list
+    
     '''
     
     eval_dir = eval_path + eval_type + '/' + lang + '/' + eval_condition
@@ -138,19 +139,22 @@ def count_words(OutputPath,group_stat,eval_path,hour,word_per_sec,eval_type,lang
         
         freq_lst = []
         for word in eval_lst:
-            try: 
-                # recover to the actual count based on Alex's paper
-                
-                sec_per_hour = sec_frame[sec_frame['month']==file]['sec_per_hour'].item()
-                
-                if estimation_mode == 'constant': 
+             
+            if estimation_mode == 'constant': 
+                try:
                     norm_count = fre_table[fre_table['Word']==word]['Norm_freq'].item() * 30 * 10000 * 3
                     
-                else:
+                except:
+                    norm_count = 0
+                    
+            else:
+                try: 
+                # recover to the actual count based on Alex's paper
+                    sec_per_hour = sec_frame[sec_frame['month']==file]['sec_per_hour'].item()
                     norm_count = fre_table[fre_table['Word']==word]['Norm_freq'].item() * 30 * word_per_sec * hour * sec_per_hour
                 
-            except:
-                norm_count = 0
+                except:
+                    norm_count = 0
             freq_lst.append(norm_count)
         freq_frame[file] = freq_lst
         
@@ -162,7 +166,9 @@ def count_words(OutputPath,group_stat,eval_path,hour,word_per_sec,eval_type,lang
     sel_frame = sel_frame.cumsum(axis=1)
             
     for col in columns.tolist():
-        freq_frame[col] = sel_frame[col]
+        freq_frame[col] = sel_frame[col] 
+    
+    
     freq_frame.to_csv(OutputPath + '/selected_freq.csv')
     
     return freq_frame
@@ -170,10 +176,11 @@ def count_words(OutputPath,group_stat,eval_path,hour,word_per_sec,eval_type,lang
 
 
 
-def count_all_words(OutputPath,hour,word_per_sec,sec_frame,estimation_mode):
+def count_words1(OutputPath,group_stat,eval_path,hour,word_per_sec,eval_type,lang,eval_condition,sec_frame,estimation_mode):
     
     '''
     get the selected freq and all the words' freq
+    
     '''
     cleaned_frame = pd.DataFrame(columns=set(sec_frame['month'].tolist()))
     # loop each month
@@ -189,6 +196,7 @@ def count_all_words(OutputPath,hour,word_per_sec,sec_frame,estimation_mode):
         for sent in sent_lst:
             # remove the beginning and ending space
             words = sent.split(' ')
+            
             for word in words:
                 cleaned_word = word.strip()
                 if len(cleaned_word) > 0:  
@@ -196,6 +204,7 @@ def count_all_words(OutputPath,hour,word_per_sec,sec_frame,estimation_mode):
                     
     
         # get all the calibrated freq
+        # get freq lists
         frequencyDict = collections.Counter(word_lst)  
         
         sec_per_hour = sec_frame[sec_frame['month']==int(file)]['sec_per_hour'].item()
@@ -208,11 +217,11 @@ def count_all_words(OutputPath,hour,word_per_sec,sec_frame,estimation_mode):
                 cleaned_frame.loc[word] = 0
             # Calculate the value for the cell
             value = freq / len(word_lst) * 30 * word_per_sec * hour * sec_per_hour
-            
             # Assign the value to the corresponding cell
             cleaned_frame.loc[word, file] = value
     # get cumulative frequency
     freq_frame = cleaned_frame.cumsum(axis=1)
+    
     freq_frame.to_csv(OutputPath + '/all_freq.csv')
     
     return freq_frame
@@ -311,7 +320,7 @@ def plot_multiple(OutputPath,eval_path,threshold_range,group_stat,eval_condition
         os.makedirs(figure_path) 
     plt.savefig(figure_path + '/' + estimation_mode + '.png',dpi=800)
     plt.show()
-    
+    plt.clf()
     
     
 
@@ -325,7 +334,8 @@ def main(argv):
     input_condition = args.input_condition
     lang = args.lang
     eval_type = args.eval_type
-    OutputPath = args.OutputPath + '/' + eval_type + '/' + lang + '/' + eval_condition
+    #OutputPath = args.OutputPath + '/' + eval_type + '/' + lang + '/' + eval_condition
+    OutputPath = args.OutputPath + '/' + eval_type + '/' + lang + '/' + input_condition
     eval_path = args.eval_path
     hour = args.hour
     estimation_mode = args.estimation_mode
@@ -334,12 +344,11 @@ def main(argv):
     sec_frame = pd.read_csv(args.sec_frame_path)
         
     # step 1: load data and count words
-    month_stat = load_data(TextPath,OutputPath,input_condition)
-    count_all_words(OutputPath,hour,word_per_sec,sec_frame,estimation_mode)
-    #freq_frame = count_words(OutputPath,month_stat,eval_path,hour,word_per_sec,eval_type,lang,eval_condition,sec_frame,estimation_mode)
-    
+    month_stat = load_data(TextPath,OutputPath,lang,input_condition)
+    freq_frame = count_words(OutputPath,month_stat,eval_path,hour,word_per_sec,eval_type,lang,eval_condition,sec_frame,estimation_mode)
+                            
     # step 2: get the score based on different thresholds
-    #plot_multiple(OutputPath,eval_path,threshold_range,month_stat,eval_condition,freq_frame,hour,lang,eval_type,estimation_mode)
+    plot_multiple(OutputPath,eval_path,threshold_range,month_stat,eval_condition,freq_frame,hour,lang,eval_type,estimation_mode)
     
 
    

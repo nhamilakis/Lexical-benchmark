@@ -11,9 +11,9 @@ import collections
 
 
 # preprocess files to get freq
-filename_path = '/data/Machine_CDI/Lexical-benchmark_data/exp/Audiobook/'
+filename_path = '/data/Machine_CDI/Lexical-benchmark_data/exp/Audiobook/filename/'
 text_path = '/data/Machine_CDI/Lexical-benchmark_data/train_phoneme/dataset/'
-out_path = '/data/Machine_CDI/Lexical-benchmark_data/exp/Audiobook/freq_by_chunk/'
+out_path = '/data/Machine_CDI/Lexical-benchmark_data/exp/Audiobook/freq_by_train/'
 test_path = '/data/Machine_CDI/Lexical-benchmark_output/test_set/matched_set/char/bin_range_aligned/6_audiobook_aligned/'
 lang = 'AE'
 # get freq table recursively
@@ -73,8 +73,8 @@ def get_freq_table(lines):
         word_lst.extend(words)
     
     fre_table = get_freq(word_lst)
-    
     return fre_table
+
 
 
 
@@ -84,7 +84,6 @@ def count_chunk(filename_path,text_path,out_path):
     input: the filelst csv and the dir with .txt files
     '''
     # concatenate txt files
-    
     file_frame = pd.read_csv(filename_path + 'Filename_chunk.csv')
     file_frame_grouped = file_frame.groupby('chunk')
     # get the cumulative count
@@ -93,26 +92,20 @@ def count_chunk(filename_path,text_path,out_path):
         for file in file_frame_group['file']:
             with open(text_path + file, 'r') as f:
                 lines = f.readlines()
-                line_lst.extend(lines)
-                
+                line_lst.extend(lines)   
         fre_table = get_freq_table(line_lst)    
-        
         fre_table.to_csv(out_path + str(chunk) + '.csv')
     
 
 
 def select_words(lang,out_path,filename_path):
    
-    
     testset = pd.read_csv(test_path + 'machine_' + lang + '_exp.csv')
-    
     # concatenate the results into one 
-    
     freq_frame = pd.DataFrame()
     
     for file in os.listdir(out_path):
         freq_table = pd.read_csv(out_path + file)
-        
         fre_lst = []
         for word in testset['word']:
             try:
@@ -129,9 +122,28 @@ def select_words(lang,out_path,filename_path):
     sel_frame = sel_frame.cumsum(axis=1)
     for col in columns.tolist():
         freq_frame[col] = sel_frame[col] 
-    
     freq_frame.to_csv(filename_path + lang + '_freq.csv')
     
+'''
+concatenate the results
+Q: how to concatenate the timepoints? 
+'''
+
+# get all words 
+# go over the results three times
+data_path = '/data/Machine_CDI/Lexical-benchmark_output/CHILDES/CDI/BE/recep/'
+token_frame = pd.read_csv(data_path + 'stat_per_file.csv')
+# divide into 50h chunks
+
+
+
+# recursively concatenate the results
+token_num_audiobook = 0
+model_path = '/data/Machine_CDI/Lexical-benchmark_data/exp/Audiobook/freq_by_chunk/'
+for file in os.listdir(model_path):
+    token_frame = pd.read_csv(model_path + file)
+    token_num_audiobook += token_frame['Freq'].sum()
+
 
 
 
