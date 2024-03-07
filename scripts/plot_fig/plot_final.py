@@ -79,6 +79,7 @@ def parseArgs(argv):
 sns.set_style('whitegrid')
 
 
+    
 
 def plot_all(vocab_type, human_dir,model_dir,test_set, accum_threshold, exp_threshold
               ,lang,extrapolation,color_dict,target_y,condition):
@@ -86,7 +87,6 @@ def plot_all(vocab_type, human_dir,model_dir,test_set, accum_threshold, exp_thre
     # plot the curve averaged by freq bands
     # plot human
     linestyle_lst = ['solid', 'dotted']
-    
     
     n = 0
     for file in os.listdir(human_dir):
@@ -205,7 +205,7 @@ def plot_all(vocab_type, human_dir,model_dir,test_set, accum_threshold, exp_thre
     plt.show()
 
     
-    
+script = pd.read_csv('/data/Machine_CDI/Lexical-benchmark_output/Final_scores/Model_eval/exp/generation.csv')
     
 
 

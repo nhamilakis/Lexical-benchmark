@@ -432,7 +432,7 @@ def match_bin_range(CDI_bins,CDI,audiobook,audiobook_frame,match_median):
         for group in set(audiobook_frame['group']):
             CDI_group = CDI[CDI['group'] == group]
             audiobook_group = audiobook_frame[audiobook_frame['group'] == group]
-            CDI_selected, audiobook_selected = get_intersections(CDI_group, audiobook_group, 'Length', 'Length')
+            CDI_selected, audiobook_selected = get_intersections(CDI_group, audiobook_group, 'word_len', 'word_len')
             matched_CDI = pd.concat([matched_CDI, CDI_selected])
             matched_audiobook = pd.concat([matched_audiobook, audiobook_selected])
 
@@ -470,13 +470,13 @@ def match_bin_range(CDI_bins,CDI,audiobook,audiobook_frame,match_median):
             
             target_freq = target_frame_group['CHILDES_log_freq_per_million'].median()
             
-            target_len = target_frame_group['Length'].median()
+            target_len = target_frame_group['word_len'].median()
             
             machine_group_frame = audiobook_frame[audiobook_frame['group'] == group]
             machine_group = {}
             for _, row in machine_group_frame.iterrows():
                 key = row['word']
-                values = (row['Audiobook_log_freq_per_million'], row['Length'])
+                values = (row['Audiobook_log_freq_per_million'], row['word_len'])
                 machine_group[key] = values
                 
             updated_dict = match_medians(machine_group, target_freq,target_len)
@@ -490,7 +490,7 @@ def match_bin_range(CDI_bins,CDI,audiobook,audiobook_frame,match_median):
             n = 0
             while n < len(freq_lst):
                 selected_frame_words = randomized_df[randomized_df['Audiobook_log_freq_per_million']==freq_lst[n][0]]
-                selected_frame_words = selected_frame_words[selected_frame_words['Length']==freq_lst[n][1]]
+                selected_frame_words = selected_frame_words[selected_frame_words['word_len']==freq_lst[n][1]]
                 # generate the index randomly 
                 selected_frame_words = selected_frame_words.reindex()
                 selected_frame = selected_frame_words.iloc[:count_lst[n]]
@@ -664,7 +664,7 @@ def plot_density_hist(matched_CDI,freq_name,freq_type,label,alpha,mode,n_bins):
         plt.ylim(0,1.5)
 
     freq_stat = get_bin_stat(CDI_array,data_sorted)
-    len_stat = get_len_stat(matched_CDI,'Length')
+    len_stat = get_len_stat(matched_CDI,'word_len')
     # map the len columns with the freq stat
     # Concatenate along the common column
     stat = pd.concat([freq_stat.set_index('group'), len_stat.set_index('group')], axis=1, join='outer').reset_index()

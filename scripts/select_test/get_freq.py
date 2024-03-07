@@ -17,7 +17,7 @@ import os
 import matplotlib.pyplot as plt
 from stat_util import preprocess, get_freq_table, match_range, get_equal_bins, match_bin_range, plot_density_hist, \
     match_bin_density, match_bin_prop, select_type
-from aochildes.dataset import AOChildesDataSet  # !!! this should be configured later
+#from aochildes.dataset import AOChildesDataSet  # !!! this should be configured later
 import math
 
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
@@ -33,10 +33,10 @@ def parseArgs(argv):
     parser.add_argument('--eval_condition', type=str, default='exp',
                         help='which type of words to select; recep or exp')
 
-    parser.add_argument('--dataPath', type=str, default='Lexical-benchmark_data/test_set/',
+    parser.add_argument('--dataPath', type=str, default='/data/Machine_CDI/Lexical-benchmark_data/test_set/',
                         help='path to the freq corpus and test sets')
 
-    parser.add_argument('--outPath', type=str, default='Lexical-benchmark_output/test_set/',
+    parser.add_argument('--outPath', type=str, default='/data/Machine_CDI/Lexical-benchmark_output/test_set/',
                         help='output path to the freq corpus')
 
     parser.add_argument('--word_format', type=str, default='char',
@@ -66,7 +66,7 @@ def parseArgs(argv):
     return parser.parse_args(argv)
 
 
-def get_freq_frame(test, train_path, word_type,CDI_type):
+def get_freq_frame(test, train_path, word_type,CDI_type, lang):
     """
     preprocess: clean and get POS
     get the overall freq of CHILDES and train data fre
@@ -88,15 +88,18 @@ def get_freq_frame(test, train_path, word_type,CDI_type):
         audiobook_fre_table.to_csv(train_path + 'Audiobook_fre_table.csv')
         
 
-    if os.path.exists(train_path + 'CHILDES_fre_table.csv'):
-        CHILDES_fre_table = pd.read_csv(train_path + 'CHILDES_fre_table.csv')
+    if os.path.exists(train_path + 'CHILDES_fre_table_' + lang +'.csv'):
+        CHILDES_fre_table = pd.read_csv(train_path + 'CHILDES_fre_table_' + lang +'.csv')
 
     else:
-        # calculate fre table respectively
-        CHILDES_lines = AOChildesDataSet().load_transcripts()
-        CHILDES_fre_table = get_freq_table(CHILDES_lines)
-        CHILDES_fre_table.to_csv(train_path + 'CHILDES_fre_table.csv')
-
+        # load parents exposure 
+        CHILDES_frame = pd.read_csv(train_path + 'CHILDES_trans.csv')
+        # select first 36 months to align with human CDI set
+        CHILDES_lines = CHILDES_frame[(CHILDES_frame['speaker']!='CHI')&(CHILDES_frame['month']<=36)
+                                      &(CHILDES_frame['lang']==lang)]
+        CHILDES_fre_table = get_freq_table(CHILDES_lines['content'].tolist())
+        CHILDES_fre_table.to_csv(train_path + 'CHILDES_fre_table_' + lang +'.csv')
+       
     if os.path.exists(train_path + 'SUBTLEX_US.xls'):
         CELEX = pd.read_excel(train_path + 'SUBTLEX_US.xls')
 
@@ -118,8 +121,6 @@ def get_freq_frame(test, train_path, word_type,CDI_type):
     freq_frame = select_type(freq_frame, word_type)
     
     selected_words = list(set(freq_frame['word'].tolist()))
-    
-    
     audiobook_lst = []
     CELEX_lst = []
     CHILDES_lst = []
@@ -130,7 +131,6 @@ def get_freq_frame(test, train_path, word_type,CDI_type):
                 audiobook_fre_table[audiobook_fre_table['Word'] == word]['Norm_freq_per_million'].item())
             CELEX_lst.append(CELEX[CELEX['Word'] == word]['SUBTLWF'].item())
             CHILDES_lst.append(CHILDES_fre_table[CHILDES_fre_table['Word'] == word]['Norm_freq_per_million'].item())
-
         except:
             # remove the corresponding row in the list
             freq_frame = freq_frame[freq_frame['word'] != word]
@@ -146,6 +146,9 @@ def get_freq_frame(test, train_path, word_type,CDI_type):
 
     return freq_frame
 
+trans_all = pd.read_csv('/data/Machine_CDI/Lexical-benchmark_data/test_set/freq_corpus/char/CHILDES_trans.csv')
+set(trans_all['lang'])
+# replace the lang markers with lang corresponding lang
 
 def match_freq(CDI, audiobook, match_mode, num_bins, threshold, match_median):
     """
@@ -227,7 +230,7 @@ def plot_all_histogram(freq, num_bins, freq_type, lang, eval_condition, dataPath
 def main(argv):
     # Args parser
     args = parseArgs(argv)
-    
+    lang = args.lang
     if args.match_median:
         match_median_name = 'aligned'
     else:
@@ -257,7 +260,7 @@ def main(argv):
         for file in os.listdir(test_path + 'human_CDI/' + args.lang + '/' + args.eval_condition):
             CDI_test = pd.read_csv(test_path + 'human_CDI/' + args.lang + '/' + args.eval_condition + '/' + file)
 
-        CDI = get_freq_frame(CDI_test, train_path, args.word_type,'human')
+        CDI = get_freq_frame(CDI_test, train_path, args.word_type,'human',lang)
         print('finished loading human CDI')
 
         if args.machine_set == 'audiobook':
@@ -286,7 +289,7 @@ def main(argv):
             else:
                 audiobook_test = pd.read_csv(test_path + '/machine_CDI/machine_' + args.machine_set + '.csv')
 
-        audiobook = get_freq_frame(audiobook_test, train_path, args.word_type,'machine')
+        audiobook = get_freq_frame(audiobook_test, train_path, args.word_type,'machine',lang)
         match_freq(CDI, audiobook, args.match_mode,
                    args.num_bins, args.threshold, args.match_median)
         print('finished loading machine CDI')

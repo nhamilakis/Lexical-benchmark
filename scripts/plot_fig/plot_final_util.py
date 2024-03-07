@@ -95,7 +95,31 @@ def fit_sigmoid(x_data, y_data, target_y, offset,label,color,by_freq,style='soli
     
     return para_frame
     
+  
+def fit_log(x_data, y_data, label,color):
+    '''
+    fit sigmoid curve of extrapolated exp vocab
 
+    '''
+
+    def log_curve(x, a, b):
+        return a * np.log2(x) + b
+
+    # Fit the sigmoid function to the scatter plot data
+    popt, pcov = curve_fit(log_curve, x_data, y_data, maxfev=100000, method = 'trf')
+    
+    # Generate x values for the fitted curve
+    x_fit = np.linspace(0, max(x_data), 40)
+    # Use the optimized parameters to generate y values for the fitted curve
+    y_fit = log_curve(x_fit, *popt)    
+    # first find the target x in the given scatter plots
+    plt.scatter(x_data, y_data, c= color)
+    # plot until it has reached the target x
+    plt.plot(x_fit, y_fit, linewidth=3.5, color = color,label= label)
+    plt.xlabel('Median freq', fontsize=15)
+    plt.ylabel('Estimated months', fontsize=15)
+    plt.tick_params(axis='both', labelsize=10)
+    
 
 def plot_exp(model_dir, target_frame, exp_threshold, label
              ,extrapolation,target_y,color_dict,curve_label,by_freq = False):

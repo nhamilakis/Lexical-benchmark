@@ -1,5 +1,8 @@
 '''
 Accumulator model to examine children's input
+
+exposure: parents and model
+production/generation: children adn mdoel generation
 '''
 
 import os
@@ -77,7 +80,6 @@ def get_freq_table(lines):
 
 
 
-
 def count_chunk(filename_path,text_path,out_path):
     
     '''
@@ -96,7 +98,16 @@ def count_chunk(filename_path,text_path,out_path):
         fre_table = get_freq_table(line_lst)    
         fre_table.to_csv(out_path + str(chunk) + '.csv')
     
-
+file_frame = pd.read_csv('/data/Machine_CDI/Lexical-benchmark_data/exp/Audiobook/Filename_chunk.csv')
+# concatenate training sets
+line_lst = []
+with open('/data/Machine_CDI/Lexical-benchmark_data/test_set/CDI/machine_CDI/Audiobook_train.txt', 'w') as f:
+    for file in file_frame['file']:
+        with open(text_path + file, 'r') as f:
+            lines = f.readlines()
+            line_lst.extend(lines)   
+fre_table = get_freq_table(line_lst)    
+fre_table.to_csv('/data/Machine_CDI/Lexical-benchmark_data/test_set/freq_corpus/Audiobook_fre_table.csv')
 
 def select_words(lang,out_path,filename_path):
    
@@ -132,9 +143,10 @@ Q: how to concatenate the timepoints?
 # get all words 
 # go over the results three times
 data_path = '/data/Machine_CDI/Lexical-benchmark_output/CHILDES/CDI/BE/recep/'
-token_frame = pd.read_csv(data_path + 'stat_per_file.csv')
-# divide into 50h chunks
-
+train_path = '/data/Lexical-benchmark_backup/Output/CDI/AE/recep/'
+# read the results directly 
+token_frame = pd.read_csv(train_path + 'stat_per_file.csv')
+# reformulate into the whole script
 
 
 # recursively concatenate the results

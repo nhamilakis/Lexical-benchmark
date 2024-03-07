@@ -229,9 +229,9 @@ def load_data(root_path, prompt_type,strategy,temp,word_per_sec,hour,sec_frame,
 
 
 
-month_corre = True
+month_corre = False
 prompt_type_lst = ['unprompted','prompted']
-temp_lst = [0.3]
+temp_lst = [0.3,1.5]
 analysis_type = 'number'
 outpath_root = '/data/exp/oov_words/' + analysis_type + '/'
 
@@ -243,7 +243,7 @@ for prompt_type in prompt_type_lst:
         if not month_corre:
             folder = 'largest_set'
             
-        if not month_corre:
+        if month_corre:
             folder = 'month_correspondent'
             
         outpath = outpath_root + folder + '/oov_audiobook/' + prompt_type + '/' + str(temp) + '/' 
