@@ -1,0 +1,52 @@
+[project]
+name = "lexical-benchmark"
+description = "A detailed comparison between human (CDI) and model performance at the lexical level"
+authors = [
+    { name = "Jing Liu", email = "jing.liu@student.ru.nl" },
+    { name = "CoML Team", email = "dev@cognitive-ml.fr" }
+]
+license = {text = "MIT License"}
+readme = {file = "README.md", content-type = "text/markdown"}
+requires-python = ">=3.9"
+keywords = [
+    "python",
+]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Development Status :: 4 - Beta",
+]
+dynamic = ["dependencies", "version"]
+
+[project.urls]
+documentation = "https://github.com/Jing-L97/Lexical-benchmark"
+repository = "https://github.com/Jing-L97/Lexical-benchmark"
+
+[project.scripts]
+lmb-datasets = "lm_benchmark.entrypoints:dataset_build"
+lmb-extractor = "lm_benchmark.entrypoints:extract_stats"
+lmb-plot = "lm_benchmark.entrypoints:plot"
+
+[project.optional-dependencies]
+dev = [
+    "ipython",
+    "jupyter",
+    "pytest",
+    "build"
+]
+
+[build-system]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["lm_benchmark*"]
+exclude = ["examples*", "tests*"]
+
+[tool.setuptools_scm]

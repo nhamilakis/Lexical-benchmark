@@ -1,0 +1,11 @@
+matplotlib
+pandas
+numpy
+torch # todo check version
+spacy
+seaborn
+pyenchant
+fairseq # todo check version
+tqdm
+transformers # todo check version
+scipy

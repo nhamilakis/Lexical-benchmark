@@ -1,0 +1,105 @@
+Grammar:
+
+Rule 0     S' -> statement
+Rule 1     statement -> HEADER_NAME
+Rule 2     statement -> END
+Rule 3     statement -> BEGIN
+Rule 4     statement -> ENCODING
+Rule 5     statement -> META_NAME VALUE_STRING
+Rule 6     statement -> ANNOT_NAME VALUE_STRING
+Rule 7     statement -> HEADER_NAME VALUE_STRING
+
+Terminals, with rules where they appear:
+
+ANNOT_NAME           : 6
+BEGIN                : 3
+ENCODING             : 4
+END                  : 2
+HEADER_NAME          : 1 7
+META_NAME            : 5
+VALUE_STRING         : 5 6 7
+error                : 
+
+Nonterminals, with rules where they appear:
+
+statement            : 0
+
+
+state 0
+
+    (0) S' -> . statement
+    (1) statement -> . HEADER_NAME
+    (2) statement -> . END
+    (3) statement -> . BEGIN
+    (4) statement -> . ENCODING
+    (5) statement -> . META_NAME VALUE_STRING
+    (6) statement -> . ANNOT_NAME VALUE_STRING
+    (7) statement -> . HEADER_NAME VALUE_STRING
+    HEADER_NAME     shift and go to state 2
+    END             shift and go to state 3
+    BEGIN           shift and go to state 4
+    ENCODING        shift and go to state 5
+    META_NAME       shift and go to state 6
+    ANNOT_NAME      shift and go to state 7
+
+    statement                      shift and go to state 1
+
+state 1
+
+    (0) S' -> statement .
+
+
+state 2
+
+    (1) statement -> HEADER_NAME .
+    (7) statement -> HEADER_NAME . VALUE_STRING
+    $end            reduce using rule 1 (statement -> HEADER_NAME .)
+    VALUE_STRING    shift and go to state 8
+
+
+state 3
+
+    (2) statement -> END .
+    $end            reduce using rule 2 (statement -> END .)
+
+
+state 4
+
+    (3) statement -> BEGIN .
+    $end            reduce using rule 3 (statement -> BEGIN .)
+
+
+state 5
+
+    (4) statement -> ENCODING .
+    $end            reduce using rule 4 (statement -> ENCODING .)
+
+
+state 6
+
+    (5) statement -> META_NAME . VALUE_STRING
+    VALUE_STRING    shift and go to state 9
+
+
+state 7
+
+    (6) statement -> ANNOT_NAME . VALUE_STRING
+    VALUE_STRING    shift and go to state 10
+
+
+state 8
+
+    (7) statement -> HEADER_NAME VALUE_STRING .
+    $end            reduce using rule 7 (statement -> HEADER_NAME VALUE_STRING .)
+
+
+state 9
+
+    (5) statement -> META_NAME VALUE_STRING .
+    $end            reduce using rule 5 (statement -> META_NAME VALUE_STRING .)
+
+
+state 10
+
+    (6) statement -> ANNOT_NAME VALUE_STRING .
+    $end            reduce using rule 6 (statement -> ANNOT_NAME VALUE_STRING .)
