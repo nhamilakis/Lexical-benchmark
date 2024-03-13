@@ -34,7 +34,7 @@ def load_accum(accum_all,accum_threshold):
 
 
     
-def fit_sigmoid(x_data, y_data, target_y, offset,label,color,by_freq,style='solid'):
+def fit_sigmoid(x_data, y_data, target_y, label,color,by_freq):
     '''
     fit sigmoid curve of extrapolated exp vocab
     '''
@@ -42,7 +42,7 @@ def fit_sigmoid(x_data, y_data, target_y, offset,label,color,by_freq,style='soli
     def sigmoid(x, a, b):
         return 1 / (1 + np.exp(-(a * x + b)))
 
-    x_data = np.array(x_data) + offset
+    x_data = np.array(x_data) 
     # Fit the sigmoid function to the scatter plot data
     popt, pcov = curve_fit(sigmoid, x_data, y_data, maxfev=100000, method = 'trf')
     
@@ -73,17 +73,15 @@ def fit_sigmoid(x_data, y_data, target_y, offset,label,color,by_freq,style='soli
     
     if not by_freq:     # assign the colors if plotting in one single fig
         
-        plt.scatter(x_data, y_data, c= color)
+        plt.scatter(x_data, y_data)
         # plot until it has reached the target x
-        plt.plot(x_fit, y_fit, linewidth=3.5,  linestyle = style, color = color,
-                  label= label + f': {target_x:.2f}')
+        plt.plot(x_fit, y_fit, linewidth=3.5,label= label + f': {target_x:.2f}')
         
-    else:     # if not, decided by legend labels
+    if by_freq:       # if not, decided by legend labels
         
         plt.scatter(x_data, y_data)
         # plot until it has reached the target x
-        plt.plot(x_fit, y_fit, linewidth=3.5,  linestyle = style,
-                  label= label + f': {target_x:.2f}')
+        plt.plot(x_fit, y_fit, linewidth=3.5, color = color,label= label + f': {target_x:.2f}')
         
     plt.ylim(0, 1)
     # Marking the point where y reaches the target value
@@ -121,7 +119,7 @@ def fit_log(x_data, y_data, label,color):
     plt.tick_params(axis='both', labelsize=10)
     
 
-def plot_exp(model_dir, target_frame, exp_threshold, label
+def plot_exp(model_dir, target_frame, exp_threshold, label,age_range
              ,extrapolation,target_y,color_dict,curve_label,by_freq = False):
     
 
@@ -168,15 +166,18 @@ def plot_exp(model_dir, target_frame, exp_threshold, label
         return score_frame_unprompted, avg_unprompted
     
     # read the score frames
-    seq_frame_all = pd.read_csv(model_dir + label + '.csv', index_col=0)
+    file_name = label + '_'+ str(age_range[0]) + '_' + str(age_range[1]) 
+    seq_frame_all = pd.read_csv(model_dir + file_name + '.csv', index_col=0)
     score_frame_unprompted, avg_unprompted = load_exp(
             seq_frame_all, target_frame, exp_threshold)
     
-    #month_list_unprompted = [int(x) for x in score_frame_unprompted.columns]
     month_list_unprompted = [float(x) for x in score_frame_unprompted.columns]
     if not extrapolation:
-        
-        sns.lineplot(month_list_unprompted, avg_unprompted,
+        if not by_freq:
+            sns.lineplot(month_list_unprompted, avg_unprompted,
+                      linewidth=3, label=curve_label) 
+        if by_freq:
+            sns.lineplot(month_list_unprompted, avg_unprompted,
                       color=color_dict[label], linewidth=3, label=curve_label) 
         para_dict = None
 
@@ -184,7 +185,7 @@ def plot_exp(model_dir, target_frame, exp_threshold, label
         print('Plotting extrapolated figures of ' + label)
         
         para_dict = fit_sigmoid(month_list_unprompted, avg_unprompted,
-                                    target_y,0,curve_label,color_dict[label],by_freq=by_freq)
+                                        target_y,curve_label,color_dict[label],by_freq=by_freq)
         
         print('Have finished extrapolation of ' + label)
         
@@ -192,7 +193,7 @@ def plot_exp(model_dir, target_frame, exp_threshold, label
     
     # set the limits of the x-axis for each line
     if not extrapolation:
-        plt.xlim(0, 36)
+        #plt.xlim(0, 36)
         plt.ylim(0, 1)
     
     plt.xlabel('(Pseudo) age in month', fontsize=15)
@@ -208,7 +209,8 @@ def plot_exp_freq(human_frame_all,freq,set_type,model_dir,exp_threshold
     
     human_frame = human_frame_all[human_frame_all['group']==freq]
     # map the legend label to freq median
-    median_freq = "{:.2f}".format(human_frame['freq_median'].tolist()[0])
+    #median_freq = "{:.2f}".format(human_frame['freq_median'].tolist()[0])
+    median_freq = "{:.2f}".format(human_frame['group'].tolist()[0])
     para = plot_exp(model_dir, human_frame, exp_threshold, set_type
                   ,extrapolation,target_y,color_dict,str(median_freq),by_freq=True)
     

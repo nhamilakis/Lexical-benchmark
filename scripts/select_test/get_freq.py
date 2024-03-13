@@ -4,8 +4,8 @@
 Get basic stat of different sets
 
 different datasets:
-    - audiobook: intersection between wuggy sets and words that appear at least once in each chunk
-    - AO-CHILDES: existing scripts
+    - audiobook: largest training set of the audiobook
+    - CHILDES: customized CHILDES scripts
     - CELEX: SUBLEX-US
 @author: jliu
 two versions of freq: char and phoneme
@@ -17,7 +17,6 @@ import os
 import matplotlib.pyplot as plt
 from stat_util import preprocess, get_freq_table, match_range, get_equal_bins, match_bin_range, plot_density_hist, \
     match_bin_density, match_bin_prop, select_type
-#from aochildes.dataset import AOChildesDataSet  # !!! this should be configured later
 import math
 
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
@@ -42,7 +41,7 @@ def parseArgs(argv):
     parser.add_argument('--word_format', type=str, default='char',
                         help='char or phon format')
 
-    parser.add_argument('--num_bins', type=int, default=6,
+    parser.add_argument('--num_bins', type=int, default=12,
                         help='number of eaqul-sized bins of human CDI data')
 
     parser.add_argument('--freq_type', type=str, default='log_freq',
@@ -62,8 +61,10 @@ def parseArgs(argv):
     
     parser.add_argument('--match_median', default=True,
                         help='whether to match median freq and length of each freq bin')
-
+    
     return parser.parse_args(argv)
+
+
 
 
 def get_freq_frame(test, train_path, word_type,CDI_type, lang):
@@ -94,9 +95,8 @@ def get_freq_frame(test, train_path, word_type,CDI_type, lang):
     else:
         # load parents exposure 
         CHILDES_frame = pd.read_csv(train_path + 'CHILDES_trans.csv')
-        # select first 36 months to align with human CDI set
-        CHILDES_lines = CHILDES_frame[(CHILDES_frame['speaker']!='CHI')&(CHILDES_frame['month']<=36)
-                                      &(CHILDES_frame['lang']==lang)]
+        # select adults' utterances and corresponding language
+        CHILDES_lines = CHILDES_frame[(CHILDES_frame['speaker']!='CHI')&(CHILDES_frame['lang']==lang)]
         CHILDES_fre_table = get_freq_table(CHILDES_lines['content'].tolist())
         CHILDES_fre_table.to_csv(train_path + 'CHILDES_fre_table_' + lang +'.csv')
        
@@ -113,10 +113,8 @@ def get_freq_frame(test, train_path, word_type,CDI_type, lang):
     selected_words = list(set(test['word'].tolist()).intersection(set(CHILDES_fre_table['Word'].tolist()),
                                                                   set(audiobook_fre_table['Word'].tolist()),
                                                                   set(CELEX['Word'].tolist())))
-
     # append freq with CDI data
     freq_frame = test[test['word'].isin(selected_words)]
-    
     freq_frame= freq_frame.dropna()
     freq_frame = select_type(freq_frame, word_type)
     
@@ -139,16 +137,14 @@ def get_freq_frame(test, train_path, word_type,CDI_type, lang):
     freq_frame['CELEX_freq_per_million'] = CELEX_lst
     freq_frame['CHILDES_freq_per_million'] = CHILDES_lst
     freq_frame['word_len'] = freq_frame['word'].apply(len)
-    
     freq_frame['CELEX_log_freq_per_million'] = freq_frame['CELEX_freq_per_million'].apply(convert_to_log)
     freq_frame['Audiobook_log_freq_per_million'] = freq_frame['Audiobook_freq_per_million'].apply(convert_to_log)
     freq_frame['CHILDES_log_freq_per_million'] = freq_frame['CHILDES_freq_per_million'].apply(convert_to_log)
 
     return freq_frame
 
-trans_all = pd.read_csv('/data/Machine_CDI/Lexical-benchmark_data/test_set/freq_corpus/char/CHILDES_trans.csv')
-set(trans_all['lang'])
-# replace the lang markers with lang corresponding lang
+
+
 
 def match_freq(CDI, audiobook, match_mode, num_bins, threshold, match_median):
     """
@@ -183,6 +179,9 @@ def match_freq(CDI, audiobook, match_mode, num_bins, threshold, match_median):
     return matched_CDI, matched_audiobook
 
 
+
+
+
 def compare_histogram(matched_CDI, matched_audiobook, num_bins, freq_type, lang, eval_condition, dataPath, match_mode,
                       machine_set, alpha=0.5):
     """
@@ -191,7 +190,6 @@ def compare_histogram(matched_CDI, matched_audiobook, num_bins, freq_type, lang,
     # sort CDI and audiobook by freq
     matched_CDI = matched_CDI.sort_values(by='CHILDES_' +freq_type + '_per_million')
     matched_audiobook = matched_audiobook.sort_values(by='Audiobook_' + freq_type + '_per_million')
-
     stat_audiobook = plot_density_hist(matched_audiobook, 'Audiobook_' + freq_type, freq_type, 'Machine', alpha,
                                        'given_bins', num_bins)
     stat_CHILDES = plot_density_hist(matched_CDI, 'CHILDES_' + freq_type, freq_type, 'Human', alpha, 'given_bins',
@@ -207,7 +205,6 @@ def compare_histogram(matched_CDI, matched_audiobook, num_bins, freq_type, lang,
     stat_CHILDES['set_type'] = 'Human'
     stat_all = pd.concat([stat_audiobook, stat_CHILDES], ignore_index=True)
 
-    
     return stat_all
 
 
