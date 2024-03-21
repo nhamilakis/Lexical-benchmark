@@ -166,21 +166,43 @@ df_reordered.to_csv('/data/exp/generation.csv')
 
 
 
+'''
+append larger months to the model's generation'
+'''
+# append model score from the newly generated 
+generation = pd.read_csv('/data/Machine_CDI/Lexical-benchmark_output/Final_scores/Model_eval/exp/generation.csv')       
+generation_selected = generation[generation['month']<=36] 
+generation_selected = generation_selected.loc[:, 'speaker':]
+# append new months
+root_path = '/data/exp/generation/7100h/00/unprompted/sample_random/'
+temp_lst = ['0.3','0.6','1.0','1.5']
+model_lst = ['4500h','7100h']
+
+temp_lst = ['0.3']
+model_lst = ['4500h']
+
+column_header = 'unprompted_'
+for model in model_lst:
+    for temp in temp_lst:
+        gen = pd.read_csv(root_path + '1_' + temp + '_new.csv')
+        gen = gen.loc[:, 'speaker':]
+        # append the result
+        gen.pop('LSTM_generated')
+        # rename the column
+        gen = gen.rename(columns={'LSTM_segmented': 'unprompted_' + temp})
+
+# loop other temp
+temp_lst = ['0.6','1.0','1.5']
+for temp in temp_lst:
+    gen_temp = pd.read_csv(root_path + '1_' + temp + '_new.csv')
+    gen['unprompted_' + temp] = gen_temp['LSTM_segmented']
 
 
+gen1 = gen
+generation_selected = pd.concat([generation_selected,gen])
 
 
+generation_selected.to_csv('/data/Machine_CDI/Lexical-benchmark_output/Final_scores/Model_eval/exp/generation1.csv')
 
-
-
-
-
-
-
-
-
-
-
-
-
+set(generation_selected['lang'])
 

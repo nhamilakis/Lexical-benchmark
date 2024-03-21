@@ -18,7 +18,7 @@ def parseArgs(argv):
     # Run parameters
     parser = argparse.ArgumentParser(description='Plot all figures in the paper')
 
-    parser.add_argument('--lang_lst', default=['BE'],
+    parser.add_argument('--lang_lst', default=['AE'],
                         help='languages to test: AE, BE or FR')
 
     parser.add_argument('--vocab_type_lst', default=['exp'],
@@ -27,7 +27,7 @@ def parseArgs(argv):
     parser.add_argument('--model_dir', type=str, default='/data/Machine_CDI/Lexical-benchmark_output/Final_scores/Model_eval/exp/count/',
                         help='directory of results to plot')
 
-    parser.add_argument('--human_dir', type=str, default="/data/Machine_CDI/Lexical-benchmark_output/test_set/matched_set/char/bin_range_aligned/12_audiobook_aligned/",
+    parser.add_argument('--human_dir', type=str, default="/data/Machine_CDI/Lexical-benchmark_output/test_set/matched_set/char/bin_range_aligned/6_audiobook_aligned/",
                         help='directory of CDI references')
     
     parser.add_argument('--fig_dir', type=str, default="Final_scores/Figures/",
@@ -47,7 +47,7 @@ def parseArgs(argv):
     parser.add_argument('--age_range', default=[6,96],
                         help='Age range to be included')
     
-    parser.add_argument('--by_freq', default=False,
+    parser.add_argument('--by_freq', default=True,
                         help='whether to decompose the results by frequency bands')
 
     parser.add_argument('--extrapolation', default=False,

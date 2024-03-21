@@ -19,7 +19,7 @@ def parseArgs(argv):
     parser.add_argument('--eval_type_lst', default = ['child','unprompted_0.3','unprompted_0.6','unprompted_1.0','unprompted_1.5'],
                         help='system to test: child, adult, train or generation')
     
-    parser.add_argument('--TextPath', type=str, default = '/data/Machine_CDI/Lexical-benchmark_output/Final_scores/Model_eval/exp/generation.csv',
+    parser.add_argument('--TextPath', type=str, default = '/data/Machine_CDI/Lexical-benchmark_output/Final_scores/Model_eval/exp/generation1.csv',
                         help='root Path to the CHILDES transcripts; one of the variables to invetigate')
     
     parser.add_argument('--OutputPath', type=str, default = '/data/Machine_CDI/Lexical-benchmark_output/Final_scores/Model_eval/exp/count/',
@@ -28,26 +28,29 @@ def parseArgs(argv):
     parser.add_argument('--sec_frame_path', type=str, default = '/data/Machine_CDI/Lexical-benchmark_data/exp/vocal_month.csv',
                         help='the estmated vocalization seconds per hour by month')
     
-    parser.add_argument('--eval_path', type=str, default = '/data/Machine_CDI/Lexical-benchmark_output/test_set/matched_set/char/bin_range_aligned/12_audiobook_aligned/',
+    parser.add_argument('--eval_path', type=str, default = '/data/Machine_CDI/Lexical-benchmark_output/test_set/matched_set/char/bin_range_aligned/6_audiobook_aligned/',
                         help='path to the evaluation material; one of the variables to invetigate')
     
     parser.add_argument('--mode', type=str, default = 'varying',
                         help='constant or varying')
     
-    parser.add_argument('--age_range', default = [6,36],
+    parser.add_argument('--age_range', default = [6,96],
                         help='constant or varying')
     
     return parser.parse_args(argv)
 
 '''
-TextPath = '/data/Machine_CDI/Lexical-benchmark_output/Final_scores/Model_eval/exp/generation.csv'
-eval_type = 'unprompted_0.3'
+TextPath = '/data/Machine_CDI/Lexical-benchmark_output/Final_scores/Model_eval/exp/generation1.csv'
+eval_type = 'child'
 OutputPath = '/data/Machine_CDI/Lexical-benchmark_output/Final_scores/Model_eval/exp/count/'
 lang = 'AE'
 eval_path = '/data/Machine_CDI/Lexical-benchmark_output/test_set/matched_set/char/bin_range_aligned/6_audiobook_aligned/'
-age_range = [6,36]
+age_range = [6,96]
 sec_frame_path = '/data/Machine_CDI/Lexical-benchmark_data/exp/vocal_month.csv'
 mode = 'varying'
+
+generation = pd.read_csv('/data/Machine_CDI/Lexical-benchmark_output/Final_scores/Model_eval/exp/generation1.csv')
+
 '''
 
 

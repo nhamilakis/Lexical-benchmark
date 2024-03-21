@@ -88,7 +88,6 @@ def get_freq_frame(test, train_path, word_type,CDI_type, lang):
         audiobook_fre_table = get_freq_table(Audiobook_lines)
         audiobook_fre_table.to_csv(train_path + 'Audiobook_fre_table.csv')
         
-
     if os.path.exists(train_path + 'CHILDES_fre_table_' + lang +'.csv'):
         CHILDES_fre_table = pd.read_csv(train_path + 'CHILDES_fre_table_' + lang +'.csv')
 

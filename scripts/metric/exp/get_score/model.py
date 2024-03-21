@@ -256,14 +256,7 @@ for prompt_type in prompt_type_lst:
         
         
         
-        
-        
-        
-        
-        
-        
-        
-        
+
         
         
         

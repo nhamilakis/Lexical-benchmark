@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-oov analysis
+oov analysis on models and human
+
+Note if we compare, use golden as reference
 use enchant_en as golden reference
 @author: jliu
 """
@@ -10,8 +12,23 @@ import pandas as pd
 import enchant
 import seaborn as sns
 import matplotlib.pyplot as plt
+import math
+from tqdm import tqdm
 d = enchant.Dict("en_US")
 sns.set_style('whitegrid')
+
+# read and get freq table
+# read and concatenate files
+
+# get freq table
+
+
+# get the matched freq
+
+
+
+# plot the distr and fitted curve
+
 
 
 
@@ -104,6 +121,92 @@ def generalize(exp_count_path,prod_count_path,output_path,prod_type):
     stat_frame.to_csv(output_path + prod_type +'/stat.csv')
     return inv_frame, oov_frame, stat_frame
 
+
+# texst one model
+month_dict = {'400':[4,8],'800':[9,18],'1600':[19,28],'3200':[29,36]}
+gen_path = '/data/Machine_CDI/Lexical-benchmark_output/Final_scores/Model_eval/exp/oov/unprompted_'
+train_path = '/data/Machine_CDI/Lexical-benchmark_output/Final_scores/Model_eval/exp/count_6/raw_model.csv'
+out_path = '/data/Machine_CDI/Lexical-benchmark_output/Final_scores/Model_eval/exp/oov/model/' 
+temp = '0.6'
+def compare_freq(gen_path,train_path,out_path,month_dict,temp):
+    
+    '''
+    map exp and filter freq: loop over the generated tokens
+    input: freq_csv: freq table of the corresponding months
+    return stat.csv
+    '''
+    # get log 10
+    def convert_to_log(freq):
+        return math.log10(freq)
+     
+    log_word = []
+    # note this is on monthly basis
+    oov = pd.read_csv(gen_path + temp + '/oov_token.csv',index_col = 0)
+    inv = pd.read_csv(gen_path + temp + '/inv_token.csv',index_col = 0)
+    gen = pd.concat([oov,inv])
+    # redo the model
+    model = pd.read_csv(train_path,index_col = 0)
+    # map back to model
+    frame_all = pd.DataFrame()
+    for k, age_range in tqdm(month_dict.items()):
+        # select and save model freq by month
+        model_selected = model[[str(age_range[0])]]
+        model_selected = model_selected.rename(columns={str(age_range[0]): 'count'})
+        # match counts in training and generation 
+        model_sel = model_selected[model_selected['count'] != 0]
+        # append model name to the corresponding month
+        frame = gen[(gen['month'] >= age_range[0]) & (gen['month'] <= age_range[1])]
+        # aggregate on months
+        word_frame = frame.groupby('index').first()
+        # get intersection
+        # overlap = list(set(word_frame.index.tolist()) & set(model_sel.index.tolist()))
+        # oov =  list(set(word_frame.index.tolist()) - set(model_sel.index.tolist()))
+        word_frame['gen_count'] = frame.groupby('index')['count'].sum()
+        word_frame['gen_freq_per_million'] = frame.groupby('index')['count'].sum()/word_frame['gen_count'].sum() * 1000000 
+        word_frame['gen_log_freq_per_million'] = word_frame['gen_freq_per_million'].apply(convert_to_log)
+        for word in word_frame.index.tolist():
+            try:
+                word_frame['train_count'] = model_sel.loc[[word]]['count'].item()
+                word_frame['train_freq_per_million'] = model_sel['count']/model_sel['count'].sum() * 1000000 
+                word_frame['train_log_freq_per_million'] = word_frame['train_freq_per_million'].apply(convert_to_log)
+            except:
+                log_word.append(word)
+                word_frame['train_count'] = 0
+                word_frame['train_freq_per_million'] = 0
+                word_frame['train_log_freq_per_million'] = 0
+        word_frame['month'] = k
+        word_frame = word_frame.rename(columns={'month': 'model'})
+        # concatenate df
+        frame_all = pd.concat([frame_all,word_frame])
+        
+    # output the df
+    frame_all.to_csv(out_path + temp + '.csv')
+    
+    return frame_all
+
+temp_lst = ['1.5','1.0','0.3']
+for temp in tqdm(temp_lst):
+    compare_freq(gen_path,train_path,out_path,month_dict,temp)
+    print('Finished counting frequency of temp ' + str(temp))
+    
+# plot the results recursively
+
+model_lst = ['400','800','1600','3200']
+
+for model_type in model_lst:
+    for temp in temp_lst:
+        frame = pd.read_csv(out_path + temp + '.csv')
+        stat_frame = frame[frame['model'] == model_type]
+        gen_lst = stat_frame['gen_log_freq_per_million'].tolist()
+        train_lst = stat_frame['train_log_freq_per_million'].tolist()
+        plt.scatter(train_lst, gen_lst, label=model_type)
+        plt.xlabel('train frequency', fontsize=15)
+        plt.ylabel('generation frequency', fontsize= 15)
+        plt.title('Model trained on {}'.format(model_type), fontsize=15, fontweight='bold') 
+        
+    
+# fit the log curve of the current scatter plot
+ 
 
 def count_oov(exp_count_path,prod_count_path,output_path,prod_type):
     
