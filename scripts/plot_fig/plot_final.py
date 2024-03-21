@@ -27,7 +27,11 @@ def parseArgs(argv):
     # Run parameters
     parser = argparse.ArgumentParser(description='Plot all figures in the paper')
 
+<<<<<<< HEAD
     parser.add_argument('--lang_lst', default=['AE','BE'],
+=======
+    parser.add_argument('--lang_lst', default=['AE'],
+>>>>>>> 5bd7bb0 (update oov analysis)
                         help='languages to test: AE, BE or FR')
 
     parser.add_argument('--vocab_type_lst', default=['exp'],
@@ -42,6 +46,12 @@ def parseArgs(argv):
     parser.add_argument('--human_dir', type=str, default="Final_scores/Human_eval/CDI/",
                         help='directory of human CDI')
 
+<<<<<<< HEAD
+=======
+    parser.add_argument('--human_dir', type=str, default="/data/Machine_CDI/Lexical-benchmark_output/test_set/matched_set/char/bin_range_aligned/6_audiobook_aligned/",
+                        help='directory of CDI references')
+    
+>>>>>>> 5bd7bb0 (update oov analysis)
     parser.add_argument('--fig_dir', type=str, default="Final_scores/Figures/",
                         help='directory of human CDI')
 
@@ -51,12 +61,19 @@ def parseArgs(argv):
     parser.add_argument('--accum_threshold', type=int, default=60,
                         help='thresho, offsetld for accumulator model')
     
+<<<<<<< HEAD
     parser.add_argument('--color_dict', type=int, default={'speech': 'Blue','phones':'Green',
                         'human':'Red','CHILDES':'Orange','unprompted':'Grey','prompted':'Blue',
                         'train':'Grey','Adult':'Orange'},
                         help='thresho, offsetld for accumulator model')
 
     parser.add_argument('--by_freq', default=False,
+=======
+    parser.add_argument('--age_range', default=[6,96],
+                        help='Age range to be included')
+    
+    parser.add_argument('--by_freq', default=True,
+>>>>>>> 5bd7bb0 (update oov analysis)
                         help='whether to decompose the results by frequency bands')
 
     parser.add_argument('--extrapolation', default=False,
