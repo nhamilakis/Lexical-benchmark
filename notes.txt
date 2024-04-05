@@ -1,0 +1,52 @@
+English ---> CHILDES used to create word frequency
+CDI
+
+OACHILDES
+
+CHICHILDES 5M words --> Histogram freq/million
+
+And match frequency of words between CDI and MachineCDI
+
+
+
+CHILD DIRECTED ENGLISH extracted from CHILDES
+
+
+-----
+LDES 5M words --> Histogram freq/million
+
+And match frequency of words between CDI and MachineCDI
+
+
+
+CHILD DIRECTED ENGLISH extracted from CHILDES
+
+
+-----
+Machine --> StellaDataset (source librivox)
+
+
+
+Correspondence de TEMPS::
+
+1 y = 1k hours of training ~= 10k words
+
+
+-------
+How does a machine know a word.
+
+Wuggy
+
+
+------
+
+Task 1 --> recreate a wuggy to be used as a MachineCDI (lexique expressive)
+
+Task --> re-equilibration des lexiques.
+
+Task -->
+
+
+----
+Lexique receptive
+

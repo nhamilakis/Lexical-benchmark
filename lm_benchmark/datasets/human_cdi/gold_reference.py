@@ -2,12 +2,13 @@
 This is a loader and extractor for Human CDI
 
 """
+import argparse
 import enum
 from pathlib import Path
 
 import pandas as pd
 
-from .parsing_utils import word_cleaning, word2POS
+from ..utils import word_cleaning, word_to_pos
 
 AGE_MIN = 16
 AGE_MAX = 30
@@ -21,6 +22,9 @@ class POSTypes(str, enum.Enum):
     all = "all"
     content = "content"
     function = "function"
+
+    def __str__(self) -> str:
+        return self.value
 
 
 class GoldReferenceCSV:
@@ -63,9 +67,10 @@ class GoldReferenceCSV:
 
     def __init__(self, raw_csv: Path,
                  pos_filter_type: POSTypes = POSTypes.content,
-                 age_min: int = AGE_MIN, age_max: int = AGE_MAX) -> None:
+                 age_min: int = AGE_MIN, age_max: int = AGE_MAX):
+
         if not raw_csv.is_file():
-            raise ValueError(f'Given file ::{raw_csv}:: does not exist')
+            raise ValueError(f'Given file ::{raw_csv}:: does not exist !!')
 
         self._raw_csv = raw_csv
         self.pos_filter_type = pos_filter_type
@@ -100,7 +105,7 @@ class GoldReferenceCSV:
         df['word_length'] = df['word'].apply(len)
 
         # Build POS for the list of words
-        df['POS'] = df['word'].apply(word2POS)
+        df['POS'] = df['word'].apply(word_to_pos)
 
         # Filter words by PoS
         if self.pos_filter_type == POSTypes.content:
@@ -115,17 +120,28 @@ class GoldReferenceCSV:
         return df[self.columns].copy()
 
 
-class CHILDES:
-    """
-        Use Jing's version of CHILDES (on oberon) extract from annotation CHI,ADULT(all) speech
-        clean up all things that are not words.
+def arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--filter-by-word-type',
+                        choices=[str(s) for s in POSTypes], type=str, default=str(POSTypes.content.value),
+                        help='Filter words by word_type')
+    parser.add_argument("--min-age", type=int, default=AGE_MIN)
+    parser.add_argument("--max-age", type=int, default=AGE_MAX)
+    parser.add_argument("src_file")
+    parser.add_argument("target_file")
+    return parser.parse_args()
 
-        Create  a CSV file containing a list of utterances
 
+def main():
+    """ Run the GoldReference loader and write results to a file """
+    args = arguments()
 
-        Output:
-
-        - child, speaker, language, corpus, number_of_tokens, src_path, filename, content
-        - Word Frequency table
-    """
-    pass
+    src = Path(args.src_file)
+    target = Path(args.target_file)
+    gd_loader = GoldReferenceCSV(
+        raw_csv=src,
+        age_min=args.min_age,
+        age_max=args.max_age,
+        pos_filter_type=POSTypes(args.filter_by_word_type)
+    )
+    gd_loader.gold.to_csv(target, index=False)

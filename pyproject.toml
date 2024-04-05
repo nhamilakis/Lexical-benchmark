@@ -25,9 +25,7 @@ documentation = "https://github.com/Jing-L97/Lexical-benchmark"
 repository = "https://github.com/Jing-L97/Lexical-benchmark"
 
 [project.scripts]
-lmb-datasets = "lm_benchmark.entrypoints:dataset_build"
-lmb-extractor = "lm_benchmark.entrypoints:extract_stats"
-lmb-plot = "lm_benchmark.entrypoints:plot"
+lmb-dt-human-reference = "lm_benchmark.datasets.human_cdi.gold_reference:main"
 
 [project.optional-dependencies]
 dev = [
