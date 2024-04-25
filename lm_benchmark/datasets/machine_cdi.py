@@ -8,8 +8,7 @@ class LibriSpeechTrainSet:
 
     Extract:
 
-    CSV:
-    src_file, word, word_frequency
+    CSV: src_file, word, word_frequency
 
     """
     pass

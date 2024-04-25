@@ -72,7 +72,7 @@ class GoldReferenceCSV:
         if not raw_csv.is_file():
             raise ValueError(f'Given file ::{raw_csv}:: does not exist !!')
 
-        self._raw_csv = raw_csv
+        self._raw_csv_location = raw_csv
         self.pos_filter_type = pos_filter_type
         self.age_min = age_min
         self.age_max = age_max
@@ -89,7 +89,7 @@ class GoldReferenceCSV:
 
     def __load__(self) -> pd.DataFrame:
         """ Load the dataset into a dataframe """
-        df = pd.read_csv(self._raw_csv)
+        df = pd.read_csv(self._raw_csv_location)
         self.dl_date = df['downloaded'].iloc[0]
         df = df.drop(["downloaded"], axis=1)
         return df
@@ -118,30 +118,3 @@ class GoldReferenceCSV:
 
         # return the df
         return df[self.columns].copy()
-
-
-def arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--filter-by-word-type',
-                        choices=[str(s) for s in POSTypes], type=str, default=str(POSTypes.content.value),
-                        help='Filter words by word_type')
-    parser.add_argument("--min-age", type=int, default=AGE_MIN)
-    parser.add_argument("--max-age", type=int, default=AGE_MAX)
-    parser.add_argument("src_file")
-    parser.add_argument("target_file")
-    return parser.parse_args()
-
-
-def main():
-    """ Run the GoldReference loader and write results to a file """
-    args = arguments()
-
-    src = Path(args.src_file)
-    target = Path(args.target_file)
-    gd_loader = GoldReferenceCSV(
-        raw_csv=src,
-        age_min=args.min_age,
-        age_max=args.max_age,
-        pos_filter_type=POSTypes(args.filter_by_word_type)
-    )
-    gd_loader.gold.to_csv(target, index=False)
