@@ -119,6 +119,7 @@ class GoldReferenceCSV:
             # Filter out all PoS that is in CONTENT_POS
             df = df[~df['POS'].isin(CONTENT_POS)]
 
-        #
-        # return the df
+        # remove expressions
+
+        # merge different word sernses by adding the prop
         return df[self.columns].copy()

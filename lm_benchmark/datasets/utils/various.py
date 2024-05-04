@@ -60,3 +60,8 @@ def segment_synonym(df,header:str):
     df = df.drop(header, axis=1).rename(columns={'Column_Split': header})
     return df
 
+def remove_exp(df,header:str):
+    """seperate lines for synonyms"""
+    df = df.assign(Column_Split=df[header].str.split('/')).explode('Column_Split')
+    df = df.drop(header, axis=1).rename(columns={'Column_Split': header})
+    return df
