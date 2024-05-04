@@ -20,16 +20,18 @@ pos_model = spacy_model('en_core_web_sm')
 
 
 def cha_phrase_cleaning(phrase: str) -> str:
-    # Remove text between brackets
-    phrase = BRACKET_TEXT.sub("", phrase)
-    # Remove &=XXXX annotations
-    phrase = CHA_ANNOT.sub("", phrase)
-    # Remove any noise words
-    phrase = CHA_NOISE.sub("", phrase)
+    try:
+        # Remove text between brackets
+        phrase = BRACKET_TEXT.sub("", phrase)
+        # Remove &=XXXX annotations
+        phrase = CHA_ANNOT.sub("", phrase)
+        # Remove any noise words
+        phrase = CHA_NOISE.sub("", phrase)
 
-    # Clean using word cleaning
-    return word_cleaning(phrase)
-
+        # Clean using word cleaning
+        return word_cleaning(phrase)
+    except:
+        return str(phrase)
 
 def word_cleaning(word: str) -> str:
     """ Clean-up text by keeping only wordlike items.

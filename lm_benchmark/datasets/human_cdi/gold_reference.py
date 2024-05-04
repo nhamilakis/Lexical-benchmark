@@ -2,12 +2,10 @@
 This is a loader and extractor for Human CDI
 
 """
-import argparse
+
 import enum
 from pathlib import Path
-
 import pandas as pd
-
 from ..utils import word_cleaning, word_to_pos, segment_synonym, remove_exp, merge_word
 
 AGE_MIN = 16
