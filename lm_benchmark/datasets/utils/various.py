@@ -1,7 +1,6 @@
 import typing as t
 import re
 import string
-
 from .spacy_utils import spacy_model
 
 # Translator Cleaner
@@ -42,7 +41,7 @@ def word_cleaning(word: str) -> str:
     - TODO: remove annotations; problem: polysemies
     - TODO: do we have expressions ? if yes we need to not eliminate spaces in the regexp
     """
-    word = re.sub(r"\([a-z]+\)", "", word)
+    word = re.sub(r"\(.*?\)", "", word)
     clean_string = word.translate(tr_cleaner).lower()
     return only_chars_r.sub("", clean_string).strip()
 
@@ -54,3 +53,10 @@ def word_to_pos(word) -> t.Optional[str]:
     if first_token:
         return first_token.pos_
     return None
+
+def segment_synonym(df,header:str):
+    """seperate lines for synonyms"""
+    df = df.assign(Column_Split=df[header].str.split('/')).explode('Column_Split')
+    df = df.drop(header, axis=1).rename(columns={'Column_Split': header})
+    return df
+

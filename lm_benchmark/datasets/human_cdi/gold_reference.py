@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ..utils import word_cleaning, word_to_pos
+from ..utils import word_cleaning, word_to_pos, segment_synonym
 
 AGE_MIN = 16
 AGE_MAX = 30
@@ -97,6 +97,9 @@ class GoldReferenceCSV:
     def __build_gold__(self) -> pd.DataFrame:
         """ Build the gold dataframe from the given src """
         df = self.df.copy()
+
+        # segment lines with synonyms
+        df = segment_synonym(df,'item_definition')
 
         # Create a clean version of item_definition
         df['word'] = df['item_definition'].apply(word_cleaning)
