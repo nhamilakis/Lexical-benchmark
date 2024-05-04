@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ..utils import word_cleaning, word_to_pos, segment_synonym
+from ..utils import word_cleaning, word_to_pos, segment_synonym, remove_exp, merge_word
 
 AGE_MIN = 16
 AGE_MAX = 30
@@ -100,10 +100,10 @@ class GoldReferenceCSV:
 
         # segment lines with synonyms
         df = segment_synonym(df,'item_definition')
-
         # Create a clean version of item_definition
         df['word'] = df['item_definition'].apply(word_cleaning)
-
+        # remove expressions
+        df = remove_exp(df,'word')
         # Calculate Word length
         df['word_length'] = df['word'].apply(len)
 
@@ -119,7 +119,6 @@ class GoldReferenceCSV:
             # Filter out all PoS that is in CONTENT_POS
             df = df[~df['POS'].isin(CONTENT_POS)]
 
-        # remove expressions
-
         # merge different word sernses by adding the prop
+        df = merge_word(df,'word')
         return df[self.columns].copy()

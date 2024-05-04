@@ -61,7 +61,17 @@ def segment_synonym(df,header:str):
     return df
 
 def remove_exp(df,header:str):
-    """seperate lines for synonyms"""
-    df = df.assign(Column_Split=df[header].str.split('/')).explode('Column_Split')
-    df = df.drop(header, axis=1).rename(columns={'Column_Split': header})
-    return df
+    """remove expressions with more than one word"""
+    return df[~df[header].str.contains(r"\s", regex=True)]
+
+def merge_word(df,header:str):
+    """merge same word in different semantic senses"""
+    merged_df = df.groupby(header).first().reset_index()
+    # Aggregate other columns
+    for col in df.columns:
+        if col != header:
+            if df[col].dtype == 'object':
+                merged_df[col] = df.groupby(header)[col].first().reset_index()[col]
+            else:
+                merged_df[col] = df.groupby(header)[col].sum().reset_index()[col]
+    return merged_df
