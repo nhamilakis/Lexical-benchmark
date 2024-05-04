@@ -119,5 +119,6 @@ class GoldReferenceCSV:
             # Filter out all PoS that is in CONTENT_POS
             df = df[~df['POS'].isin(CONTENT_POS)]
 
+        #
         # return the df
         return df[self.columns].copy()
