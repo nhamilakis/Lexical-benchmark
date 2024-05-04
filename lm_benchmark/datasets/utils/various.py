@@ -42,6 +42,7 @@ def word_cleaning(word: str) -> str:
     - TODO: remove annotations; problem: polysemies
     - TODO: do we have expressions ? if yes we need to not eliminate spaces in the regexp
     """
+    word = re.sub(r"\([a-z]+\)", "", word)
     clean_string = word.translate(tr_cleaner).lower()
     return only_chars_r.sub("", clean_string).strip()
 

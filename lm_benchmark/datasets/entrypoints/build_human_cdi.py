@@ -1,5 +1,6 @@
 import argparse
 import dataclasses
+import sys
 from pathlib import Path
 
 from lm_benchmark.datasets.human_cdi import POSTypes, AGE_MIN, AGE_MAX, GoldReferenceCSV
@@ -17,8 +18,8 @@ def arguments() -> argparse.Namespace:
                         help='Filter words by word_type')
     parser.add_argument("--min-age", type=int, default=AGE_MIN)
     parser.add_argument("--max-age", type=int, default=AGE_MAX)
-    parser.add_argument("src_file")
-    parser.add_argument("target_file")
+    parser.add_argument("--src_file", default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/corpus/AE_exp.csv')
+    parser.add_argument("--target_file", default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/human/AE.csv')
     return parser.parse_args()
 
 
@@ -35,3 +36,9 @@ def main():
         pos_filter_type=POSTypes(args.filter_by_word_type)
     )
     gd_loader.gold.to_csv(target, index=False)
+
+
+if __name__ == "__main__":
+    args = sys.argv[1:]
+    main()
+
