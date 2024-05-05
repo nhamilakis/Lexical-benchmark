@@ -3,11 +3,10 @@
 """
 Classes for freq matching and calculating
 """
-from typing import Tuple
+
 import pandas as pd
 from pathlib import Path
-from pandas import DataFrame
-from .freq_util import get_freq_table,match_range,get_equal_bins,match_bin_range
+from .freq_util import get_freq_table,get_bin_stat,get_equal_bins,match_bin_range
 
 
 class FreqGenerater:
@@ -31,7 +30,7 @@ class FreqGenerater:
         return self._src_df
 
     @property
-    def gold(self) -> pd.DataFrame:
+    def freq(self) -> pd.DataFrame:
         """ Get the Gold data as a Pandas DataFrame """
         if self._target_df is None:
             self._target_df = self.__build_freq__()
@@ -52,7 +51,6 @@ class FreqGenerater:
 
 
 class FreqMatcher:
-
     def __init__(self, human: Path, CHILDES: Path, machine:Path,num_bins:int,header: str):
 
         if not human.is_file():
@@ -66,6 +64,11 @@ class FreqMatcher:
         self._CHILDES_csv_location = CHILDES
         self._header = header
         self._num_bins = num_bins
+        self._src_df = None
+        self._matched_CDI = None
+        self._matched_audiobook = None
+        self._human_stat = None
+        self._machine_stat = None
         # Call load method to initialize dataframes
         self.__load__()
 
@@ -88,9 +91,21 @@ class FreqMatcher:
                                                          self._machine_df, False)
         return self._matched_CDI, self._matched_audiobook
 
+    def __get_stat__(self):
+        """ Match two freq frames """
+        # first check whether they directly match without moving additional words
+        self._human_stat = get_bin_stat(self._human_df, 'freq')
+        self._machine_stat = get_bin_stat(self._machine_df, 'freq')
+        return self._human_stat, self._machine_stat
+
     def get_matched_data(self) -> tuple:
         """ Get matched data """
         if self._matched_CDI is None:
             self._matched_CDI, self._matched_audiobook = self.__match_freq__()
         return self._matched_CDI, self._matched_audiobook
 
+    def get_stat(self) -> tuple:
+        """ Get matched data """
+        if self._human_stat is None:
+            self._human_stat, self._machine_stat = self.__get_stat__()
+        return self._human_stat, self._machine_stat

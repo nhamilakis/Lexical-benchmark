@@ -28,7 +28,7 @@ def get_freq_table(result):
     fre_table = pd.DataFrame([word_lst, freq_lst]).T
     col_Names = ["word", "count"]
     fre_table.columns = col_Names
-    fre_table['freq'] = fre_table['count'] / len(result)
+    fre_table['freq_m'] = fre_table['count'] / len(result) * 1000000
     return fre_table
 
 
@@ -206,36 +206,9 @@ def match_range(CDI, audiobook):
     return matched_CDI, matched_audiobook
 
 
-def get_bin_stat(bins, data_sorted):
+def get_bin_stat(df, column_header):
     '''
-    get stat of freq bins
-    input: column with annotated group name
-    return bin_stat
-    '''
-    data_sorted = np.array(data_sorted)
-    # computing statistics over the bins (size, min, max, mean, med, low and high boundaries and density)
-    boundaries = list(zip(bins[:-1], bins[1:]))
-    binned_data_count = [len(data_sorted[(data_sorted >= l) & (data_sorted < h)]) for l, h in boundaries]
-    binned_data_min = [np.min(data_sorted[(data_sorted >= l) & (data_sorted < h)]) for l, h in boundaries]
-    binned_data_max = [np.max(data_sorted[(data_sorted >= l) & (data_sorted < h)]) for l, h in boundaries]
-    binned_data_mean = [np.mean(data_sorted[(data_sorted >= l) & (data_sorted < h)]) for l, h in boundaries]
-    binned_data_median = [np.median(data_sorted[(data_sorted >= l) & (data_sorted < h)]) for l, h in boundaries]
-    bins_stats = pd.DataFrame(
-        {'count': binned_data_count, 'min': binned_data_min, 'max': binned_data_max, 'mean': binned_data_mean,
-         'median': binned_data_median})
-    bins_stats['low'] = bins[:-1]
-    bins_stats['high'] = bins[1:]
-    bins_stats['density'] = bins_stats['count'] / (bins_stats['high'] - bins_stats['low']) / sum(bins_stats['count'])
-    # Rename the newly created column to 'group'
-    bins_stats = bins_stats.reset_index()
-    bins_stats = bins_stats.rename(columns={'index': 'group'})
-
-    return bins_stats
-
-
-def get_len_stat(df, column_header):
-    '''
-    get stat of word length
+    get stat of each bin
     input: dataframe with annotated group name
     return bin_stat
     '''
@@ -247,7 +220,7 @@ def get_len_stat(df, column_header):
         median='median'
     ).reset_index()
 
-    stats_df.rename(columns={'min': 'len_min', 'max': 'len_max', 'mean': 'len_mean', 'median': 'len_median'},
+    stats_df.rename(columns={'min': 'min', 'max': 'max', 'mean': 'mean', 'median': 'median'},
                     inplace=True)
     return stats_df
 
