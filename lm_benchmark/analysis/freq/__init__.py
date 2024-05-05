@@ -1,0 +1,2 @@
+from .freq import FreqGenerater
+
