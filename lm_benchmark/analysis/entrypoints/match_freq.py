@@ -43,6 +43,10 @@ def main():
     matched_CDI.to_csv(human_target)
     matched_audiobook.to_csv(machine_target)
 
+    human_stat, machine_stat = freq_matcher.get_stat()
+    human_stat.to_csv('/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/freq/AE_human.csv')
+    machine_stat.to_csv('/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/freq/AE_machine.csv')
+
 
 if __name__ == "__main__":
     args = sys.argv[1:]
