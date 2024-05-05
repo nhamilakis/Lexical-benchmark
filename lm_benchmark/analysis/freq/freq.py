@@ -3,10 +3,11 @@
 """
 Classes for freq matching and calculating
 """
-
+from typing import Tuple
 import pandas as pd
 from pathlib import Path
-from ..utils import get_freq_table
+from pandas import DataFrame
+from .freq_util import get_freq_table,match_range,get_equal_bins,match_bin_range
 
 
 class FreqGenerater:
@@ -48,4 +49,48 @@ class FreqGenerater:
         # get freq
         freq_table = get_freq_table(words)
         return freq_table
+
+
+class FreqMatcher:
+
+    def __init__(self, human: Path, CHILDES: Path, machine:Path,num_bins:int,header: str):
+
+        if not human.is_file():
+            raise ValueError(f'Given file ::{human}:: does not exist !!')
+        if not CHILDES.is_file():
+            raise ValueError(f'Given file ::{CHILDES}:: does not exist !!')
+        if not machine.is_file():
+            raise ValueError(f'Given file ::{machine}:: does not exist !!')
+        self._human_csv_location = human
+        self._machine_csv_location = machine
+        self._CHILDES_csv_location = CHILDES
+        self._header = header
+        self._num_bins = num_bins
+        # Call load method to initialize dataframes
+        self.__load__()
+
+    def __load__(self) -> None:
+        """ Load the dataset into dataframes """
+        # filter subset of the words
+        self._machine_df = pd.read_csv(self._machine_csv_location)
+        self._human = pd.read_csv(self._human_csv_location)
+        self._CHILDES = pd.read_csv(self._CHILDES_csv_location)
+        self._human_df = self._CHILDES[self._CHILDES[self._header].isin(self._human[self._header])]
+
+    def __match_freq__(self):
+        """ Match two freq frames """
+        # first check whether they directly match without moving additional words
+        #self._CDI, self._audiobook = match_range(self._human_df, self._machine_df)
+        self._CDI_bins, self._matched_CDI = get_equal_bins(self._human_df['freq'], self._human_df, self._num_bins)
+        # match bin range
+        self._matched_CDI, self._matched_audiobook = match_bin_range(self._CDI_bins, self._human_df,
+                                                         self._machine_df['freq'].tolist(),
+                                                         self._machine_df, False)
+        return self._matched_CDI, self._matched_audiobook
+
+    def get_matched_data(self) -> tuple:
+        """ Get matched data """
+        if self._matched_CDI is None:
+            self._matched_CDI, self._matched_audiobook = self.__match_freq__()
+        return self._matched_CDI, self._matched_audiobook
 

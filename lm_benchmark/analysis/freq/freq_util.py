@@ -7,10 +7,8 @@ util func for get_stat
 """
 
 import pandas as pd
-import math
 import numpy as np
 import collections
-import matplotlib.pyplot as plt
 import random
 from itertools import islice
 from collections import deque
@@ -198,12 +196,12 @@ def match_range(CDI, audiobook):
     match the audiobook sets with CHILDES of differetn modes
     Returns shrinked dataset with the matched range
     '''
-    matched_CDI, matched_audiobook = get_intersections(CDI, audiobook, 'CHILDES_log_freq_per_million',
-                                                       'Audiobook_log_freq_per_million')
+    matched_CDI, matched_audiobook = get_intersections(CDI, audiobook, 'freq',
+                                                       'freq')
 
     # sort the results by freq
-    matched_CDI = matched_CDI.sort_values(by='CHILDES_log_freq_per_million')
-    matched_audiobook = matched_audiobook.sort_values(by='Audiobook_log_freq_per_million')
+    matched_CDI = matched_CDI.sort_values(by='freq')
+    matched_audiobook = matched_audiobook.sort_values(by='freq')
 
     return matched_CDI, matched_audiobook
 
@@ -307,9 +305,9 @@ def match_bin_range(CDI_bins, CDI, audiobook, audiobook_frame, match_median):
         for group in set(audiobook_frame['group']):
             CDI_group = CDI[CDI['group'] == group]
             audiobook_group = audiobook_frame[audiobook_frame['group'] == group]
-            CDI_selected, audiobook_selected = get_intersections(CDI_group, audiobook_group, 'word_len', 'word_len')
-            matched_CDI = pd.concat([matched_CDI, CDI_selected])
-            matched_audiobook = pd.concat([matched_audiobook, audiobook_selected])
+            #CDI_selected, audiobook_selected = get_intersections(CDI_group, audiobook_group, 'word_len', 'word_len')
+            matched_CDI = pd.concat([matched_CDI, CDI_group])
+            matched_audiobook = pd.concat([matched_audiobook, audiobook_group])
 
         return matched_CDI, matched_audiobook
 
@@ -322,11 +320,6 @@ def match_bin_range(CDI_bins, CDI, audiobook, audiobook_frame, match_median):
     bins = find_closest_numbers(audiobook, CDI_bins)
     # computing bin membership for the original data; append bin membership to stat
     bin_membership = np.zeros(len(audiobook), dtype=int)
-    # replace the group name into target median
-    '''
-    for i in range(0,len(bins)-1):
-       bin_membership[(audiobook>=bins[i])&(audiobook<=bins[i+1])]=i
-    '''
     for i in range(0, len(bins) - 1):
         bin_membership[(audiobook >= bins[i]) & (audiobook <= bins[i + 1])] = i
 
