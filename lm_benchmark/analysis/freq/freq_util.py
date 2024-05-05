@@ -280,6 +280,9 @@ def match_bin_range(CDI_bins, CDI, audiobook, audiobook_frame, match_median):
         # do the greedy search within each band
         pass
 
+    # TODO: return the stat after matching
+
+
 '''
 # %%
 import math
@@ -301,7 +304,7 @@ human = human[human["logfreq"].between(*band)]
 
 # %%
 hmean, hmedian, hmin, hmax = human["logfreq"].describe()[["mean", "50%", "min", "max"]]
-c1, c2, c3, c4, c5 = 2, 0.5, 0.5, 0.5, 0.1
+c1, c2, c3, c4, c5 = 0.1, 0.1, 0.1, 0.1, 0.1
 
 def cost(logfreqs):
     mmean, mmedian, mmin, mmax, count = pd.Series(logfreqs).describe()[
@@ -329,5 +332,4 @@ print(pd.Series(human["logfreq"]).describe())
 print()
 print("MACHINE")
 print(pd.Series(logfreqs).describe())
-# %%
 '''

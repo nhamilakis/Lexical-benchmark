@@ -7,8 +7,8 @@ from lm_benchmark.datasets.utils import cha_phrase_cleaning
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--src_file", default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/corpus/raw/CHILDES.csv')
-    parser.add_argument("--target_file", default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/corpus/freq/CHILDES.csv')
+    parser.add_argument("--src_file", default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/score/generation.csv')
+    parser.add_argument("--target_file", default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/score/child.csv')
     parser.add_argument("--header",default='content')
     return parser.parse_args()
 
