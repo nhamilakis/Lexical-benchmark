@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-util func for get_stat
-
-@author: jliu
-"""
-
 import pandas as pd
 import numpy as np
 import collections
@@ -30,8 +24,6 @@ def get_freq_table(result):
     fre_table.columns = col_Names
     fre_table['freq_m'] = fre_table['count'] / len(result) * 1000000
     return fre_table
-
-
 
 
 def get_intersections(df1, df2, column1, column2):
@@ -190,26 +182,10 @@ def match_medians(word_freq_dict, target_median, target_len):
         return updated_dict
 
 
-def match_range(CDI, audiobook):
-    '''
-    match the audiobook sets with CHILDES of differetn modes
-    Returns shrinked dataset with the matched range
-    '''
-    matched_CDI, matched_audiobook = get_intersections(CDI, audiobook, 'freq',
-                                                       'freq')
-    # sort the results by freq
-    matched_CDI = matched_CDI.sort_values(by='freq')
-    matched_audiobook = matched_audiobook.sort_values(by='freq')
-
-    return matched_CDI, matched_audiobook
 
 
 def get_bin_stat(df, column_header:str):
-    '''
-    Get statistics of each bin
-    Input: DataFrame with annotated group name
-    Return: bin_stat DataFrame
-    '''
+    '''Get statistics of each bin'''
     # Group by 'group' column and calculate statistics
     stats_df = df.groupby('group').agg(
         count=('group', 'size'),
@@ -227,8 +203,8 @@ def get_bin_stat(df, column_header:str):
 def get_equal_bins(data, data_frame, n_bins):
     '''
     get equal-sized bins
-    input: a sorted array or a list of numbers; computes a split of the data into n_bins bins of approximately the same size
-
+    input: a sorted array or a list of numbers;
+        computes a split of the data into n_bins bins of approximately the same size
     return
         bins: array with each bin boundary
         bins_stats
@@ -260,7 +236,6 @@ def get_equal_bins(data, data_frame, n_bins):
 def match_bin_range(CDI_bins, CDI, audiobook, audiobook_frame, match_median):
     '''
     match range of the audiobook freq of machine CDI with CHILDES freq of CDI
-
     input:
         human CDI eauql-sized bins
         machine-CDI freq bin
@@ -302,43 +277,57 @@ def match_bin_range(CDI_bins, CDI, audiobook, audiobook_frame, match_median):
         return CDI, audiobook_frame
 
     else:
-        # match freq and len medians of each freq bin
-        target_frame_grouped = CDI.groupby('group')
-        matched_audiobook = pd.DataFrame()
+        # do the greedy search within each band
+        pass
 
-        for group, target_frame_group in target_frame_grouped:
+'''
+# %%
+import math
+import pandas as pd
 
-            target_freq = target_frame_group['CHILDES_log_freq_per_million'].median()
+machine = pd.read_csv("/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/corpus/AE_machine.csv")[
+    ["word", "freq_m"]
+]
 
-            target_len = target_frame_group['word_len'].median()
+human = pd.read_csv("/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/corpus/AE_human.csv")[
+    ["word", "freq_m"]
+]
+human.rename(columns={"freq_m": "logfreq"}, inplace=True)
+machine.rename(columns={"freq_m": "logfreq"}, inplace=True)
+# %%
+band = [0.30, 28.51]
+machine = machine[machine["logfreq"].between(*band)]
+human = human[human["logfreq"].between(*band)]
 
-            machine_group_frame = audiobook_frame[audiobook_frame['group'] == group]
-            machine_group = {}
-            for _, row in machine_group_frame.iterrows():
-                key = row['word']
-                values = (row['Audiobook_log_freq_per_million'], row['word_len'])
-                machine_group[key] = values
+# %%
+hmean, hmedian, hmin, hmax = human["logfreq"].describe()[["mean", "50%", "min", "max"]]
+c1, c2, c3, c4, c5 = 2, 0.5, 0.5, 0.5, 0.1
 
-            updated_dict = match_medians(machine_group, target_freq, target_len)
-
-            frequencyDict = collections.Counter(updated_dict.values())
-            count_lst = list(frequencyDict.values())
-            freq_lst = list(frequencyDict.keys())
-            # Randomize the row orders
-            randomized_df = machine_group_frame.sample(frac=1)
-            word_frame = pd.DataFrame()
-            n = 0
-            while n < len(freq_lst):
-                selected_frame_words = randomized_df[randomized_df['Audiobook_log_freq_per_million'] == freq_lst[n][0]]
-                selected_frame_words = selected_frame_words[selected_frame_words['word_len'] == freq_lst[n][1]]
-                # generate the index randomly
-                selected_frame_words = selected_frame_words.reindex()
-                selected_frame = selected_frame_words.iloc[:count_lst[n]]
-                word_frame = pd.concat([word_frame, selected_frame])
-                n += 1
-
-            matched_audiobook = pd.concat([matched_audiobook, word_frame])
-
-        return CDI, matched_audiobook
+def cost(logfreqs):
+    mmean, mmedian, mmin, mmax, count = pd.Series(logfreqs).describe()[
+        ["mean", "50%", "min", "max", "count"]
+    ]
+    return (
+        c1 * (hmean - mmean) ** 2
+        + c2 * (hmedian - mmedian) ** 2
+        + c3 * (hmin - mmin) ** 2
+        + c4 * (hmax - mmax) ** 2
+        - c5 * count / len(machine)
+    )
 
 
+logfreqs = []
+prev_cost = math.inf
+for _, row in machine.iterrows():
+    current_cost = cost(logfreqs + [row["logfreq"]])
+    if current_cost < prev_cost:
+        logfreqs.append(row["logfreq"])
+        prev_cost = current_cost
+
+print("HUMAN")
+print(pd.Series(human["logfreq"]).describe())
+print()
+print("MACHINE")
+print(pd.Series(logfreqs).describe())
+# %%
+'''

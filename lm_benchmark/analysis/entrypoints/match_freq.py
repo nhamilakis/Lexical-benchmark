@@ -1,6 +1,5 @@
 import argparse
 import sys
-import pandas as pd
 from pathlib import Path
 from lm_benchmark.analysis.freq import FreqMatcher
 

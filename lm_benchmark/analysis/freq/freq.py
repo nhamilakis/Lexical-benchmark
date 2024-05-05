@@ -6,7 +6,7 @@ Classes for freq matching and calculating
 
 import pandas as pd
 from pathlib import Path
-from .freq_util import get_freq_table,get_bin_stat,get_equal_bins,match_bin_range,match_range
+from .freq_util import get_freq_table,get_bin_stat,get_equal_bins,match_bin_range
 
 
 class FreqGenerater:
@@ -39,6 +39,9 @@ class FreqGenerater:
     def __load__(self) -> pd.DataFrame:
         """ Load the dataset into a dataframe """
         df = pd.read_csv(self._raw_csv_location)
+        # TODO: configure this future CHILDES_trans formats
+        if self._raw_csv_location.suffix == 'CHILDES.csv':
+            df = df[(df['speaker'] != 'CHI')]     # only use parents' utt
         return df
 
     def __build_freq__(self) -> pd.DataFrame:
@@ -79,6 +82,7 @@ class FreqMatcher:
         self._machine_df = pd.read_csv(self._machine_csv_location)
         self._human = pd.read_csv(self._human_csv_location)
         self._CHILDES = pd.read_csv(self._CHILDES_csv_location)
+        # filter CHILDES by parents' inputs
         self._human_df = self._CHILDES[self._CHILDES[self._header].isin(self._human[self._header])]
         # sort df by the given columns
         self._human_df['freq_m'] = self._human_df['freq_m'].astype(float)
@@ -87,17 +91,13 @@ class FreqMatcher:
         self._machine_df = self._machine_df.sort_values(by='freq_m')
     def __match_freq__(self):
         """ Match two freq frames """
-        # first check whether they directly match without moving additional words
-        #self._CDI, self._audiobook = match_range(self._human_df, self._machine_df)
+        # get equal bins
         self._CDI_bins, self._matched_CDI = get_equal_bins(self._human_df['freq_m'], self._human_df, self._num_bins)
-        # match bin range
         self._matched_CDI, self._matched_audiobook = match_bin_range(self._CDI_bins, self._human_df,
                                                          self._machine_df['freq_m'].tolist(),
                                                          self._machine_df, False)
-
         self._human_stat = get_bin_stat(self._matched_CDI, 'freq_m')
         self._machine_stat = get_bin_stat(self._matched_audiobook, 'freq_m')
-
         return self._matched_CDI, self._matched_audiobook, self._human_stat,self._machine_stat
 
     def get_matched_data(self) -> tuple:
