@@ -38,14 +38,11 @@ def main():
         num_bins=args.num_bins,
         header=args.header
     )
-    '''
-    matched_CDI, matched_audiobook = freq_matcher.match_freq()
-    matched_CDI.gold.to_csv(human_target)
-    matched_audiobook.gold.to_csv(machine_target)
-    '''
+
     matched_CDI, matched_audiobook = freq_matcher.get_matched_data()
     matched_CDI.to_csv(human_target)
     matched_audiobook.to_csv(machine_target)
+
 
 if __name__ == "__main__":
     args = sys.argv[1:]
