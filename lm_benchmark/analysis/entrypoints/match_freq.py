@@ -18,6 +18,7 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--machine_target",
                         default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/corpus/AE_machine.csv')
     parser.add_argument("--header",default='word')
+    parser.add_argument("--freq_header", default='freq_m')
     parser.add_argument("--num_bins", default=6)
     return parser.parse_args()
 
@@ -36,14 +37,14 @@ def main():
         CHILDES=CHILDES_src,
         machine=machine_src,
         num_bins=args.num_bins,
-        header=args.header
+        header=args.header,
+        freq_header=args.header
     )
 
-    matched_CDI, matched_audiobook = freq_matcher.get_matched_data()
+    matched_CDI, matched_audiobook,human_stat,machine_stat = freq_matcher.get_matched_data()
     matched_CDI.to_csv(human_target)
     matched_audiobook.to_csv(machine_target)
 
-    human_stat, machine_stat = freq_matcher.get_stat()
     human_stat.to_csv('/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/freq/AE_human.csv')
     machine_stat.to_csv('/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/freq/AE_machine.csv')
 

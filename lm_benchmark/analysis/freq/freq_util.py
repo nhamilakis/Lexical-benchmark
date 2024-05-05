@@ -40,7 +40,6 @@ def get_intersections(df1, df2, column1, column2):
     min_freq = max(df1[column1].min(), df2[column2].min())
     matched_df1 = df1[(df1[column1] >= min_freq) & (df1[column1] <= max_freq)]
     matched_df2 = df2[(df2[column2] >= min_freq) & (df2[column2] <= max_freq)]
-
     return matched_df1, matched_df2
 
 
@@ -198,7 +197,6 @@ def match_range(CDI, audiobook):
     '''
     matched_CDI, matched_audiobook = get_intersections(CDI, audiobook, 'freq',
                                                        'freq')
-
     # sort the results by freq
     matched_CDI = matched_CDI.sort_values(by='freq')
     matched_audiobook = matched_audiobook.sort_values(by='freq')
@@ -206,24 +204,25 @@ def match_range(CDI, audiobook):
     return matched_CDI, matched_audiobook
 
 
-def get_bin_stat(df, column_header):
+def get_bin_stat(df, column_header:str):
     '''
-    get stat of each bin
-    input: dataframe with annotated group name
-    return bin_stat
+    Get statistics of each bin
+    Input: DataFrame with annotated group name
+    Return: bin_stat DataFrame
     '''
-    # Group by 'Group' column and calculate statistics
-    stats_df = df.groupby('group')[column_header].agg(
-        min='min',
-        max='max',
-        mean='mean',
-        median='median'
+    # Group by 'group' column and calculate statistics
+    stats_df = df.groupby('group').agg(
+        count=('group', 'size'),
+        min_value=(column_header, 'min'),
+        max_value=(column_header, 'max'),
+        mean_value=(column_header, 'mean'),
+        median_value=(column_header, 'median'),
     ).reset_index()
 
-    stats_df.rename(columns={'min': 'min', 'max': 'max', 'mean': 'mean', 'median': 'median'},
+    # Rename columns for clarity
+    stats_df.rename(columns={'min_value': 'min', 'max_value': 'max', 'mean_value': 'mean', 'median_value': 'median'},
                     inplace=True)
     return stats_df
-
 
 def get_equal_bins(data, data_frame, n_bins):
     '''
@@ -278,9 +277,10 @@ def match_bin_range(CDI_bins, CDI, audiobook, audiobook_frame, match_median):
         for group in set(audiobook_frame['group']):
             CDI_group = CDI[CDI['group'] == group]
             audiobook_group = audiobook_frame[audiobook_frame['group'] == group]
-            #CDI_selected, audiobook_selected = get_intersections(CDI_group, audiobook_group, 'word_len', 'word_len')
-            matched_CDI = pd.concat([matched_CDI, CDI_group])
-            matched_audiobook = pd.concat([matched_audiobook, audiobook_group])
+            CDI_selected, audiobook_selected = get_intersections(CDI_group, audiobook_group,
+                                                                 'freq_m', 'freq_m')
+            matched_CDI = pd.concat([matched_CDI, CDI_selected])
+            matched_audiobook = pd.concat([matched_audiobook, audiobook_selected])
 
         return matched_CDI, matched_audiobook
 
@@ -295,7 +295,6 @@ def match_bin_range(CDI_bins, CDI, audiobook, audiobook_frame, match_median):
     bin_membership = np.zeros(len(audiobook), dtype=int)
     for i in range(0, len(bins) - 1):
         bin_membership[(audiobook >= bins[i]) & (audiobook <= bins[i + 1])] = i
-
     audiobook_frame['group'] = bin_membership
     CDI, audiobook_frame = align_group(CDI, audiobook_frame)
 
@@ -341,6 +340,5 @@ def match_bin_range(CDI_bins, CDI, audiobook, audiobook_frame, match_median):
             matched_audiobook = pd.concat([matched_audiobook, word_frame])
 
         return CDI, matched_audiobook
-
 
 
