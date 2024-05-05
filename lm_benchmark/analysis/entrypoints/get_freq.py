@@ -7,8 +7,8 @@ from lm_benchmark.datasets.utils import cha_phrase_cleaning
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--src_file", default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/corpus/raw/3200.txt')
-    parser.add_argument("--target_file", default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/corpus/freq/3200.csv')
+    parser.add_argument("--src_file", default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/corpus/raw/CHILDES.csv')
+    parser.add_argument("--target_file", default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/corpus/freq/CHILDES.csv')
     parser.add_argument("--header",default='content')
     return parser.parse_args()
 
@@ -25,14 +25,18 @@ def main():
         df = pd.read_csv(src_file, header=None, names=[header])
         df = df[~pd.to_numeric(df[header], errors='coerce').notnull()]    # remove float
         df[header] = df[header].apply(cha_phrase_cleaning)
-        src = Path(src_file.split('.')[0] + '.csv')
-        df.to_csv(src)
+        src_file = Path(src_file.split('.')[0] + '.csv')
+        df.to_csv(src_file)
+
+    if not src_file.endswith('txt'):
+        src_file = Path(src_file)
 
     freq_loader = FreqGenerater(
-        raw_csv=src,
+        raw_csv=src_file,
         header=header
     )
-    freq_loader.gold.to_csv(target, index=False)
+    freq_loader.freq.to_csv(target, index=False)
+
 
 if __name__ == "__main__":
     args = sys.argv[1:]
