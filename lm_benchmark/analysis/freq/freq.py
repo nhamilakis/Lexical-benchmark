@@ -46,8 +46,7 @@ class FreqGenerater:
 
     def __build_freq__(self) -> pd.DataFrame:
         """ Build the freq dataframe from the given src """
-        word_lst = self.df[self._header]
-        words = [str(word) for sentence in word_lst for word in str(sentence).split()]
+        words = self.df[self._header]
         # get freq
         freq_table = get_freq_table(words)
         return freq_table

@@ -11,9 +11,10 @@ import statistics
 random.seed(45)
 
 
-def get_freq_table(result):
+def get_freq_table(word_lst):
     """get freq from a word list"""
     # clean text and get the freq table
+    result = [str(word) for sentence in word_lst for word in str(sentence).split()]
     frequencyDict = collections.Counter(result)
     freq_lst = list(frequencyDict.values())
     word_lst = list(frequencyDict.keys())
