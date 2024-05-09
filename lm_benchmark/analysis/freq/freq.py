@@ -40,8 +40,11 @@ class FreqGenerater:
         """ Load the dataset into a dataframe """
         df = pd.read_csv(self._raw_csv_location)
         # TODO: configure this future CHILDES_trans formats
-        if self._raw_csv_location.suffix == 'CHILDES.csv':
+        if str(self._raw_csv_location).endswith('CHILDES.csv'):
+            print('filtering the parents utterances')
             df = df[(df['speaker'] != 'CHI')]     # only use parents' utt
+        else:
+            print('No action')
         return df
 
     def __build_freq__(self) -> pd.DataFrame:

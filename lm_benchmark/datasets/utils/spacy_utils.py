@@ -10,3 +10,4 @@ def spacy_model(model_name: str) -> spacy.Language:
         download(model_name)
 
         return spacy.load(model_name)
+

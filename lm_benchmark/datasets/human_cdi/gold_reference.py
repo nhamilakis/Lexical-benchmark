@@ -8,8 +8,8 @@ from pathlib import Path
 import pandas as pd
 from ..utils import word_cleaning, word_to_pos, segment_synonym, remove_exp, merge_word
 
-AGE_MIN = 16
-AGE_MAX = 30
+AGE_MIN = 12
+AGE_MAX = 25
 CONTENT_POS = {'ADJ', 'NOUN', 'VERB', 'ADV', 'PROPN'}
 
 

@@ -77,3 +77,7 @@ def merge_word(df,header:str):
             else:
                 merged_df[col] = df.groupby(header)[col].sum().reset_index()[col]
     return merged_df
+
+
+
+

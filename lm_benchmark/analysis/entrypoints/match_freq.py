@@ -7,15 +7,15 @@ from lm_benchmark.analysis.freq import FreqMatcher
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--human_src",
-                        default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/corpus/AE.csv')
+                        default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/corpus/BE.csv')
     parser.add_argument("--CHILDES_src",
                         default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/corpus/freq/CHILDES.csv')
     parser.add_argument("--machine_src",
                         default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/corpus/freq/3200.csv')
     parser.add_argument("--human_target",
-                        default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/corpus/AE_human.csv')
+                        default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/corpus/BE_human.csv')
     parser.add_argument("--machine_target",
-                        default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/corpus/AE_machine.csv')
+                        default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/corpus/BE_machine.csv')
     parser.add_argument("--header",default='word')
     parser.add_argument("--freq_header", default='freq_m')
     parser.add_argument("--num_bins", default=6)
@@ -44,8 +44,8 @@ def main():
     matched_CDI.to_csv(human_target)
     matched_audiobook.to_csv(machine_target)
 
-    human_stat.to_csv('/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/freq/AE_human.csv')
-    machine_stat.to_csv('/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/freq/AE_machine.csv')
+    human_stat.to_csv('/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/freq_stat/BE_human.csv')
+    machine_stat.to_csv('/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/freq_stat/BE_machine.csv')
 
 
 if __name__ == "__main__":
