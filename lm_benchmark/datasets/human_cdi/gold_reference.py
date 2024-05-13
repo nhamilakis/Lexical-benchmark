@@ -8,8 +8,8 @@ from pathlib import Path
 import pandas as pd
 from ..utils import word_cleaning, word_to_pos, segment_synonym, remove_exp, merge_word
 
-AGE_MIN = 12 #16    #TODO: refine the way of loading specific columns
-AGE_MAX = 25 #30
+AGE_MIN = 16#12 #    #TODO: refine the way of loading specific columns
+AGE_MAX = 30#25 #
 CONTENT_POS = {'ADJ', 'NOUN', 'VERB', 'ADV', 'PROPN'}
 CATEGORY = {'connecting_words','helping_verbs','pronouns','quantifiers','prepositions','sounds','locations','question_words'}
 WORD = {'now','dont','hi'}    # words that are confused by LMs
@@ -113,14 +113,15 @@ class GoldReferenceCSV:
         if self.pos_filter_type == POSTypes.content:
             # filter out all PoS that is not in CONTENT_POS
             df = df[df['POS'].isin(CONTENT_POS)]
-
+        
         elif self.pos_filter_type == POSTypes.function:
             # Filter out all PoS that is in CONTENT_POS
             df = df[~df['POS'].isin(CONTENT_POS)]
-
+        
         # Filter polysemous words by annotations from original data
         df = df[~df['category'].isin(CATEGORY)]
         df = df[~df['item_definition'].isin(WORD)]
+
         # merge different word senses by adding the prop
         df = merge_word(df,'word')
         return df[self.columns].copy()
