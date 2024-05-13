@@ -18,8 +18,8 @@ def arguments() -> argparse.Namespace:
                         help='Filter words by word_type')
     parser.add_argument("--min-age", type=int, default=AGE_MIN)
     parser.add_argument("--max-age", type=int, default=AGE_MAX)
-    parser.add_argument("--src_file", default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/corpus/raw/BE_exp.csv')
-    parser.add_argument("--target_file", default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/corpus/BE.csv')
+    parser.add_argument("--src_file", default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/corpus/raw/AE_exp.csv')
+    parser.add_argument("--target_file", default='/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/corpus/AE_all.csv')
     return parser.parse_args()
 
 
