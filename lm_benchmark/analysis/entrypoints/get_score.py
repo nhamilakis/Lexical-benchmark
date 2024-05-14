@@ -2,6 +2,7 @@
 convert word count into accumulated monthly count
 """
 import argparse
+import os
 import sys
 from pathlib import Path
 from lm_benchmark.analysis.score import MonthCounter
@@ -14,14 +15,10 @@ def arguments() -> argparse.Namespace:
                         default=f'{ROOT}/score/generation.csv')
     parser.add_argument("--est_file",
                         default=f'{ROOT}/score/vocal_month.csv')
-    parser.add_argument("--test_file",
-                        default=f'{ROOT}/test/test_set/BE_human.csv')
-    parser.add_argument("--count_all_file",
-                        default=f'{ROOT}/score/count_all/content.csv')
-    parser.add_argument("--count_test_file",
-                        default=f'{ROOT}/score/count_test/BE_human.csv')
+    parser.add_argument("--lang",default='BE')
+    parser.add_argument("--set", default='human')
     parser.add_argument("--header",default='content')
-    parser.add_argument("--threshold", default=6)
+    parser.add_argument("--threshold_lst",default=[1,20,60,100])
     return parser.parse_args()
 
 
@@ -30,23 +27,28 @@ def main():
     args = arguments()
     gen_file = Path(args.gen_file)
     est_file = Path(args.est_file)
-    test_file = Path(args.test_file)
-    count_all_file = Path(args.count_all_file)
-    count_test_file = Path(args.count_test_file)
-    header = args.header
+    lang = args.lang
+    set = args.set
+    test_file = Path(f'{ROOT}/test/test_set/'+lang+'_'+set+'.csv')
+    count_test_file = Path(f'{ROOT}/score/'+ lang+f'/count_test/{args.header}.csv')
+    count_all_file = Path(f'{ROOT}/score/count_all/{args.header}.csv')
+    score_file = f'{ROOT}/score/'+lang+'/score/'
+    if not os.path.exists(score_file):
+        os.makedirs(score_file)
 
-    # get freq grouped by month
-    count_loader = MonthCounter(
-        gen_file=gen_file,
-        est_file=est_file,
-        test_file=test_file,
-        count_all_file=count_all_file,
-        header=header,
-        threshold=args.threshold
-    )
-
-    count_test = count_loader.get_count()
-    count_test.to_csv(count_test_file)
+    for threshold in args.threshold_lst:
+        # get freq grouped by month
+        count_loader = MonthCounter(
+            gen_file=gen_file,
+            est_file=est_file,
+            test_file=test_file,
+            count_all_file=count_all_file,
+            count_test_file = count_test_file,
+            header=args.header,
+            threshold=threshold
+        )
+        count_score = count_loader.get_score()
+        count_score.to_csv(score_file+args.header+'_'+str(threshold)+'.csv')
 
 
 
