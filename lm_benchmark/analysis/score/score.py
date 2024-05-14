@@ -5,7 +5,7 @@ Classes for freq matching and calculating
 """
 import pandas as pd
 from pathlib import Path
-from .score_util import merge_df,adjust_count  # TODO: check how to load this: put in the various fun
+from .score_util import merge_df,adjust_count, accum_count
 
 
 class MonthCounter:
@@ -26,6 +26,7 @@ class MonthCounter:
 
         self._generation_csv_location = gen_file
         self._estimation_csv_location = est_file
+        self._all_csv_location = count_all_file
         self._test_csv_location = test_file
         self._threshold = threshold
         self._header = header
@@ -57,21 +58,10 @@ class MonthCounter:
 
         # remove useless columns
         self._merged_df = self._merged_df.drop(columns=['freq_m_x'])
-        #self._merged_df.set_index('word', inplace=True)
         # get cumulative frequency
-        #self._merged_df = self._merged_df.cumsum(axis=1)
+        self._merged_df = accum_count(self._merged_df)
+        self._merged_df.to_csv(self._all_csv_location)
         return self._merged_df
-
-    def __adjusted_count_test__(self):
-        """ estimate score based on different thresholds"""
-        # filter the test set
-        #self._selected_rows = self._merged_df[self._test_df['word'].notnull()]
-        # Merge df1 and df2 on the index of df1 and 'Index_in_df1' column of df2
-        merged_df = self._merged_df.merge(self._test_df, how='inner', left_index=True, right_on='word')
-        # Select rows where 'Index_in_df1' column is not null
-        self._selected_rows = merged_df[merged_df['word'].notnull()]
-        return self._selected_rows
-
 
     def __score__(self):
         """ estimate score based on different thresholds"""
@@ -83,12 +73,14 @@ class MonthCounter:
 
         #return self._matched_CDI
         return None
+
     def get_count(self):
         """ Get matched data """
         if self._merged_df is None:
             self._merged_df = self.__adjusted_count_all__()
-        #self._selected_rows = self.__adjusted_count_test__()
-        return self._merged_df
+        # filter the test set
+        self._selected_rows = self._merged_df[self._merged_df['word'].isin(self._test_df['word'])]
+        return self._selected_rows
 
 
     def get_score(self):
