@@ -19,3 +19,17 @@ You'll probably want to start from there:
 # Result visualization
 - [How to plot the developmental curves](docs/plot_fig.md)
 - [How to plot the extrapolation](docs/plot_extra.md)
+
+
+# folder structure
+src_data: grabbed from the internet
+            
+processed data: csv
+    -human
+    -machine
+        loc
+        generated data
+
+
+
+
