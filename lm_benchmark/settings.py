@@ -4,7 +4,7 @@ import platform
 from pathlib import Path
 
 COML_SERVERS = {'oberon', 'oberon2', 'habilis', *[f'puck{i}' for i in range(1, 7)]}
-
+ROOT = '/Users/jliu/PycharmProjects/Lexical-benchmark/'
 
 @dataclasses.dataclass
 class _MySettings:
