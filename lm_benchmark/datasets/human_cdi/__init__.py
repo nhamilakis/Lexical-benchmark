@@ -1,1 +1,1 @@
-from .gold_reference import GoldReferenceCSV, POSTypes, AGE_MAX, AGE_MIN
+from .gold_reference import GoldReferenceCSV, POSTypes, AGE_DICT

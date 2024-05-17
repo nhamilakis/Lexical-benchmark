@@ -2,7 +2,6 @@ import argparse
 import sys
 from pathlib import Path
 from typing import Literal
-
 import dataclasses
 
 LANG_TYPE = Literal['AE', 'BE', 'FR']

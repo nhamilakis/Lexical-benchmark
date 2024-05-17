@@ -15,10 +15,10 @@ def arguments() -> argparse.Namespace:
                         default=f'{ROOT}/score/generation.csv')
     parser.add_argument("--est_file",
                         default=f'{ROOT}/score/vocal_month.csv')
-    parser.add_argument("--lang",default='BE')
-    parser.add_argument("--set", default='human')
-    parser.add_argument("--header",default='content')
-    parser.add_argument("--threshold_lst",default=[1,20,60,100])
+    parser.add_argument("--lang",default='AE')
+    parser.add_argument("--set", default='machine')
+    parser.add_argument("--header",default='unprompted_0.3')
+    parser.add_argument("--threshold_lst",default=[60])
     return parser.parse_args()
 
 
@@ -29,7 +29,7 @@ def main():
     est_file = Path(args.est_file)
     lang = args.lang
     set = args.set
-    test_file = Path(f'{ROOT}/test/test_set/'+lang+'_'+set+'.csv')
+    test_file = Path(f'{ROOT}/test/test_set/'+lang+'_'+set+'1.csv')
     count_test_file = Path(f'{ROOT}/score/'+ lang+f'/count_test/{args.header}.csv')
     count_all_file = Path(f'{ROOT}/score/count_all/{args.header}.csv')
     score_file = f'{ROOT}/score/'+lang+'/score/'
