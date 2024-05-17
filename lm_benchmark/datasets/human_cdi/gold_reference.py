@@ -84,7 +84,7 @@ class GoldReferenceCSV:
         self._target_df = None
 
         self.columns = [
-            "item_id", "word", "word_length", "POS", "category",
+            "word", "word_length", "POS", "category",
             *[str(a) for a in range(age_min, age_max + 1)]
         ]
 
@@ -126,4 +126,6 @@ class GoldReferenceCSV:
 
         # merge different word senses by adding the prop
         df = merge_word(df,'word')
+        df = df.drop(["item_id"], axis=1)
+
         return df[self.columns].copy()
