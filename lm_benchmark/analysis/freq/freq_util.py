@@ -7,9 +7,23 @@ import random
 from itertools import islice
 from collections import deque
 import statistics
+import enchant
+d_uk = enchant.Dict("en_UK")
+d_us = enchant.Dict("en_US")
 
-random.seed(45)
 
+def is_word(word):
+    # Function to check if a word is valid
+    true_word = ["cant", "wont", "dont", "isnt", "its", "im", "hes", "shes", "theyre", "were", "youre", "lets",
+                 "wasnt", "werent", "havent", "ill", "youll", "hell", "shell", "well", "theyll", "ive", "youve",
+                 "weve", "theyve", "shouldnt", "couldnt", "wouldnt", "mightnt", "mustnt", "thats", "whos", "whats", "wheres", "whens", "whys", "hows", "theres", "heres", "lets", "wholl", "whatll", "whod", "whatd", "whered", "howd", "thatll", "whatre", "therell", "herell"]
+    try:
+        if d_uk.check(word) or d_us.check(word) or d_us.check(word.capitalize()) or d_uk.check(word.capitalize()) or word in true_word:
+            return True
+        else:
+            return False
+    except:
+        return False
 
 def get_freq_table(word_lst):
     """get freq from a word list"""
@@ -281,56 +295,4 @@ def match_bin_range(CDI_bins, CDI, audiobook, audiobook_frame, match_median):
         # do the greedy search within each band
         pass
 
-    # TODO: return the stat after matching
 
-
-'''
-# %%
-import math
-import pandas as pd
-
-machine = pd.read_csv("/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/corpus/AE_machine.csv")[
-    ["word", "freq_m"]
-]
-
-human = pd.read_csv("/Users/jliu/PycharmProjects/Lexical-benchmark/data/eval/exp/test/corpus/AE_human.csv")[
-    ["word", "freq_m"]
-]
-human.rename(columns={"freq_m": "logfreq"}, inplace=True)
-machine.rename(columns={"freq_m": "logfreq"}, inplace=True)
-# %%
-band = [0.30, 28.51]
-machine = machine[machine["logfreq"].between(*band)]
-human = human[human["logfreq"].between(*band)]
-
-# %%
-hmean, hmedian, hmin, hmax = human["logfreq"].describe()[["mean", "50%", "min", "max"]]
-c1, c2, c3, c4, c5 = 0.1, 0.1, 0.1, 0.1, 0.1
-
-def cost(logfreqs):
-    mmean, mmedian, mmin, mmax, count = pd.Series(logfreqs).describe()[
-        ["mean", "50%", "min", "max", "count"]
-    ]
-    return (
-        c1 * (hmean - mmean) ** 2
-        + c2 * (hmedian - mmedian) ** 2
-        + c3 * (hmin - mmin) ** 2
-        + c4 * (hmax - mmax) ** 2
-        - c5 * count / len(machine)
-    )
-
-
-logfreqs = []
-prev_cost = math.inf
-for _, row in machine.iterrows():
-    current_cost = cost(logfreqs + [row["logfreq"]])
-    if current_cost < prev_cost:
-        logfreqs.append(row["logfreq"])
-        prev_cost = current_cost
-
-print("HUMAN")
-print(pd.Series(human["logfreq"]).describe())
-print()
-print("MACHINE")
-print(pd.Series(logfreqs).describe())
-'''
