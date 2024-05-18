@@ -28,7 +28,6 @@ def main():
 
     src = Path(args.src_file).joinpath(args.lang + '_' + args.test_type + '.csv')
     target = Path(args.target_file).joinpath(args.lang + '_' + args.test_type + '.csv')
-    print(target)
     age_min = AGE_DICT[args.lang][0]
     age_max = AGE_DICT[args.lang][1]
     gd_loader = GoldReferenceCSV(
