@@ -10,65 +10,18 @@ import numpy as np
 import statsmodels.api as sm
 from pathlib import Path
 from collections import Counter
-from .freq_util import get_freq_table,get_bin_stat,get_equal_bins,match_bin_range,is_word
+from .freq_util import is_word
 
 WORD_PATTERN = re.compile(r'\b\w+\b')
-
-class FreqGenerater:
-
-    def __init__(self, raw_csv: Path, header: str):
-
-        if not raw_csv.is_file():
-            raise ValueError(f'Given file ::{raw_csv}:: does not exist !!')
-        self._raw_csv_location = raw_csv
-        self._header = header
-
-        # Zero init
-        self._src_df = None
-        self._target_df = None
-
-    @property
-    def df(self) -> pd.DataFrame:
-        """ Get the data as a Pandas DataFrame """
-        if self._src_df is None:
-            self._src_df = self.__load__()
-        return self._src_df
-
-    @property
-    def freq(self) -> pd.DataFrame:
-        """ Get the Gold data as a Pandas DataFrame """
-        if self._target_df is None:
-            self._target_df = self.__build_freq__()
-        return self._target_df
-
-    def __load__(self) -> pd.DataFrame:
-        """ Load the dataset into a dataframe """
-        df = pd.read_csv(self._raw_csv_location)
-        # TODO: configure this future CHILDES_trans formats
-        if str(self._raw_csv_location).endswith('CHILDES.csv'):
-            print('filtering the parents utterances')
-            df = df[(df['speaker'] != 'CHI')]     # only use parents' utt
-        else:
-            print('No action')
-        return df
-
-    def __build_freq__(self) -> pd.DataFrame:
-        """ Build the freq dataframe from the given src """
-        words = self.df[self._header]
-        # get freq
-        freq_table = get_freq_table(words)
-        return freq_table
-
-
 
 class TokenCount:
     def __init__(self, data=None, name=None, header=None):
         if data is not None:
-            self.df = pd.DataFrame(list(data.items()), columns=['Word', 'Count']).sort_values(by='Count')
+            self.df = pd.DataFrame(list(data.items()), columns=['word', 'count']).sort_values(by='count')
             self.name = name
         else:
-            self.df = pd.DataFrame(columns=['Word', 'Count'])
-        self.df['Correct']=self.df['Word'].apply(is_word)
+            self.df = pd.DataFrame(columns=['word', 'count'])
+        self.df['correct']=self.df['word'].apply(is_word)
         #self.df.set_index('Word', inplace=True)
 
     def __str__(self):
@@ -80,9 +33,9 @@ class TokenCount:
     @staticmethod
     def from_df1(df, name=None):
         assert isinstance(df, pd.DataFrame)
-        assert 'Count' in df.columns
-        assert 'Word' in df.index.names
-        word_count_dict = df['Count'].to_dict()
+        assert 'count' in df.columns
+        assert 'word' in df.index.names
+        word_count_dict = df['count'].to_dict()
         return TokenCount(word_count_dict, name)
 
     def from_df(file_path:str,header:str, name=None):
@@ -109,7 +62,7 @@ class TokenCount:
 
     def nonword(self):
         # Find the nonwords
-        nonword_df = self.df[self.df['Correct']==False]
+        nonword_df = self.df[self.df['correct']==False]
         return TokenCount.from_df(nonword_df)
 
 
@@ -128,11 +81,11 @@ class TokenCount:
 
     def nb_of_tokens(self):
         # Return the sum of all word counts (nb of tokens=corpus size)
-        return self.df['Count'].sum()
+        return self.df['count'].sum()
 
     def zipf_coef(self):
         """Compute the zipf coefficient of a given token count."""
-        sorted_data = np.sort(self.df["Count"])
+        sorted_data = np.sort(self.df["count"])
         nbpoints = sorted_data.shape[0]
         x = np.arange(1, (nbpoints + 1))  # ranks
         y = sorted_data[::-1]  # counts
@@ -149,7 +102,7 @@ class TokenCount:
 
     def stats(self):
         """Simple descriptive Statistics of the TokenCount (type/token, etc)"""
-        print(self.df['Correct'] == False)
+        print(self.df['correct'] == False)
         if self.nb_of_tokens() != 0:
             typetok = self.nb_of_types() / self.nb_of_tokens()
         else:
@@ -157,9 +110,9 @@ class TokenCount:
         d = {'name': self.name, 'nb_token': self.nb_of_tokens(), 'nb_type': self.nb_of_types(), 'type/token': typetok}
         if self.nb_of_types() == 0:
             return d
-        nb_hapaxes = np.sum(self.df['Count'] == 1)
-        nb_dipaxes = np.sum(self.df['Count'] == 2)
-        nb_le10 = np.sum(self.df['Count'] <= 10)
+        nb_hapaxes = np.sum(self.df['count'] == 1)
+        nb_dipaxes = np.sum(self.df['count'] == 2)
+        nb_le10 = np.sum(self.df['count'] <= 10)
         nb_nonwords = np.sum(self.df['Correct'] == False)
         d1 = {'nb_hapaxes': nb_hapaxes, 'p_hapaxes': nb_hapaxes / self.nb_of_types()}
         d2 = {'nb_dipaxes': nb_dipaxes, 'p_dipaxes': nb_dipaxes / self.nb_of_types()}
@@ -172,6 +125,7 @@ class TokenCount:
         d5 = {'zipf_c': self.zipf_coef()[3]}
         d6 = {'nb_nonwords': nb_nonwords, 'p_nonwords': nb_nonwords / self.nb_of_types()}
         return {**d, **d1, **d2, **d3, **d4, **d5, **d6}
+
 
 
 

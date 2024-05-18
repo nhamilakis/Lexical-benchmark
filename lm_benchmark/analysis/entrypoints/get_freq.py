@@ -1,16 +1,14 @@
 import argparse
 import sys
-import pandas as pd
 from lm_benchmark.settings import ROOT
 from pathlib import Path
 from lm_benchmark.analysis.freq import TokenCount
-from lm_benchmark.datasets.utils import cha_phrase_cleaning
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--src_file", default=f'{ROOT}/datasets/raw/3200.txt')
-    parser.add_argument("--target_file", default=f'{ROOT}/datasets/processed/freq/3200.csv')
-    parser.add_argument("--header",default='unprompted_0.3')
+    parser.add_argument("--src_file", default=f'{ROOT}/datasets/raw/CHILDES_adult.csv')
+    parser.add_argument("--target_file", default=f'{ROOT}/datasets/processed/freq/CHILDES_adult.csv')
+    parser.add_argument("--header",default='content')
     return parser.parse_args()
 
 
