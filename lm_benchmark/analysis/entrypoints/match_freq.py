@@ -75,6 +75,7 @@ def main():
     # match files
     pidx, lbest, stat = match_sample(target, machine_freq, args.sampling_ratio, args.nbins)
     # save the files
+    target.to_csv(CDI_file)
     machine_freq.iloc[pidx].to_csv(machine_CDI)
     stat.to_csv(CDI_stat)
 
