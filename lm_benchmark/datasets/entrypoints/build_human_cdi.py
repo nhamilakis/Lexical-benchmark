@@ -15,7 +15,7 @@ def arguments() -> argparse.Namespace:
     parser.add_argument('--filter-by-word-type',
                         choices=[str(s) for s in POSTypes], type=str, default=str(POSTypes.content.value),
                         help='Filter words by word_type')
-    parser.add_argument("--lang", type=str, default='BE')
+    parser.add_argument("--lang", type=str, default='AE')
     parser.add_argument("--test_type",type=str, default='exp')
     parser.add_argument("--src_file",type=str, default= f'{ROOT}/datasets/raw/')
     parser.add_argument("--target_file",type=str, default=f'{ROOT}/datasets/processed/CDI/')
@@ -27,7 +27,7 @@ def main():
     args = arguments()
 
     src = Path(args.src_file).joinpath(args.lang + '_' + args.test_type + '.csv')
-    target = Path(args.target_file).joinpath(args.lang + '_' + args.test_type + '.csv')
+    target = Path(args.target_file).joinpath(args.lang + '_' + args.test_type + '_human.csv')
     age_min = AGE_DICT[args.lang][0]
     age_max = AGE_DICT[args.lang][1]
     gd_loader = GoldReferenceCSV(
