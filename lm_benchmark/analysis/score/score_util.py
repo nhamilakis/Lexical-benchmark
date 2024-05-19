@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import pandas as pd
-from ..freq.freq_util import get_freq_table
+from lm_benchmark.utils import TokenCount
 
 def merge_df(merged_df, df2, header: str,month:int):    # TODO: preserve the month group info
     # Merge freq dataframes on 'word' column
-    df2 = get_freq_table(df2[header])[['word', 'freq_m']]
+    count_df = TokenCount.from_df(df2, header)
+    df2 = count_df.df[['word', 'freq_m']]
     # Merge freq dataframes on index 'word'
     merged_df = pd.merge(merged_df, df2, on='word', how='outer')
     # Fill NaN values with 0
@@ -48,3 +49,5 @@ def apply_threshold(df,threshold:int):
     # Concatenate the first column with the thresholded DataFrame
     result_df = pd.concat([first_column, thresholded_df], axis=1)
     return result_df
+
+

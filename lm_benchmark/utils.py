@@ -1,18 +1,34 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Classes for freq matching and calculating
+common util func for all the packages
 """
 import os
 import re
 import pandas as pd
 import numpy as np
 import statsmodels.api as sm
-from pathlib import Path
 from collections import Counter
-from .freq_util import is_word
+import enchant
 
 WORD_PATTERN = re.compile(r'\b\w+\b')
+d_uk = enchant.Dict("en_UK")
+d_us = enchant.Dict("en_US")
+
+
+def is_word(word):
+    # Function to check if a word is valid
+    true_word = ["cant", "wont", "dont", "isnt", "its", "im", "hes", "shes", "theyre", "were", "youre", "lets",
+                 "wasnt", "werent", "havent", "ill", "youll", "hell", "shell", "well", "theyll", "ive", "youve",
+                 "weve", "theyve", "shouldnt", "couldnt", "wouldnt", "mightnt", "mustnt", "thats", "whos", "whats", "wheres", "whens", "whys", "hows", "theres", "heres", "lets", "wholl", "whatll", "whod", "whatd", "whered", "howd", "thatll", "whatre", "therell", "herell"]
+    try:
+        if d_uk.check(word) or d_us.check(word) or d_us.check(word.capitalize()) or d_uk.check(word.capitalize()) or word in true_word:
+            return True
+        else:
+            return False
+    except:
+        return False
+
 
 class TokenCount:
     def __init__(self, data=None, name=None, header=None):
@@ -21,8 +37,9 @@ class TokenCount:
             self.name = name
         else:
             self.df = pd.DataFrame(columns=['word', 'count'])
+        self.df['freq_m'] = self.df['count']/self.df['count'].sum() * 1000000
         self.df['correct']=self.df['word'].apply(is_word)
-        #self.df.set_index('Word', inplace=True)
+        #self.df.set_index('word', inplace=True)
 
     def __str__(self):
         return self.df.to_string()
@@ -31,15 +48,11 @@ class TokenCount:
         return self.df.to_string()
 
     @staticmethod
-    def from_df1(df, name=None):
-        assert isinstance(df, pd.DataFrame)
-        assert 'count' in df.columns
-        assert 'word' in df.index.names
-        word_count_dict = df['count'].to_dict()
-        return TokenCount(word_count_dict, name)
-
-    def from_df(file_path:str,header:str, name=None):
-        lines = pd.read_csv(file_path)[header]
+    def from_df(file_path,header:str, name=None):
+        try:
+            lines = pd.read_csv(file_path)[header]
+        except:   # in the case that the input is already a dataframe
+            lines = file_path[header]
         word_counter = Counter()
         for line in lines:
             words = WORD_PATTERN.findall(line.lower())
@@ -69,7 +82,6 @@ class TokenCount:
     def difference(self, othercorpus):
         # Find the words in df_ref that are not in df_gen using set difference
         missing_words = self.df.index.difference(othercorpus.df.index)
-
         # Extract the subset of df_ref with the missing words
         missing_words_df = self.df.loc[missing_words]
         # print("lengh df",len(self.df),"length other",len(othercorpus.df),"length difference",len(missing_words))
@@ -130,57 +142,3 @@ class TokenCount:
 
 
 
-
-
-class FreqMatcher1:
-    def __init__(self, human: Path, CHILDES: Path, machine:Path,num_bins:int,header: str,freq_header: str):
-
-        if not human.is_file():
-            raise ValueError(f'Given file ::{human}:: does not exist !!')
-        if not CHILDES.is_file():
-            raise ValueError(f'Given file ::{CHILDES}:: does not exist !!')
-        if not machine.is_file():
-            raise ValueError(f'Given file ::{machine}:: does not exist !!')
-        self._human_csv_location = human
-        self._machine_csv_location = machine
-        self._CHILDES_csv_location = CHILDES
-        self._header = header
-        self._freq_header = freq_header     #TODO: replace the column headers into this variable
-        self._num_bins = num_bins
-        self._src_df = None
-        self._matched_CDI = None
-        self._matched_audiobook = None
-        self._human_stat = None
-        self._machine_stat = None
-        # Call load method to initialize dataframes
-        self.__load__()
-
-    def __load__(self) -> None:
-        """ Load the dataset into dataframes """
-        # filter subset of the words
-        self._machine_df = pd.read_csv(self._machine_csv_location)
-        self._human = pd.read_csv(self._human_csv_location)
-        self._CHILDES = pd.read_csv(self._CHILDES_csv_location)
-        # filter CHILDES by parents' inputs
-        self._human_df = self._CHILDES[self._CHILDES[self._header].isin(self._human[self._header])]
-        # sort df by the given columns
-        self._human_df['freq_m'] = self._human_df['freq_m'].astype(float)
-        self._machine_df['freq_m'] = self._machine_df['freq_m'].astype(float)
-        self._human_df = self._human_df.sort_values(by='freq_m')
-        self._machine_df = self._machine_df.sort_values(by='freq_m')
-    def __match_freq__(self):
-        """ Match two freq frames """
-        # get equal bins
-        self._CDI_bins, self._matched_CDI = get_equal_bins(self._human_df['freq_m'], self._human_df, self._num_bins)
-        self._matched_CDI, self._matched_audiobook = match_bin_range(self._CDI_bins, self._human_df,
-                                                         self._machine_df['freq_m'].tolist(),
-                                                         self._machine_df, False)
-        self._human_stat = get_bin_stat(self._matched_CDI, 'freq_m')
-        self._machine_stat = get_bin_stat(self._matched_audiobook, 'freq_m')
-        return self._matched_CDI, self._matched_audiobook, self._human_stat,self._machine_stat
-
-    def get_matched_data(self) -> tuple:
-        """ Get matched data """
-        if self._matched_CDI is None:
-            self._matched_CDI, self._matched_audiobook, self._human_stat,self._machine_stat = self.__match_freq__()
-        return self._matched_CDI, self._matched_audiobook, self._human_stat,self._machine_stat

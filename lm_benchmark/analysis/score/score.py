@@ -9,6 +9,8 @@ from .score_util import merge_df,adjust_count, accum_count, load_csv,apply_thres
 
 
 class MonthCounter:
+
+    """get the monthly info from the concatenated generation/productions"""
     def __init__(self, gen_file: Path, est_file: Path, test_file: Path, count_all_file: Path,
                  count_test_file: Path, header: str, threshold: int):
 

@@ -8,9 +8,6 @@ from pathlib import Path
 import pandas as pd
 from ..utils import word_cleaning, word_to_pos, segment_synonym, remove_exp, merge_word
 
-AGE_MIN = 16#12 #    #TODO: refine the way of loading specific columns
-AGE_MAX = 30#25 #
-
 AGE_DICT = {'AE':[16,30],'BE':[12,25]}
 CONTENT_POS = {'ADJ', 'NOUN', 'VERB', 'ADV', 'PROPN'}
 CATEGORY = {'connecting_words','helping_verbs','pronouns','quantifiers','prepositions','sounds','locations','question_words'}

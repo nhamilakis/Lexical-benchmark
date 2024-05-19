@@ -14,7 +14,7 @@ def arguments() -> argparse.Namespace:
                         default=f'{ROOT}/datasets/processed/freq/CHILDES_adult.csv')
     parser.add_argument("--machine_freq",
                         default=f'{ROOT}/datasets/processed/freq/3200.csv')
-    parser.add_argument("--lang", type=str, default='AE')
+    parser.add_argument("--lang", type=str, default='BE')
     parser.add_argument("--test_type", type=str, default='exp')
     parser.add_argument("--sampling_ratio", type=int, default=1)
     parser.add_argument("--nbins", type=int, default=6)
