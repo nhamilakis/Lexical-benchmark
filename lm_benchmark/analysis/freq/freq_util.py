@@ -3,23 +3,6 @@
 import pandas as pd
 import numpy as np
 import random
-import enchant
-d_uk = enchant.Dict("en_UK")
-d_us = enchant.Dict("en_US")
-
-
-def is_word(word):
-    # Function to check if a word is valid
-    true_word = ["cant", "wont", "dont", "isnt", "its", "im", "hes", "shes", "theyre", "were", "youre", "lets",
-                 "wasnt", "werent", "havent", "ill", "youll", "hell", "shell", "well", "theyll", "ive", "youve",
-                 "weve", "theyve", "shouldnt", "couldnt", "wouldnt", "mightnt", "mustnt", "thats", "whos", "whats", "wheres", "whens", "whys", "hows", "theres", "heres", "lets", "wholl", "whatll", "whod", "whatd", "whered", "howd", "thatll", "whatre", "therell", "herell"]
-    try:
-        if d_uk.check(word) or d_us.check(word) or d_us.check(word.capitalize()) or d_uk.check(word.capitalize()) or word in true_word:
-            return True
-        else:
-            return False
-    except:
-        return False
 
 def d_stats(x):
     """"descriptive stats for an array of values"""

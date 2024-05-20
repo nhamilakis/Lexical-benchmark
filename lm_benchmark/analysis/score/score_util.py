@@ -40,12 +40,3 @@ def load_csv(file_path,start_column):
     selected_data = data.iloc[:, start_column_index:]
     return selected_data
 
-
-def apply_threshold(df,threshold:int):
-    """apply threhold to all the adjusted counts with word as index"""
-    first_column = df.iloc[:, 0]
-    # Apply threshold starting from the second column
-    thresholded_df = df.iloc[:, 1:].applymap(lambda x: 1 if x > threshold else 0)
-    # Concatenate the first column with the thresholded DataFrame
-    result_df = pd.concat([first_column, thresholded_df], axis=1)
-    return result_df

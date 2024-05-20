@@ -18,7 +18,6 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--lang",default='AE')
     parser.add_argument("--set", default='human')
     parser.add_argument("--header",default='content')
-    parser.add_argument("--threshold_lst",default=[1,20,60,100,200])
     return parser.parse_args()
 
 
@@ -35,20 +34,16 @@ def main():
     count_test_file = Path(score_dir + args.header + '.csv')
     count_all_file = Path(args.freq_path + args.header + '.csv')
 
-    for threshold in args.threshold_lst:
-        # get freq grouped by month
-        count_loader = MonthCounter(
+    # get adjusted count grouped by month
+    count_loader = MonthCounter(
             gen_file=gen_file,
             est_file=est_file,
             test_file=test_file,
             count_all_file=count_all_file,
             count_test_file = count_test_file,
-            header=args.header,
-            threshold=threshold
+            header=args.header
         )
-        count_loader.get_count()     # getg the test count
-        count_score = count_loader.get_score()    # apply threhoslds on the results
-        count_score.to_csv(score_dir+args.header+'_'+str(threshold)+'.csv')
+    count_loader.get_count()     # get the adjusted test count
 
 
 if __name__ == "__main__":

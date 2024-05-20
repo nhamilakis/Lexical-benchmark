@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 from ..utils import word_cleaning, word_to_pos, segment_synonym, remove_exp, merge_word
 
-AGE_DICT = {'AE':[16,30],'BE':[12,25]}
+
 CONTENT_POS = {'ADJ', 'NOUN', 'VERB', 'ADV', 'PROPN'}
 CATEGORY = {'connecting_words','helping_verbs','pronouns','quantifiers','prepositions','sounds','locations','question_words'}
 WORD = {'now','dont','hi'}

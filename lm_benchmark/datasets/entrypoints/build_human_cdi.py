@@ -2,8 +2,8 @@ import argparse
 import dataclasses
 import sys
 from pathlib import Path
-from lm_benchmark.settings import ROOT
-from lm_benchmark.datasets.human_cdi import POSTypes, AGE_DICT, GoldReferenceCSV
+from lm_benchmark.settings import ROOT, AGE_DICT
+from lm_benchmark.datasets.human_cdi import POSTypes, GoldReferenceCSV
 
 @dataclasses.dataclass
 class BuildHumanCDI:

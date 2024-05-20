@@ -5,14 +5,14 @@ Classes for freq matching and calculating
 """
 import pandas as pd
 from pathlib import Path
-from .score_util import merge_df,adjust_count, accum_count, load_csv,apply_threshold
+from .score_util import merge_df,adjust_count, accum_count, load_csv
 
 
 class MonthCounter:
 
     """get the monthly info from the concatenated generation/productions"""
     def __init__(self, gen_file: Path, est_file: Path, test_file: Path, count_all_file: Path,
-                 count_test_file: Path, header: str, threshold: int):
+                 count_test_file: Path, header: str):
 
         if not gen_file.is_file():
             raise ValueError(f'Given file ::{gen_file}:: does not exist !!')
@@ -39,7 +39,6 @@ class MonthCounter:
         self._all_csv_location = count_all_file
         self._count_filtered_location = count_test_file
         self._test_csv_location = test_file
-        self._threshold = threshold
         self._header = header
 
         # Call load method to initialize dataframes
@@ -57,7 +56,7 @@ class MonthCounter:
         self._gen_grouped = self._generation_df.groupby('month')
         self._merged_df = pd.DataFrame(columns=['word', 'freq_m'])
         for month, gen_month in self._gen_grouped:
-            # merge the count with previous one
+            # get freq in the given month and merge adjusted the count with previous one
             self._merged_df = merge_df(self._merged_df, gen_month, self._header, month)
             # try to rename the initial months' header
             try:
@@ -84,11 +83,5 @@ class MonthCounter:
         self._selected_rows.to_csv(self._count_filtered_location)
 
 
-    def get_score(self):
-        """ Get matched data """
-        if self._selected_rows is None:
-            self._selected_rows = self.get_count()
-        # apply the threshold apply the freq
-        score = apply_threshold(self._selected_rows,self._threshold)
-        return score
+
 
