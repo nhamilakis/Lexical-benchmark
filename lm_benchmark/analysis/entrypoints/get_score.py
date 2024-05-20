@@ -15,10 +15,10 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--CDI_path", default=f'{ROOT}/datasets/processed/CDI/')
     parser.add_argument("--freq_path",default=f'{ROOT}/datasets/processed/month_count/')
     parser.add_argument("--test_type", default='exp')
-    parser.add_argument("--lang",default='BE')
-    parser.add_argument("--set", default='machine')
-    parser.add_argument("--header",default='unprompted_0.3')
-    parser.add_argument("--threshold_lst",default=[60])
+    parser.add_argument("--lang",default='AE')
+    parser.add_argument("--set", default='human')
+    parser.add_argument("--header",default='content')
+    parser.add_argument("--threshold_lst",default=[1,20,60,100,200])
     return parser.parse_args()
 
 
