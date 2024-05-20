@@ -63,9 +63,9 @@ class GoldReferenceCSV:
             self._target_df = self.__build_gold__()
         return self._target_df
 
-    def __init__(self, raw_csv: Path,
+    def __init__(self, age_min, age_max,raw_csv: Path,
                  pos_filter_type: POSTypes = POSTypes.content,
-                 age_min: int = AGE_MIN, age_max: int = AGE_MAX):
+                 ):
 
         if not raw_csv.is_file():
             raise ValueError(f'Given file ::{raw_csv}:: does not exist !!')
