@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 import random
 
+
+
 def d_stats(x):
     """"descriptive stats for an array of values"""
     stats={'mean':np.mean(x),
