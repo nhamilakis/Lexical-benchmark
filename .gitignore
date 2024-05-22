@@ -88,4 +88,5 @@ dmypy.json
 
 # For now do not commit data
 data/
+bin/
 

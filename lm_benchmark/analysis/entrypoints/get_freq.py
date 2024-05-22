@@ -4,11 +4,12 @@ from lm_benchmark.settings import ROOT
 from pathlib import Path
 from lm_benchmark.utils import TokenCount
 
+
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--src_file", default=f'{ROOT}/datasets/processed/generation/generation.csv')
-    parser.add_argument("--target_file", default=f'{ROOT}/datasets/processed/freq/unprompted_0.6.csv')
-    parser.add_argument("--header",default='unprompted_0.6')
+    parser.add_argument("--target_file", default=f'{ROOT}/datasets/processed/freq/unprompted_1.5.csv')
+    parser.add_argument("--header",default='unprompted_1.5')
     return parser.parse_args()
 
 

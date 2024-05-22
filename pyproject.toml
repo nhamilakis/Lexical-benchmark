@@ -3,14 +3,12 @@ name = "lexical-benchmark"
 description = "A detailed comparison between human (CDI) and model performance at the lexical level"
 authors = [
     { name = "Jing Liu", email = "jing.liu@student.ru.nl" },
-    { name = "CoML Team", email = "dev@cognitive-ml.fr" }
+    { name = "CoML Team", email = "dev@cognitive-ml.fr" },
 ]
-license = {text = "MIT License"}
-readme = {file = "README.md", content-type = "text/markdown"}
+license = { text = "MIT License" }
+readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.9"
-keywords = [
-    "python",
-]
+keywords = ["python"]
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.9",
@@ -31,12 +29,7 @@ lmb-test = "lm_benchmark.datasets.entrypoints.cmd1:main"
 lmb-build-human-data = "lm_benchmark.datasets.entrypoints.build_human_cdi:main"
 
 [project.optional-dependencies]
-dev = [
-    "ipython",
-    "jupyter",
-    "pytest",
-    "build"
-]
+dev = ["ruff", "mypy", "ipython", "jupyter"]
 
 [build-system]
 requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
@@ -49,5 +42,34 @@ dependencies = { file = ["requirements.txt"] }
 where = ["."]
 include = ["lm_benchmark*"]
 exclude = ["examples*", "tests*"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+fixable = ["ALL"]
+
+
+[tool.ruff.lint]
+select = ["ALL"] # Be brave use all rules
+
+# remove the ones that make no sense
+ignore = [
+    "D401",    # imperative mood in docstring is ambiguous
+    "S603",    # allow subprocess to be called using literals
+    "PLR0913", # allow functions to have more tha 12 arguments
+    "TRY003",  # allow Exceptions to contain long messages
+    "EM101",   # allow Exceptions to contain literals
+    "ANN003",  # allow **kwargs to be without type-hints
+    "D107",    # allow __init__ without docstring
+    "ANN101",  # "self" needs no typing (rule is Deprecated)
+    "T201",    # allow 'print' statements
+    "TD003",   # not all todos require a issue
+    "D104",    # allow scripts not to have docstring on top
+    "EM102",   # allow exception to use f-strings
+]
+
+
+[tool.ruff.lint.flake8-import-conventions.aliases]
+typing = "t"
 
 [tool.setuptools_scm]

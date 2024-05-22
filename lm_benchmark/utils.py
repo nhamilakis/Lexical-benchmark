@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 import statsmodels.api as sm
 from collections import Counter
+from lm_benchmark.settings import word_lst
 import enchant
 
 WORD_PATTERN = re.compile(r'\b\w+\b')
@@ -16,7 +17,8 @@ d_uk = enchant.Dict("en_UK")
 d_us = enchant.Dict("en_US")
 
 
-def is_word(word):
+
+def is_word1(word):
     # Function to check if a word is valid
     true_word = ["cant", "wont", "dont", "isnt", "its", "im", "hes", "shes", "theyre", "were", "youre", "lets",
                  "wasnt", "werent", "havent", "ill", "youll", "hell", "shell", "well", "theyll", "ive", "youve",
@@ -29,6 +31,12 @@ def is_word(word):
     except:
         return False
 
+def is_word(word):
+    # Function to check if a word is valid
+    if word in word_lst:
+        return True
+    else:
+        return False
 
 class TokenCount:
     def __init__(self, data=None, name=None, header=None):
@@ -125,11 +133,11 @@ class TokenCount:
         nb_hapaxes = np.sum(self.df['count'] == 1)
         nb_dipaxes = np.sum(self.df['count'] == 2)
         nb_le10 = np.sum(self.df['count'] <= 10)
-        nb_nonwords = np.sum(self.df['Correct'] == False)
+        nb_nonwords = np.sum(self.df['correct'] == False)
         d1 = {'nb_hapaxes': nb_hapaxes, 'p_hapaxes': nb_hapaxes / self.nb_of_types()}
         d2 = {'nb_dipaxes': nb_dipaxes, 'p_dipaxes': nb_dipaxes / self.nb_of_types()}
         d3 = {'nb_le_10': nb_le10, 'p_le_10': nb_le10 / self.nb_of_types()}
-        sorted_data = np.sort(self.df["Count"])
+        sorted_data = np.sort(self.df["count"])
         top_count = sorted_data[-1]
         top_ge10_count = np.sum(sorted_data[-11:-1])
         d4 = {'prop_topcount': top_count / self.nb_of_tokens(),
