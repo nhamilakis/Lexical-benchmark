@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 import statsmodels.api as sm
 from collections import Counter
-from lm_benchmark.settings import word_lst
+#from lm_benchmark.settings import word_lst
 import enchant
 
 WORD_PATTERN = re.compile(r'\b\w+\b')
@@ -18,7 +18,7 @@ d_us = enchant.Dict("en_US")
 
 
 
-def is_word1(word):
+def is_word(word):
     # Function to check if a word is valid
     true_word = ["cant", "wont", "dont", "isnt", "its", "im", "hes", "shes", "theyre", "were", "youre", "lets",
                  "wasnt", "werent", "havent", "ill", "youll", "hell", "shell", "well", "theyll", "ive", "youve",
@@ -31,7 +31,7 @@ def is_word1(word):
     except:
         return False
 
-def is_word(word):
+def is_word1(word):
     # Function to check if a word is valid
     if word in word_lst:
         return True
