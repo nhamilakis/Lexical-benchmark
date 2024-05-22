@@ -23,8 +23,11 @@ documentation = "https://github.com/Jing-L97/Lexical-benchmark"
 repository = "https://github.com/Jing-L97/Lexical-benchmark"
 
 [project.scripts]
-# A test command
-lmb-test = "lm_benchmark.datasets.entrypoints.cmd1:main"
+# Analysis commands
+lma-get-freq = "lm_benchmark.analysis.entrypoints.get_freq:main"
+lma-count-adjust = "lm_benchmark.analysis.entrypoints.adjust_count:main"
+lma-get-matching = "lm_benchmark.analysis.entrypoints.match_freq:main"
+
 # A command to generate human data CSVs
 lmb-build-human-data = "lm_benchmark.datasets.entrypoints.build_human_cdi:main"
 
@@ -54,6 +57,7 @@ select = ["ALL"] # Be brave use all rules
 
 # remove the ones that make no sense
 ignore = [
+    "D100",    # allow top doc-string to be missing
     "D401",    # imperative mood in docstring is ambiguous
     "S603",    # allow subprocess to be called using literals
     "PLR0913", # allow functions to have more tha 12 arguments
