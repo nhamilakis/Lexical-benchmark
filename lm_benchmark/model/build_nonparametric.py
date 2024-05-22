@@ -8,8 +8,8 @@ from model_util import make_crp
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--src_file", default=f'{ROOT}/datasets/processed/freq/400h.csv')
-    parser.add_argument("--target_file", default=f'{ROOT}/datasets/processed/generation/400.csv')
+    parser.add_argument("--src_file", default=f'{ROOT}/datasets/processed/freq/800h.csv')
+    parser.add_argument("--target_file", default=f'{ROOT}/datasets/processed/generation/800.csv')
     parser.add_argument("--fixed_alpha", default=True)
     parser.add_argument("--alpha", default=80000)
     parser.add_argument("--desired_oov", default=0.023)
@@ -37,7 +37,8 @@ def main():
 
     # load the TC object
     ref_count = TokenCount()
-    ref_count.df = pd.read_csv(args.src_file)
+    ref_count.df = pd.read_csv(args.src_file).dropna()
+
     if args.fixed_alpha:
         alpha = args.alpha
     else:

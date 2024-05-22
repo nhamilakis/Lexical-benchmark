@@ -227,14 +227,18 @@ def make_crp(ref_count: TokenCount, alpha: float) -> TokenCount:
     Also, the process does not check that by accident an existing word could be generated
     """
     # make a 3-gram lm for words
-    ngram_model = build_ngram_model(ref_count.df.index, 3)
+    ngram_model = build_ngram_model(ref_count.df['word'], 3)
     # nb of tokens in the reference token count
     nbtoks = ref_count.nb_of_tokens()
-    # initialize an empty generated token count
-    gen_count = TokenCount.from_df(ref_count.df)
-    gen_count.df.columns = ['PseudoCount']
+    # initialize an empty generated token count; convert into df
+    gen_count = TokenCount.from_df(ref_count.df,'word')
+    gen_count.df.columns = ['word','PseudoCount','freq_m','correct']   # only preserve the
     gen_count.df["count"] = 0
-    gen_count.name = "CRP" + str(alpha)
+
+    # set word as index and only preserve the pseudo and true word count
+    gen_frame = gen_count.df[['word','PseudoCount',"count"]]
+    gen_frame.set_index('word', inplace=True)
+
     # make a new corpus with the same nb of tokens as the reference one
     # print(gen_count.df)
     for i in tqdm(range(1, nbtoks + 1)):
@@ -243,22 +247,22 @@ def make_crp(ref_count: TokenCount, alpha: float) -> TokenCount:
         if np.random.rand() < p_new_table:
             # Start a new table (word, by using the ngram model)
             new_word = sample_word(ngram_model, 3)
-            if new_word in gen_count.df.index:
+            if new_word in gen_frame.index:
                 # if the word already existed, increment its count
-                gen_count.df["count"].loc[new_word] += 1
+                gen_frame["count"].loc[new_word] += 1
             else:
                 # create a new word (with pseudo count of 0)
-                gen_count.df.loc[new_word] = [0, 1]
+                gen_frame.loc[new_word] = [0, 1]
         else:
             # sample from existing tables
-            adjusted_probs = gen_count.df["count"] + gen_count.df["PseudoCount"]
+            adjusted_probs = gen_frame["count"] + gen_frame["PseudoCount"]
             ntables = len(adjusted_probs)
             probs = adjusted_probs / np.sum(adjusted_probs)
             # print(i,adjusted_probs,ntables,probs)
             table_choice = np.random.choice(np.arange(ntables), p=probs)
-            gen_count.df["count"].iloc[table_choice] += 1
-    del gen_count.df["PseudoCount"]  # removing the extra pseudocount column
-    gen_count.df = gen_count.df[gen_count.df["count"] != 0]  # removing missed words
+            gen_frame["count"].iloc[table_choice] += 1
+    del gen_frame["PseudoCount"]  # removing the extra pseudocount column
+    gen_frame = gen_frame[gen_frame["count"] != 0]  # removing missed words
     #gen_count.df.set_index('Word', inplace=True)
 
-    return gen_count
+    return gen_frame
