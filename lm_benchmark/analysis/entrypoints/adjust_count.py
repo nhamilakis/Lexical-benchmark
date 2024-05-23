@@ -3,9 +3,7 @@
 import argparse
 import sys
 from pathlib import Path
-
 from tqdm import tqdm
-
 from lm_benchmark.analysis.utils import MonthCounter
 from lm_benchmark.settings import ROOT
 
@@ -39,8 +37,8 @@ def main() -> None:
         score_dir.mkdir(parents=True)
 
     for header in tqdm(header_lst):
-        count_test_file = Path(score_dir + header + ".csv")
-        count_all_file = Path(args.freq_path + header + ".csv")
+        count_test_file = Path(score_dir) / f"{header}.csv"
+        count_all_file = Path(args.freq_path) / f"{header}.csv"
         # get adjusted count grouped by month
         count_loader = MonthCounter(
             gen_file=gen_file,

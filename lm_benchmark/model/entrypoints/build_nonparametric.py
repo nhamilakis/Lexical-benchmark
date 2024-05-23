@@ -9,7 +9,7 @@ from lm_benchmark.model.utils.model_util import make_crp
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--src_file", default=f'{ROOT}/datasets/processed/freq/800h.csv')
-    parser.add_argument("--target_file", default=f'{ROOT}/datasets/processed/generation/800.csv')
+    parser.add_argument("--target_file", default=f'{ROOT}/datasets/processed/generation/800h.csv')
     parser.add_argument("--fixed_alpha", default=True)
     parser.add_argument("--alpha", default=80000)
     parser.add_argument("--desired_oov", default=0.023)
