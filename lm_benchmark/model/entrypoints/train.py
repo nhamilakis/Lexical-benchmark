@@ -4,7 +4,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 """
-Train a new model on one or across multiple GPUs.
+Customized fairseq trainer to save checkpoints at each batch every 10 epochs
+Please replace the train.py in faiseq_cli with this file
 """
 
 import argparse

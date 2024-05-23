@@ -33,8 +33,7 @@ def main() -> None:
     header_lst = args.header_lst
     test_file = Path(args.CDI_path) / f"{lang}_{args.test_type}_{args.set}.csv"
     score_dir = Path(f"{args.freq_path}{lang}")
-    if not score_dir.exists():
-        score_dir.mkdir(parents=True)
+    score_dir.mkdir(parents=True, exist_ok=True)
 
     for header in tqdm(header_lst):
         count_test_file = Path(score_dir) / f"{header}.csv"

@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from lm_benchmark.analysis.freq.freq_util import bin_stats, get_freq, init_index, loss, swap_index
+from lm_benchmark.analysis.utils.freq_util import bin_stats, get_freq, init_index, loss, swap_index
 from lm_benchmark.settings import ROOT
 
 
@@ -54,7 +54,7 @@ def match_sample(
     lenref = len(dataref)
     lensam = len(datasam)
     if not lenref * sampling_ratio < lensam:
-        raise ValueError("XXXXXXXXXXXXX")  # TODO: add a message explaining why this is an error
+        raise ValueError("The sampling rate is too high to create matched sets!")
 
     refstat = bin_stats(dataref, nbins)
     pidx, nidx = init_index(lensam, lenref * sampling_ratio)
