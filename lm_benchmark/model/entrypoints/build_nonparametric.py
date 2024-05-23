@@ -4,7 +4,7 @@ import sys
 import pandas as pd
 from lm_benchmark.settings import ROOT
 from lm_benchmark.utils import TokenCount
-from lm_benchmark.model.utils import make_crp
+from lm_benchmark.model.utils.model_util import make_crp
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
