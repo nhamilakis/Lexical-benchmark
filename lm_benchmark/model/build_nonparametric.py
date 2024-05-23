@@ -45,7 +45,7 @@ def main():
         alpha = calculate_alpha(ref_count.df, args.desired_oov)
 
     gen_count = make_crp(ref_count, alpha)
-    gen_count.df.to_csv(args.target_file, index=False)
+    gen_count.to_csv(args.target_file, index=False)
 
 
 if __name__ == "__main__":
