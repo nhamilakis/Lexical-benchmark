@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 import statsmodels.api as sm
 from collections import Counter
-#from lm_benchmark.settings import word_lst
+
 import enchant
 
 WORD_PATTERN = re.compile(r'\b\w+\b')
@@ -31,12 +31,7 @@ def is_word(word):
     except:
         return False
 
-def is_word1(word):
-    # Function to check if a word is valid
-    if word in word_lst:
-        return True
-    else:
-        return False
+
 
 class TokenCount:
     def __init__(self, data=None, name=None, header=None):
