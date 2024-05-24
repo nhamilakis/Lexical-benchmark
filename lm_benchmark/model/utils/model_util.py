@@ -240,7 +240,6 @@ def make_crp(ref_count: TokenCount, alpha: float) -> TokenCount:
     gen_frame.set_index('word', inplace=True)
 
     # make a new corpus with the same nb of tokens as the reference one
-    # print(gen_count.df)
     for i in tqdm(range(1, nbtoks + 1)):
         # fist decide whether we should sample a new table (word)
         p_new_table = alpha / (nbtoks + i - 1 + alpha)
@@ -264,5 +263,5 @@ def make_crp(ref_count: TokenCount, alpha: float) -> TokenCount:
     del gen_frame["PseudoCount"]  # removing the extra pseudocount column
     gen_frame = gen_frame[gen_frame["count"] != 0]  # removing missed words
     #gen_count.df.set_index('Word', inplace=True)
-
+    gen_frame = gen_frame.reset_index()
     return gen_frame
