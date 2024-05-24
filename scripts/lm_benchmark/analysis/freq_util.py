@@ -61,6 +61,3 @@ def swap_index(pidx, nidx):
     p1[i], n1[j] = n1[j], p1[i]
     return p1, n1
 
-
-def get_freq(dataref, header):
-    return np.log10(dataref[header] / dataref[header].sum() * 1000000)
