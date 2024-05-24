@@ -9,7 +9,7 @@ from typing import List
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import random
-from utils import *
+from .utils import *
 
 
 ################################################################################################
