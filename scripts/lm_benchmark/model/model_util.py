@@ -1,12 +1,13 @@
 import numpy as np
 import math
+import pandas as pd
 from scipy.special import comb
 from scipy.stats import norm
 from collections import Counter
 from collections import defaultdict
 from tqdm import tqdm
 import random
-from lm_benchmark.utils import TokenCount
+#from lm_benchmark.utils import TokenCount
 
 #################################################################################################
 # function definitions useful for estimating theoretical probabilities of generations in the accumulator model
@@ -148,6 +149,8 @@ def accu_model_tok_stats(token_count, ref_corpus_size, gen_corpus_size=None):
 ###########################################################################################
 
 ### defining an accumulator model based on a reference corpus
+
+'''
 def make_accu(ref_count:TokenCount)->TokenCount:
    """Make a corpus from an accumulator model based on ref_count. Returns a TokenCount."""
    accucountarray=np.random.multinomial(ref_count.nb_of_tokens(), ref_count.df["Count"]/ref_count.nb_of_tokens())
@@ -155,6 +158,8 @@ def make_accu(ref_count:TokenCount)->TokenCount:
    accu_count=TokenCount(dict(zip(accuwords,accucountarray)),name="accu")
    accu_count.df=accu_count.df[accu_count.df["Count"]!=0]
    return accu_count
+'''
+
 
 
 ### defining an simple ngram model for words (used in CRP)
@@ -219,8 +224,9 @@ def sample_word(model, n=3, start_symbol='^', end_symbol='$'):
 
 
 ## chinese restaurant process model
+'''
 
-def make_crp(ref_count: TokenCount, alpha: float) -> TokenCount:
+def make_crp1(ref_count: TokenCount, alpha: float) -> TokenCount:
     """Make a chinese restaurant process based on ref_count with concentration param alpha
     Alpha should be scaled to correspond to the desired oov rate (alpha~oov_rate*total_token_count)
     Attention, not optimized for speed: for large corpora, this is EXTREMELY SLOW (30min for a 1M word corpus)
@@ -237,6 +243,57 @@ def make_crp(ref_count: TokenCount, alpha: float) -> TokenCount:
 
     # set word as index and only preserve the pseudo and true word count
     gen_frame = gen_count.df[['word','PseudoCount',"count"]]
+    gen_frame.set_index('word', inplace=True)
+
+    # make a new corpus with the same nb of tokens as the reference one
+    for i in tqdm(range(1, nbtoks + 1)):
+        # fist decide whether we should sample a new table (word)
+        p_new_table = alpha / (nbtoks + i - 1 + alpha)
+        if np.random.rand() < p_new_table:
+            # Start a new table (word, by using the ngram model)
+            new_word = sample_word(ngram_model, 3)
+            if new_word in gen_frame.index:
+                # if the word already existed, increment its count
+                gen_frame["count"].loc[new_word] += 1
+            else:
+                # create a new word (with pseudo count of 0)
+                gen_frame.loc[new_word] = [0, 1]
+        else:
+            # sample from existing tables
+            adjusted_probs = gen_frame["count"] + gen_frame["PseudoCount"]
+            ntables = len(adjusted_probs)
+            probs = adjusted_probs / np.sum(adjusted_probs)
+            # print(i,adjusted_probs,ntables,probs)
+            table_choice = np.random.choice(np.arange(ntables), p=probs)
+            gen_frame["count"].iloc[table_choice] += 1
+    del gen_frame["PseudoCount"]  # removing the extra pseudocount column
+    gen_frame = gen_frame[gen_frame["count"] != 0]  # removing missed words
+    #gen_count.df.set_index('Word', inplace=True)
+    gen_frame = gen_frame.reset_index()
+    return gen_frame
+
+
+
+'''
+
+
+def make_crp(ref_count: pd.DataFrame, alpha: float) -> pd.DataFrame:
+    """Make a chinese restaurant process based on ref_count with concentration param alpha
+    Alpha should be scaled to correspond to the desired oov rate (alpha~oov_rate*total_token_count)
+    Attention, not optimized for speed: for large corpora, this is EXTREMELY SLOW (30min for a 1M word corpus)
+    Also, the process does not check that by accident an existing word could be generated
+    """
+    # make a 3-gram lm for words
+    ngram_model = build_ngram_model(ref_count['word'], 3)
+    # nb of tokens in the reference token count
+    nbtoks = ref_count['count'].sum()
+    # initialize an empty generated token count; convert into df
+    gen_count = ref_count
+    gen_count.columns = ['word','PseudoCount','freq_m','correct']   # only preserve the
+    gen_count["count"] = 0
+
+    # set word as index and only preserve the pseudo and true word count
+    gen_frame = gen_count[['word','PseudoCount',"count"]]
     gen_frame.set_index('word', inplace=True)
 
     # make a new corpus with the same nb of tokens as the reference one

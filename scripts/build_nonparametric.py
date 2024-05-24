@@ -3,8 +3,7 @@ import argparse
 import sys
 import pandas as pd
 from lm_benchmark.settings import ROOT
-from lm_benchmark.utils import TokenCount
-from lm_benchmark.model.utils.model_util import make_crp
+from lm_benchmark.model.model_util import make_crp
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -36,14 +35,15 @@ def main():
     args = arguments()
 
     # load the TC object
-    ref_count = TokenCount()
-    ref_count.df = pd.read_csv(args.src_file).dropna()
-
+    #ref_count = TokenCount()
+    #ref_count.df = pd.read_csv(args.src_file).dropna()
+    ref_count = pd.read_csv(args.src_file).dropna()
+    ref_count = ref_count.head()
     if args.fixed_alpha:
         alpha = args.alpha
         print(f'Using fixed alpha parameter')
     else:
-        alpha = calculate_alpha(ref_count.df, args.desired_oov)
+        alpha = calculate_alpha(ref_count, args.desired_oov)
         print(f'Adjusting alpha to reach the desired oov rate')
 
     gen_count = make_crp(ref_count, alpha)
