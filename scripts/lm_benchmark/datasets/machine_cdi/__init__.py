@@ -1,3 +1,3 @@
-from .stela_transcripts import InfTrainStructure, STELATranscripts
+#from .stela_transcripts import InfTrainStructure, STELATranscripts
 
-__all__ = ["STELATranscripts", "InfTrainStructure"]
+#__all__ = ["STELATranscripts", "InfTrainStructure"]

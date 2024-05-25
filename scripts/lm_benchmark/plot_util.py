@@ -357,3 +357,31 @@ def tc_stats_plot(tc_stats, keyword):
     values = tc_stats[keyword]
     names = tc_stats.index
     bar_plot(values, names, ytitle=keyword)
+
+def tc_plot_miss_oov_rates(ref_count: TokenCount, gen_count_list: List[TokenCount], groupbin=50):
+    """
+     Plots three curves regarding missing words and oovs
+
+    :param ref_count: a reference TokenCount
+    :param gen_count_list: a list of generated or test TokenCount
+    :param groupbin:
+    :return: nothing
+    """
+    pmiss = {}
+    poov = {}
+    dfreqscore = {}
+    pnonword = {}
+    for gen_count in gen_count_list:
+        try:
+            msc, osc, nsc = tc_compute_miss_oov_rates(ref_count, gen_count, groupbin=groupbin)
+            pmiss[gen_count.name] = msc[["medcount", "pmiss"]]
+            dfreqscore[gen_count.name] = msc[["medcount", "dfreq_score"]]
+            poov[gen_count.name] = osc[["medcount", "poov"]]
+            pnonword[gen_count.name] = nsc[["medcount", "pnword"]]
+        except:
+            print(gen_count.name)
+        
+    line_plot(pmiss)
+    line_plot(dfreqscore, ylim=[-1, 1])
+    line_plot(poov)
+    line_plot(pnonword)

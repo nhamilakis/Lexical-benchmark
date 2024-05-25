@@ -56,6 +56,9 @@ class TokenCount:
             lines = pd.read_csv(file_path)[header]
         except:   # in the case that the input is already a dataframe
             lines = file_path[header]
+        # remove nan in the column
+        lines = lines.dropna()
+        lines = lines.astype(str)
         word_counter = Counter()
         for line in lines:
             words = WORD_PATTERN.findall(line.lower())
