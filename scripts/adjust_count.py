@@ -1,5 +1,4 @@
 """convert word count into accumulated monthly count."""
-
 import argparse
 import sys
 from pathlib import Path
