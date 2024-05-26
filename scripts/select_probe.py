@@ -1,4 +1,3 @@
-import pandas as pd
 import argparse
 import sys
 from lm_benchmark.settings import ROOT
@@ -13,11 +12,9 @@ def parseArgs(argv):
     return parser.parse_args(argv)
 
 
-
 def main(argv):
     # load args
     args = parseArgs(argv)
-    # load file
     input_dir = Path(args.input_dir)
     output_dir = Path(args.output_dir)
     filenames = sort_files(input_dir,'txt')

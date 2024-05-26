@@ -6,7 +6,7 @@ from lm_benchmark.utils import TokenCount
 
 def sort_files(directory:Path,suffix:str)->list:
     # Get list of files in the directory
-    files = [file.name for file in directory.iterdir() if file.name.endswith('txt')]
+    files = [file.name for file in directory.iterdir() if file.name.endswith(suffix)]
     # Extract epoch and batch numbers from file names
     file_info = [(file, int(file.split('_')[0]), int(file.split('_')[1].split('.')[0])) for file in files]
     # Sort files based on epoch and then batch numbers
