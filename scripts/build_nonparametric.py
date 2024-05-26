@@ -33,17 +33,12 @@ def calculate_alpha(total_token_count: int, desired_oov: float) -> float:
 def main():
 
     args = arguments()
-
-    # load the TC object
-    #ref_count = TokenCount()
-    #ref_count.df = pd.read_csv(args.src_file).dropna()
     ref_count = pd.read_csv(args.src_file).dropna()
-    ref_count = ref_count.head()
     if args.fixed_alpha:
         alpha = args.alpha
         print(f'Using fixed alpha parameter')
     else:
-        alpha = calculate_alpha(ref_count, args.desired_oov)
+        alpha = calculate_alpha(ref_count['count'].sum(), args.desired_oov)
         print(f'Adjusting alpha to reach the desired oov rate')
 
     gen_count = make_crp(ref_count, alpha)
