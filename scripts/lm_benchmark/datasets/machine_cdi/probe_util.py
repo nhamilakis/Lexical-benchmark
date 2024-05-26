@@ -1,10 +1,57 @@
 """util functions to create probe sets"""
 from pathlib import Path
 import pandas as pd
+import re
 from tqdm import tqdm
 from scipy.stats import ttest_rel
 from lm_benchmark.utils import TokenCount
 from lm_benchmark.plot_util import tc_compute_miss_oov_rates
+
+
+def rename_files(directory: Path):
+    # Get all files with the format baseName_number.csv
+    files = list(directory.glob("*.csv"))
+
+    # List to hold tuples of (base name, number, file path)
+    file_info = []
+
+    # Regex to extract the base name and number
+    pattern = re.compile(r"(.+?)_(\d+)\.csv")
+
+    for file in files:
+        match = pattern.match(file.name)
+        if match:
+            base_name, number = match.groups()
+            number = int(number)
+            file_info.append((base_name, number, file))
+
+    # Sort the list by base name and then by number
+    file_info.sort(key=lambda x: (x[0], x[1]))
+
+    # Dictionary to keep track of the new index for each base name
+    base_name_counters = {}
+
+    # List to store new filenames
+    sorted_filenames = []
+
+    for base_name, _, file in file_info:
+        if base_name not in base_name_counters:
+            base_name_counters[base_name] = 0
+        else:
+            base_name_counters[base_name] += 1
+
+        new_index = base_name_counters[base_name]
+        new_filename = f"{base_name}_{new_index}.csv"
+        new_filepath = directory / new_filename
+
+        print(f"Renaming {file} to {new_filepath}")
+        file.rename(new_filepath)
+
+        sorted_filenames.append(new_filename)
+
+    return sorted_filenames
+
+
 def sort_files(directory:Path,suffix:str)->dict:
     # Get list of files in the directory
     files = [file.name for file in directory.iterdir() if file.name.endswith(suffix)]
