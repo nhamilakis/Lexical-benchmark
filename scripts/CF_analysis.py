@@ -10,30 +10,35 @@ def parseArgs(argv):
     parser.add_argument('--output_dir', type=str, default=f"{ROOT}/datasets/processed/CDI/100",
                         help='unique set dir')
     parser.add_argument('--gen_dir', type=str, default=f"{ROOT}/datasets/processed/generation/100",
-                        help='unique set dir')
+                        help='generation dir')
     return parser.parse_args(argv)
 
 
-def main(argv):
+def main(argv):     #TODO: segment different epochs; adapt to the cluster
     # load args
     args = parseArgs(argv)
     input_dir = Path(args.input_dir)
     output_dir = Path(args.output_dir)
     gen_dir = Path(args.gen_dir)
 
+    # loop over different epochs; use generations to locate the batch files
+
     # rename the generation files
-    rename_files(gen_dir)
+    filenames = rename_files(gen_dir)
+    '''
     filenames = sort_files(input_dir,'txt')
     gen_filenames = sort_files(gen_dir, 'csv')
-
+    '''
     # load files
-    files = load_files(filenames,input_dir)
-    gen_files = load_files(gen_filenames, gen_dir)
-    print(f'Loading files from {input_dir}')
+    print(f'Loading reference files from {input_dir}')
+    files = load_files(filenames,input_dir,'txt')
+    print(f'Loading generation files from {gen_dir}')
+    gen_files = load_files(filenames, gen_dir,'csv')
     probe_files = select_probe_set(files, output_dir)
     print(f'Saved the selected probing set to {output_dir}')
     result = compare_scores(probe_files,gen_files)
     print(result)
+    print('Finished stat analysis')
 
 
 

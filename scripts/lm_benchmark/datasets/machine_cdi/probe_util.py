@@ -8,16 +8,14 @@ from lm_benchmark.utils import TokenCount
 from lm_benchmark.plot_util import tc_compute_miss_oov_rates
 
 
-def rename_files(directory: Path):
+def rename_files(directory: Path)->list:
+    """given a directory of gen files, rename the batch number and return the base file list"""
     # Get all files with the format baseName_number.csv
     files = list(directory.glob("*.csv"))
-
     # List to hold tuples of (base name, number, file path)
     file_info = []
-
     # Regex to extract the base name and number
     pattern = re.compile(r"(.+?)_(\d+)\.csv")
-
     for file in files:
         match = pattern.match(file.name)
         if match:
@@ -27,44 +25,27 @@ def rename_files(directory: Path):
 
     # Sort the list by base name and then by number
     file_info.sort(key=lambda x: (x[0], x[1]))
-
     # Dictionary to keep track of the new index for each base name
     base_name_counters = {}
-
     # List to store new filenames
     sorted_filenames = []
-
     for base_name, _, file in file_info:
         if base_name not in base_name_counters:
             base_name_counters[base_name] = 0
         else:
             base_name_counters[base_name] += 1
-
         new_index = base_name_counters[base_name]
         new_filename = f"{base_name}_{new_index}.csv"
         new_filepath = directory / new_filename
-
         print(f"Renaming {file} to {new_filepath}")
         file.rename(new_filepath)
-
-        sorted_filenames.append(new_filename)
-
+        sorted_filenames.append(f"{base_name}_{new_index}")
     return sorted_filenames
 
 
-def sort_files(directory:Path,suffix:str)->dict:
-    # Get list of files in the directory
-    files = [file.name for file in directory.iterdir() if file.name.endswith(suffix)]
-    # Extract epoch and batch numbers from file names
-    file_info = [(file, int(file.split('_')[0]), int(file.split('_')[1].split('.')[0])) for file in files]
-    # Sort files based on epoch and then batch numbers
-    sorted_files = sorted(file_info, key=lambda x: (x[1], x[2]))
-    # Get sorted file names
-    sorted_file_names = [file[0] for file in sorted_files]
-    return sorted_file_names
 
 
-def load_files(file_names: list, parent_path: Path)->TokenCount:
+def load_files(file_names: list, parent_path:Path,suffix:str)->TokenCount:
     """
     Load files as TC objects
 
@@ -78,18 +59,18 @@ def load_files(file_names: list, parent_path: Path)->TokenCount:
     dataframes = {}
 
     for file_name in file_names:
-        file_path = parent_path / file_name
-        if file_path.name.endswith('txt'):
+        filename = file_name + '.' + suffix
+        file_path = parent_path / filename
+        if suffix == 'txt':
             # load as TC object
             word_count = TokenCount.from_text_file(file_path)
-        elif file_path.name.endswith('csv'):
+        elif suffix == 'csv':
             word_count = TokenCount.from_df(file_path, 'LSTM_segmented')
 
-        word_count.name = file_name[:-4]
-        dataframes[file_name[:-4]] = word_count
+        word_count.name = file_name
+        dataframes[file_name] = word_count
 
     return dataframes
-
 
 def select_probe_set(files: dict, out_dir: Path) -> dict:
     """
@@ -119,13 +100,11 @@ def select_probe_set(files: dict, out_dir: Path) -> dict:
 
         # Get statistics for the CSV file
         stat_lst.append([curr_file, selected_df.shape[0]])
-
         # Convert it to TokenCount object
         word_count = TokenCount()
         word_count.name = curr_file
         word_count.df = selected_df
         dataframes[curr_file] = word_count
-
         # Write probe set to file
         selected_df.to_csv(out_dir / f"batch_{i}.csv", index=False)
         print(f"Probe set for batch {curr_file} saved to {out_dir}")
