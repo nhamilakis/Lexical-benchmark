@@ -25,10 +25,6 @@ def main(argv):     #TODO: segment different epochs; adapt to the cluster
 
     # rename the generation files
     filenames = rename_files(gen_dir)
-    '''
-    filenames = sort_files(input_dir,'txt')
-    gen_filenames = sort_files(gen_dir, 'csv')
-    '''
     # load files
     print(f'Loading reference files from {input_dir}')
     files = load_files(filenames,input_dir,'txt')
