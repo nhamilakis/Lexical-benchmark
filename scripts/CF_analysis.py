@@ -26,6 +26,8 @@ def main(argv):
     # rename the generation files
     epoch_dict = rename_files(gen_dir)
     result_all = pd.DataFrame()
+    probe_files_all = []
+    gen_files_all = []
     # loop over different epochs; use generations to locate the batch files
     for epoch,filenames in epoch_dict.items():
         # load files
@@ -33,16 +35,21 @@ def main(argv):
         files = load_files(filenames,input_dir,'txt')
         print(f'Loading generation files from {gen_dir}')
         gen_files = load_files(filenames, gen_dir,'csv')
-
+        gen_files_all.extend(gen_files)
         # build probe tests
         probe_files = select_probe_set(files, CDI_dir)
+        probe_files_all.extend(probe_files)
         print(f'Saved the selected probing set to {CDI_dir}')
 
         # run stat analysis
         result = compare_scores(probe_files,gen_files)
+        result['epoch'] = epoch
         result_all = pd.concat([result_all,result])
 
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # also save the result to the whole
+    result = compare_scores(probe_files_all, gen_files_all)
+    result['epoch'] = 'all'
+    result_all = pd.concat([result_all, result])
     result_all.to_csv(output_dir)
     print('Finished stat analysis')
 
