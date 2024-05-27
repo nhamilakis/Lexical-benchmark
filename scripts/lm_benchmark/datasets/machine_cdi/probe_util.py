@@ -8,8 +8,8 @@ from lm_benchmark.utils import TokenCount
 from lm_benchmark.plot_util import tc_compute_miss_oov_rates
 
 
-def rename_files(directory: Path)->list:
-    """given a directory of gen files, rename the batch number and return the base file list"""
+def rename_files(directory: Path) -> dict:
+    """Given a directory of gen files, rename the batch number and return a dictionary of filenames by epochs"""
     # Get all files with the format baseName_number.csv
     files = list(directory.glob("*.csv"))
     # List to hold tuples of (base name, number, file path)
@@ -25,24 +25,18 @@ def rename_files(directory: Path)->list:
 
     # Sort the list by base name and then by number
     file_info.sort(key=lambda x: (x[0], x[1]))
-    # Dictionary to keep track of the new index for each base name
-    base_name_counters = {}
-    # List to store new filenames
-    sorted_filenames = []
+    # Dictionary to store filenames by epochs
+    filenames_by_epochs = {}
     for base_name, _, file in file_info:
-        if base_name not in base_name_counters:
-            base_name_counters[base_name] = 0
-        else:
-            base_name_counters[base_name] += 1
-        new_index = base_name_counters[base_name]
+        if base_name not in filenames_by_epochs:
+            filenames_by_epochs[base_name] = []
+        filenames_by_epochs[base_name].append(file.stem)
+        new_index = len(filenames_by_epochs[base_name]) - 1
         new_filename = f"{base_name}_{new_index}.csv"
         new_filepath = directory / new_filename
         print(f"Renaming {file} to {new_filepath}")
         file.rename(new_filepath)
-        sorted_filenames.append(f"{base_name}_{new_index}")
-    return sorted_filenames
-
-
+    return filenames_by_epochs
 
 
 def load_files(file_names: list, parent_path:Path,suffix:str)->TokenCount:
@@ -113,29 +107,43 @@ def select_probe_set(files: dict, out_dir: Path) -> dict:
     stat_df.to_csv(out_dir / 'stat_probe.csv', index=False)
     return dataframes
 
-def compare_scores(probe_files:list,gen_files:list)-> dict:
-    stat = pd.DataFrame()
-    for filename,probe_tc in probe_files.items():
+
+
+def compare_scores(probe_files: list, gen_files: list) -> pd.DataFrame:
+    stat = pd.DataFrame(columns=['freq_score_prev', 'pmiss_prev', 'poov_prev', 'pnword_prev',
+                                 'freq_score_cur', 'pmiss_cur', 'poov_cur', 'pnword_cur',
+                                 'freq_score_next', 'pmiss_next', 'poov_next', 'pnword_next'])
+
+    for filename, probe_tc in probe_files.items():
         # select from the corresponding results
-        msc_prev, osc_prev, nsc_prev = tc_compute_miss_oov_rates(probe_tc,gen_files[filename.split('_')[0]+'_'+str(int(filename.split('_')[1])-1)],groupbin=1)
-        msc_cur, osc_cur, nsc_cur = tc_compute_miss_oov_rates(probe_tc,gen_files[filename],groupbin=1)
-        msc_next, osc_next, nsc_next = tc_compute_miss_oov_rates(probe_tc,gen_files[filename.split('_')[0]+'_'+str(int(filename.split('_')[1])+1)],groupbin=1)
-        stat_temp = pd.DataFrame([[msc_prev['dfreq_score'].tolist()[0],msc_prev['pmiss'].tolist()[0], osc_prev['poov'].tolist()[0], nsc_prev['pnword'].tolist()[0],
+        msc_prev, osc_prev, nsc_prev = tc_compute_miss_oov_rates(
+            probe_tc, gen_files[filename.split('_')[0]+'_'+str(int(filename.split('_')[1])-1)], groupbin=1)
+        msc_cur, osc_cur, nsc_cur = tc_compute_miss_oov_rates(
+            probe_tc, gen_files[filename], groupbin=1)
+        msc_next, osc_next, nsc_next = tc_compute_miss_oov_rates(
+            probe_tc, gen_files[filename.split('_')[0]+'_'+str(int(filename.split('_')[1])+1)], groupbin=1)
+
+        stat_temp = pd.DataFrame([[msc_prev['dfreq_score'].tolist()[0], msc_prev['pmiss'].tolist()[0], osc_prev['poov'].tolist()[0], nsc_prev['pnword'].tolist()[0],
                                    msc_cur['dfreq_score'].tolist()[0], msc_cur['pmiss'].tolist()[0], osc_cur['poov'].tolist()[0], nsc_cur['pnword'].tolist()[0],
-                                   msc_next['dfreq_score'].tolist()[0], msc_next['pmiss'].tolist()[0], osc_next['poov'].tolist()[0], nsc_next['pnword'].tolist()[0]]])
-        stat = pd.concat([stat,stat_temp])
-    stat.columns = ['freq_score_prev','pmiss_prev','poov_prev','pnword_prev',
-                    'freq_score_cur','pmiss_cur','poov_cur','pnword_cur',
-                    'freq_score_next','pmiss_next','poov_next','pnword_next']
+                                   msc_next['dfreq_score'].tolist()[0], msc_next['pmiss'].tolist()[0], osc_next['poov'].tolist()[0], nsc_next['pnword'].tolist()[0]]],
+                                 columns=['freq_score_prev', 'pmiss_prev', 'poov_prev', 'pnword_prev',
+                                          'freq_score_cur', 'pmiss_cur', 'poov_cur', 'pnword_cur',
+                                          'freq_score_next', 'pmiss_next', 'poov_next', 'pnword_next'])
+
+        stat = pd.concat([stat, stat_temp], ignore_index=True)
 
     # run stat analysis
-    result = {}
+    result = pd.DataFrame(columns=['freq_score_learn', 'freq_score_forget',
+                                   'pmiss_learn', 'pmiss_forget',
+                                   'poov_learn', 'poov_forget',
+                                   'pnword_learn', 'pnword_forget'])
+
     score_lst = ['freq_score', 'pmiss', 'poov', 'pnword']
     for score in score_lst:
         t_learn, p_learn = ttest_rel(stat[f'{score}_cur'], stat[f'{score}_prev'])
         t_forget, p_forget = ttest_rel(stat[f'{score}_cur'], stat[f'{score}_next'])
-        result[f'{score}_learn'] = p_learn
-        result[f'{score}_forget'] = p_forget
+        result.loc[0, f'{score}_learn'] = p_learn
+        result.loc[0, f'{score}_forget'] = p_forget
 
     return result
 

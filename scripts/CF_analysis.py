@@ -7,33 +7,43 @@ def parseArgs(argv):
     parser = argparse.ArgumentParser(description='Select probe set that is unique to the target dir')
     parser.add_argument('--input_dir', type=str, default=f"{ROOT}/datasets/raw/100",
                         help='batch dir')
-    parser.add_argument('--output_dir', type=str, default=f"{ROOT}/datasets/processed/CDI/100",
-                        help='unique set dir')
+    parser.add_argument('--CDI_dir', type=str, default=f"{ROOT}/datasets/processed/CDI/100",
+                        help='unique probe set dir')
+    parser.add_argument('--output_dir', type=str, default=f"{ROOT}/datasets/processed/CF/100.csv",
+                        help='dir to save stat file')
     parser.add_argument('--gen_dir', type=str, default=f"{ROOT}/datasets/processed/generation/100",
                         help='generation dir')
     return parser.parse_args(argv)
 
 
-def main(argv):     #TODO: segment different epochs; adapt to the cluster
+def main(argv):
     # load args
     args = parseArgs(argv)
     input_dir = Path(args.input_dir)
     output_dir = Path(args.output_dir)
+    CDI_dir = Path(args.CDI_dir)
     gen_dir = Path(args.gen_dir)
-
-    # loop over different epochs; use generations to locate the batch files
-
     # rename the generation files
-    filenames = rename_files(gen_dir)
-    # load files
-    print(f'Loading reference files from {input_dir}')
-    files = load_files(filenames,input_dir,'txt')
-    print(f'Loading generation files from {gen_dir}')
-    gen_files = load_files(filenames, gen_dir,'csv')
-    probe_files = select_probe_set(files, output_dir)
-    print(f'Saved the selected probing set to {output_dir}')
-    result = compare_scores(probe_files,gen_files)
-    print(result)
+    epoch_dict = rename_files(gen_dir)
+    result_all = pd.DataFrame()
+    # loop over different epochs; use generations to locate the batch files
+    for epoch,filenames in epoch_dict.items():
+        # load files
+        print(f'Loading reference files from {input_dir}')
+        files = load_files(filenames,input_dir,'txt')
+        print(f'Loading generation files from {gen_dir}')
+        gen_files = load_files(filenames, gen_dir,'csv')
+
+        # build probe tests
+        probe_files = select_probe_set(files, CDI_dir)
+        print(f'Saved the selected probing set to {CDI_dir}')
+
+        # run stat analysis
+        result = compare_scores(probe_files,gen_files)
+        result_all = pd.concat([result_all,result])
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    result_all.to_csv(output_dir)
     print('Finished stat analysis')
 
 
