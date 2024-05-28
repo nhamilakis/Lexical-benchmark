@@ -66,7 +66,7 @@ def load_files(file_names: list, parent_path:Path,suffix:str)->TokenCount:
 
     return dataframes
 
-def select_probe_set(files: dict, out_dir: Path) -> dict:
+def select_probe_set(files: dict, out_dir:Path, prop:float) -> dict:
     """
     input: a dictionary of sorted files
     return: a dictionary of unique probe files
@@ -92,6 +92,13 @@ def select_probe_set(files: dict, out_dir: Path) -> dict:
         selected_words = [word for word in selected_words if word not in df_prev['word'].tolist() and word not in df_next['word'].tolist()]
         selected_df = df_curr[df_curr['word'].isin(selected_words)]
 
+        # Determine the threshold for the lowest 1-prop count values
+        selected_df['count'] = selected_df['count'].astype(float)
+        selected_df = selected_df.sort_values(by='count')
+        count_threshold = selected_df['count'].quantile(1-prop)
+        # Remove words with counts in the lowest 1-prop
+        selected_df = selected_df[selected_df['count'] > count_threshold]
+
         # Get statistics for the CSV file
         stat_lst.append([curr_file, selected_df.shape[0]])
         # Convert it to TokenCount object
@@ -109,41 +116,57 @@ def select_probe_set(files: dict, out_dir: Path) -> dict:
 
 
 
-def compare_scores(probe_files: list, gen_files: list) -> pd.DataFrame:
-    stat = pd.DataFrame(columns=['freq_score_prev', 'pmiss_prev', 'poov_prev', 'pnword_prev',
-                                 'freq_score_cur', 'pmiss_cur', 'poov_cur', 'pnword_cur',
-                                 'freq_score_next', 'pmiss_next', 'poov_next', 'pnword_next'])
+
+def compare_scores(probe_files: dict, gen_files: dict) -> pd.DataFrame:
+    stat = pd.DataFrame(columns=[
+        'freq_score_prev', 'pmiss_prev', 'poov_prev', 'pnword_prev',
+        'freq_score_cur', 'pmiss_cur', 'poov_cur', 'pnword_cur',
+        'freq_score_next', 'pmiss_next', 'poov_next', 'pnword_next'
+    ])
 
     for filename, probe_tc in probe_files.items():
-        # select from the corresponding results
+        # Select from the corresponding results
+        prev_filename = filename.split('_')[0] + '_' + str(int(filename.split('_')[1]) - 1)
+        next_filename = filename.split('_')[0] + '_' + str(int(filename.split('_')[1]) + 1)
+
         msc_prev, osc_prev, nsc_prev = tc_compute_miss_oov_rates(
-            probe_tc, gen_files[filename.split('_')[0]+'_'+str(int(filename.split('_')[1])-1)], groupbin=1)
+            probe_tc, gen_files[prev_filename], groupbin=1)
         msc_cur, osc_cur, nsc_cur = tc_compute_miss_oov_rates(
             probe_tc, gen_files[filename], groupbin=1)
         msc_next, osc_next, nsc_next = tc_compute_miss_oov_rates(
-            probe_tc, gen_files[filename.split('_')[0]+'_'+str(int(filename.split('_')[1])+1)], groupbin=1)
+            probe_tc, gen_files[next_filename], groupbin=1)
 
-        stat_temp = pd.DataFrame([[msc_prev['dfreq_score'].tolist()[0], msc_prev['pmiss'].tolist()[0], osc_prev['poov'].tolist()[0], nsc_prev['pnword'].tolist()[0],
-                                   msc_cur['dfreq_score'].tolist()[0], msc_cur['pmiss'].tolist()[0], osc_cur['poov'].tolist()[0], nsc_cur['pnword'].tolist()[0],
-                                   msc_next['dfreq_score'].tolist()[0], msc_next['pmiss'].tolist()[0], osc_next['poov'].tolist()[0], nsc_next['pnword'].tolist()[0]]],
-                                 columns=['freq_score_prev', 'pmiss_prev', 'poov_prev', 'pnword_prev',
-                                          'freq_score_cur', 'pmiss_cur', 'poov_cur', 'pnword_cur',
-                                          'freq_score_next', 'pmiss_next', 'poov_next', 'pnword_next'])
+        stat_temp = pd.DataFrame([[
+            msc_prev['dfreq_score'].tolist()[0], msc_prev['pmiss'].tolist()[0], osc_prev['poov'].tolist()[0],
+            nsc_prev['pnword'].tolist()[0],
+            msc_cur['dfreq_score'].tolist()[0], msc_cur['pmiss'].tolist()[0], osc_cur['poov'].tolist()[0],
+            nsc_cur['pnword'].tolist()[0],
+            msc_next['dfreq_score'].tolist()[0], msc_next['pmiss'].tolist()[0], osc_next['poov'].tolist()[0],
+            nsc_next['pnword'].tolist()[0]
+        ]], columns=[
+            'freq_score_prev', 'pmiss_prev', 'poov_prev', 'pnword_prev',
+            'freq_score_cur', 'pmiss_cur', 'poov_cur', 'pnword_cur',
+            'freq_score_next', 'pmiss_next', 'poov_next', 'pnword_next'
+        ])
 
         stat = pd.concat([stat, stat_temp], ignore_index=True)
 
-    # run stat analysis
-    result = pd.DataFrame(columns=['freq_score_learn', 'freq_score_forget',
-                                   'pmiss_learn', 'pmiss_forget',
-                                   'poov_learn', 'poov_forget',
-                                   'pnword_learn', 'pnword_forget'])
+    # Run stat analysis
+    result = pd.DataFrame(columns=[
+        'freq_score_learn_p', 'freq_score_learn_t', 'freq_score_forget_p', 'freq_score_forget_t',
+        'pmiss_learn_p', 'pmiss_learn_t', 'pmiss_forget_p', 'pmiss_forget_t',
+        'poov_learn_p', 'poov_learn_t', 'poov_forget_p', 'poov_forget_t',
+        'pnword_learn_p', 'pnword_learn_t', 'pnword_forget_p', 'pnword_forget_t'
+    ])
 
     score_lst = ['freq_score', 'pmiss', 'poov', 'pnword']
     for score in score_lst:
         t_learn, p_learn = ttest_rel(stat[f'{score}_cur'], stat[f'{score}_prev'])
         t_forget, p_forget = ttest_rel(stat[f'{score}_cur'], stat[f'{score}_next'])
-        result.loc[0, f'{score}_learn'] = p_learn
-        result.loc[0, f'{score}_forget'] = p_forget
+
+        result.loc[0, f'{score}_learn_p'] = p_learn
+        result.loc[0, f'{score}_learn_t'] = t_learn
+        result.loc[0, f'{score}_forget_p'] = p_forget
+        result.loc[0, f'{score}_forget_t'] = t_forget
 
     return result
-

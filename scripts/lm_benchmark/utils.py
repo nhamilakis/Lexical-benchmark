@@ -40,6 +40,7 @@ class TokenCount:
             self.name = name
         else:
             self.df = pd.DataFrame(columns=['word', 'count'])
+        # check the existence of the columns below
         self.df['freq_m'] = self.df['count']/self.df['count'].sum() * 1000000
         self.df['correct']=self.df['word'].apply(is_word)
         #self.df.set_index('word', inplace=True)
