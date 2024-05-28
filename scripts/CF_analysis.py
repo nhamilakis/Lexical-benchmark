@@ -13,7 +13,7 @@ def parseArgs(argv):
                         help='dir to save stat file')
     parser.add_argument('--gen_dir', type=str, default=f"{ROOT}/datasets/processed/generation/100",
                         help='generation dir')
-    parser.add_argument('--prop_lst', type=list, default=[0.75],
+    parser.add_argument('--prop_lst', type=list, default=[0.5,1],
                         help='prop of reserved words')
     parser.add_argument('--run_stat', default=False,
                         help='whether to perform stat')

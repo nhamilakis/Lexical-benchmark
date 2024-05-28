@@ -111,7 +111,8 @@ def select_probe_set(files: dict, out_dir:Path, prop:float) -> dict:
         print(f"Probe set for batch {curr_file} saved to {out_dir}")
 
     stat_df = pd.DataFrame(stat_lst, columns=['filename', 'token_count'])
-    stat_df.to_csv(out_dir / 'stat_probe.csv', index=False)
+    filename = f'stat_probe_{str(prop)}.csv'
+    stat_df.to_csv(out_dir / filename, index=False)
     return dataframes
 
 
