@@ -13,13 +13,15 @@ def parseArgs(argv):
                         help='dir to save stat file')
     parser.add_argument('--gen_dir', type=str, default=f"{ROOT}/datasets/processed/generation/100",
                         help='generation dir')
-    parser.add_argument('--prop_lst', type=list, default=[0.75,1,0.5],
+    parser.add_argument('--prop_lst', type=list, default=[0.75],
                         help='prop of reserved words')
+    parser.add_argument('--run_stat', default=False,
+                        help='whether to perform stat')
     return parser.parse_args(argv)
 
 
 def analyze_pipeline(filenames:dict,input_dir:Path,gen_dir:Path,CDI_dir:Path,
-                     prop:float,gen_files_all:dict,probe_files_all:dict):
+                     prop:float,gen_files_all:dict,probe_files_all:dict,run_stat):
     """smallest unit to get stat results"""
     # load files
     print(f'Loading reference files from {input_dir}')
@@ -32,7 +34,7 @@ def analyze_pipeline(filenames:dict,input_dir:Path,gen_dir:Path,CDI_dir:Path,
     probe_files_all.update(probe_files)
     print(f'Saved the selected probing set to {CDI_dir}')
     # run stat analysis
-    result = compare_scores(probe_files, gen_files)
+    result = compare_scores(probe_files, gen_files,run_stat)
     return result,gen_files_all,probe_files_all
 
 
@@ -44,6 +46,7 @@ def main(argv):
     output_dir = Path(args.output_dir)
     CDI_dir = Path(args.CDI_dir)
     gen_path = Path(args.gen_dir)
+    run_stat = args.run_stat
     result_all = pd.DataFrame()
     # loop over different epochs
     for prop in args.prop_lst:
@@ -57,19 +60,19 @@ def main(argv):
                 epoch_dict = rename_files(gen_dir)
                 for epoch,filenames in epoch_dict.items():
                     result, gen_files_all, probe_files_all = analyze_pipeline(filenames,input_dir,gen_dir,CDI_dir,
-                     prop,gen_files_all,probe_files_all)
+                     prop,gen_files_all,probe_files_all,run_stat)
                     print(gen_dir)
                     result['epoch'] = epoch
                     result['temp'] = gen_dir.name
                     result['prop'] = prop
                     result_all = pd.concat([result_all,result])
-
-                # also save the result to the whole
-                result = compare_scores(probe_files_all, gen_files_all)
-                result['epoch'] = 'all_epoch'
-                result['temp'] = gen_dir.name
-                result['prop'] = prop
-                result_all = pd.concat([result_all, result])
+                if run_stat:
+                    # also save the result to the whole
+                    result = compare_scores(probe_files_all, gen_files_all)
+                    result['epoch'] = 'all_epoch'
+                    result['temp'] = gen_dir.name
+                    result['prop'] = prop
+                    result_all = pd.concat([result_all, result])
 
 
     result_all.to_csv(output_dir)

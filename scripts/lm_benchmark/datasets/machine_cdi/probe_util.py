@@ -116,8 +116,27 @@ def select_probe_set(files: dict, out_dir:Path, prop:float) -> dict:
 
 
 
+# Assuming `stat` is the DataFrame with the required columns
+def add_difference(stat: pd.DataFrame) -> pd.DataFrame:
+    # Define the new column names
+    new_columns = {
+        'freq_score': ['freq_score_learn', 'freq_score_forget'],
+        'pmiss': ['pmiss_learn', 'pmiss_forget'],
+        'poov': ['poov_learn', 'poov_forget'],
+        'pnword': ['pnword_learn', 'pnword_forget']
+    }
 
-def compare_scores(probe_files: dict, gen_files: dict) -> pd.DataFrame:
+    # Calculate the learning and forgetting columns
+    for score, new_cols in new_columns.items():
+        learn_col, forget_col = new_cols
+        stat[learn_col] = stat[f'{score}_cur'] - stat[f'{score}_prev']
+        stat[forget_col] = stat[f'{score}_cur'] - stat[f'{score}_next']
+    return stat
+
+
+
+
+def compare_scores(probe_files: dict, gen_files: dict,run_stat=False) -> pd.DataFrame:
     stat = pd.DataFrame(columns=[
         'freq_score_prev', 'pmiss_prev', 'poov_prev', 'pnword_prev',
         'freq_score_cur', 'pmiss_cur', 'poov_cur', 'pnword_cur',
@@ -151,22 +170,50 @@ def compare_scores(probe_files: dict, gen_files: dict) -> pd.DataFrame:
 
         stat = pd.concat([stat, stat_temp], ignore_index=True)
 
-    # Run stat analysis
-    result = pd.DataFrame(columns=[
-        'freq_score_learn_p', 'freq_score_learn_t', 'freq_score_forget_p', 'freq_score_forget_t',
-        'pmiss_learn_p', 'pmiss_learn_t', 'pmiss_forget_p', 'pmiss_forget_t',
-        'poov_learn_p', 'poov_learn_t', 'poov_forget_p', 'poov_forget_t',
-        'pnword_learn_p', 'pnword_learn_t', 'pnword_forget_p', 'pnword_forget_t'
-    ])
+    if not run_stat:
+        # add additional difference score
+        stat = add_difference(stat)
+        return stat
 
-    score_lst = ['freq_score', 'pmiss', 'poov', 'pnword']
-    for score in score_lst:
-        t_learn, p_learn = ttest_rel(stat[f'{score}_cur'], stat[f'{score}_prev'])
-        t_forget, p_forget = ttest_rel(stat[f'{score}_cur'], stat[f'{score}_next'])
+    else:
+        # Run stat analysis
+        result = pd.DataFrame(columns=[
+            'freq_score_learn_p', 'freq_score_learn_t', 'freq_score_forget_p', 'freq_score_forget_t',
+            'pmiss_learn_p', 'pmiss_learn_t', 'pmiss_forget_p', 'pmiss_forget_t',
+            'poov_learn_p', 'poov_learn_t', 'poov_forget_p', 'poov_forget_t',
+            'pnword_learn_p', 'pnword_learn_t', 'pnword_forget_p', 'pnword_forget_t'
+        ])
 
-        result.loc[0, f'{score}_learn_p'] = p_learn
-        result.loc[0, f'{score}_learn_t'] = t_learn
-        result.loc[0, f'{score}_forget_p'] = p_forget
-        result.loc[0, f'{score}_forget_t'] = t_forget
+        score_lst = ['freq_score', 'pmiss', 'poov', 'pnword']
+        for score in score_lst:
+            t_learn, p_learn = ttest_rel(stat[f'{score}_cur'], stat[f'{score}_prev'])
+            t_forget, p_forget = ttest_rel(stat[f'{score}_cur'], stat[f'{score}_next'])
 
-    return result
+            result.loc[0, f'{score}_learn_p'] = p_learn
+            result.loc[0, f'{score}_learn_t'] = t_learn
+            result.loc[0, f'{score}_forget_p'] = p_forget
+            result.loc[0, f'{score}_forget_t'] = t_forget
+
+        return result
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

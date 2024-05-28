@@ -19,9 +19,9 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--lang", default="BE")
     parser.add_argument("--set", default="machine")
     parser.add_argument(
-        "--header_lst", default=["unprompted_0.3","unprompted_0.6","unprompted_1.0","unprompted_1.5"]
+        "--header_lst", default=["crf"]
     )
-    parser.add_argument("--count", default=True)
+    parser.add_argument("--count", default=False)
     return parser.parse_args()
 
 
@@ -35,7 +35,7 @@ def main() -> None:
     test_file = Path(args.CDI_path) / f"{lang}_{args.test_type}_{args.set}.csv"
     score_dir = Path(f"{args.freq_path}{lang}")
     score_dir.mkdir(parents=True, exist_ok=True)
-    month_lst = AGE_DICT[lang]     # try out different age ranges
+    month_lst = [AGE_DICT[lang][0],36]    # try out different age ranges
     count = args.count
     # further process the data
 

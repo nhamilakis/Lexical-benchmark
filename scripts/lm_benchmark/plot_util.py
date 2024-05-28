@@ -230,7 +230,7 @@ def tc_compute_miss_oov_rates(ref_count: TokenCount, gen_count: TokenCount, grou
 # E1 plotting functions
 #################################################################################################
 
-def plot_score(df, label, xlim=[0, 36], ylim=[0, 1], xlabel='(Pseudo) month', ylabel='Proportion of acquired words'):
+def plot_score(df, label, xlim=[0, 36], ylim=[0, 1], xlabel='(Pseudo) month', ylabel='Proportion of acquired words', color=False):
     """plot the thresholded counts"""
     # Convert column headers to integers
     df.columns = df.columns.astype(int)
@@ -241,7 +241,10 @@ def plot_score(df, label, xlim=[0, 36], ylim=[0, 1], xlabel='(Pseudo) month', yl
     plt.ylabel(ylabel)  # Label for the y-axis
     plt.xlim(xlim)
     plt.ylim(ylim)
-    plt.plot(average_values.index, average_values.values, label=label)
+    if not color:
+        plt.plot(average_values.index, average_values.values, label=label)
+    else:
+        plt.plot(average_values.index, average_values.values, label=label,color=color,linewidth=3.5)
     plt.grid(True)  # Show grid lines
     plt.legend()  # Show legend
 
