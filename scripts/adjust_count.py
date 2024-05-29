@@ -3,8 +3,8 @@ import argparse
 import sys
 from pathlib import Path
 from tqdm import tqdm
-from lm_benchmark.analysis.score_util import MonthCounter
-from lm_benchmark.settings import ROOT, AGE_DICT
+from lm_benchmark.analysis.score_util import MonthCounter,merge_crf
+from lm_benchmark.settings import ROOT, AGE_DICT, model_dict
 
 
 
@@ -37,8 +37,9 @@ def main() -> None:
     score_dir.mkdir(parents=True, exist_ok=True)
     month_lst = [AGE_DICT[lang][0],36]    # try out different age ranges
     count = args.count
-    # further process the data
-
+    # preprocess crf gen
+    if header_lst[0] == 'crf':
+        merge_crf(model_dict, month_lst)
 
 
     for header in tqdm(header_lst):

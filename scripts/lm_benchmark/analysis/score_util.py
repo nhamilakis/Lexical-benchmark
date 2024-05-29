@@ -64,7 +64,7 @@ def segment_df(df: pd.DataFrame, column: str, target_sum: float) -> (pd.DataFram
 
     return df1, df2
 
-def merge_crf(model_dict, month_range):      #TODO: debug this func later
+def merge_crf(gen_ROOT:str,model_dict:dict, month_range:list)->pd.DataFrame:      #TODO: debug this func later
     # loop over each model
     selected_pairs = select_model(model_dict, month_range)
     selected_all = pd.DataFrame()
