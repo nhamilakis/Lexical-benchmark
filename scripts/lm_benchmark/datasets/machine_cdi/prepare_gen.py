@@ -21,9 +21,9 @@ for month in month_lst:
 import os
 import numpy as np
 
-month = '3200h'
+month = '800h'
 # Load the DataFrame from the CSV file
-df = pd.read_csv('/Users/jliu/PycharmProjects/freq_bias_benchmark/data/train/train_utt/' + month[:-1] + '_child.csv')
+df = pd.read_csv('/Users/jliu/PycharmProjects/freq_bias_benchmark/data/train/train_utt/' + month[:-1] + '.csv')
 
 # Define the number of splits and directories
 num_splits = 30

@@ -368,7 +368,7 @@ def tc_plot_miss_oov_rates(ref_count: TokenCount, gen_count_list: List[TokenCoun
     :param ref_count: a reference TokenCount
     :param gen_count_list: a list of generated or test TokenCount
     :param groupbin:
-    :return: nothing
+    :return: dataframe containing different scores
     """
     pmiss = {}
     poov = {}
@@ -388,3 +388,4 @@ def tc_plot_miss_oov_rates(ref_count: TokenCount, gen_count_list: List[TokenCoun
     line_plot(dfreqscore, ylim=[-1, 1])
     line_plot(poov)
     line_plot(pnonword)
+    

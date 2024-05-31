@@ -9,20 +9,23 @@ import pandas as pd
 import numpy as np
 import statsmodels.api as sm
 from collections import Counter
-
 import enchant
 
 WORD_PATTERN = re.compile(r'\b\w+\b')
 d_uk = enchant.Dict("en_UK")
 d_us = enchant.Dict("en_US")
 
-
+ROOT = "/Users/jliu/PycharmProjects/Lexical-benchmark"
+CELEX = pd.read_excel(f'{ROOT}/datasets/raw/SUBTLEX.xlsx')['Word'].str.lower().tolist()
 
 def is_word(word):
     # Function to check if a word is valid
     true_word = ["cant", "wont", "dont", "isnt", "its", "im", "hes", "shes", "theyre", "were", "youre", "lets",
                  "wasnt", "werent", "havent", "ill", "youll", "hell", "shell", "well", "theyll", "ive", "youve",
-                 "weve", "theyve", "shouldnt", "couldnt", "wouldnt", "mightnt", "mustnt", "thats", "whos", "whats", "wheres", "whens", "whys", "hows", "theres", "heres", "lets", "wholl", "whatll", "whod", "whatd", "whered", "howd", "thatll", "whatre", "therell", "herell"]
+                 "weve", "theyve", "shouldnt", "couldnt", "wouldnt", "mightnt", "mustnt", "thats", "whos", "whats", 
+                 "wheres", "whens", "whys", "hows", "theres", "heres", "lets", "wholl", "whatll", "whod", "whatd", "whered", 
+                 "howd", "thatll", "whatre", "therell", "herell"]
+    true_word.extend(CELEX)
     try:
         if d_uk.check(word) or d_us.check(word) or d_us.check(word.capitalize()) or d_uk.check(word.capitalize()) or word in true_word:
             return True
@@ -53,6 +56,7 @@ class TokenCount:
 
     @staticmethod
     def from_df(file_path,header:str, name=None):
+
         try:
             lines = pd.read_csv(file_path)[header]
         except:   # in the case that the input is already a dataframe
@@ -66,9 +70,13 @@ class TokenCount:
             word_counter.update(words)
         return TokenCount(word_counter, header)
 
-    @staticmethod
+    
+
+
+    '''
     def from_text_file(file_path):
         # Read from a text file and count words
+        WORD_PATTERN = re.compile(r'\b\w+\b')
         word_counter = Counter()
         with open(file_path, 'r', encoding='utf-8') as file:
             for line in file:
@@ -78,7 +86,20 @@ class TokenCount:
                 word_counter.update(words)
         basename = os.path.splitext(os.path.basename(file_path))[0]
         return TokenCount(word_counter, basename)
+    '''
+    @staticmethod
+    def from_text_file(file_path):
+        # Read from a text file and count words
 
+        word_counter = Counter()
+
+        with open(file_path, 'r', encoding='utf-8') as file:
+            for line in file:
+                words = WORD_PATTERN.findall(line.lower())
+                word_counter.update(words)
+        basename = os.path.splitext(os.path.basename(file_path))[0]
+        return TokenCount(word_counter, basename)
+    
 
     def nonword(self):
         # Find the nonwords

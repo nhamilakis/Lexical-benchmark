@@ -38,8 +38,12 @@ def main() -> None:
     month_lst = [AGE_DICT[lang][0],36]    # try out different age ranges
     count = args.count
     # preprocess crf gen
-    if header_lst[0] == 'crf':
+    '''
+        if header_lst[0] == 'crf':
         merge_crf(model_dict, month_lst)
+    
+    '''
+
 
 
     for header in tqdm(header_lst):
