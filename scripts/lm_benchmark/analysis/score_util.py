@@ -175,34 +175,44 @@ class MonthCounter:
         self._month_range = month_range
         self._count = count
         # Call load method to initialize dataframes
-        self.__load__()
+        self.load()
 
-    def __load__(self):
+    def load(self):
         """ Load the dataset into dataframes """
         generation_df = pd.read_csv(self._generation_csv_location)
-        # select the gen based on range_month
+        generation_df['month'] = generation_df['month'].astype(int)
+        generation_df = generation_df.sort_values('month')
+
         self._generation_df = generation_df[(generation_df['month'] >= self._month_range[0]) & (generation_df['month'] <= self._month_range[1])]
         self._estimation_df = pd.read_csv(self._estimation_csv_location)
         self._test_df = load_csv(self._test_csv_location,'word')
 
+        return generation_df
+
     def adjusted_count_all(self):
         """ Match two freq frames """
         # loop over different months
+
         self._gen_grouped = self._generation_df.groupby('month')
         self._merged_df = pd.DataFrame(columns=['word', 'freq_m'])
+
         for month, gen_month in self._gen_grouped:
             # get freq in the given month and merge adjusted the count with previous one
-            self._merged_df = merge_df(self._merged_df, gen_month, self._header, month,self._count)
-            # try to rename the initial months' header
             try:
+                self._merged_df = merge_df(self._merged_df, gen_month, self._header, month,self._count)
+                # try to rename the initial months' header
                 self._merged_df = self._merged_df.rename(columns={'freq_m_y': month})
+                # adjust count based on estimation
+                self._merged_df[month] = self._merged_df[month].apply(lambda x: adjust_count(x, self._estimation_df, month))
+                print('Finished processing ' + str(month))
             except:
-                pass
-            # adjust count based on estimation
-            self._merged_df[month] = self._merged_df[month].apply(lambda x: adjust_count(x, self._estimation_df, month))
+                print('Failed processing ' + str(month))
 
         # remove useless columns
-        self._merged_df = self._merged_df.drop(columns=['freq_m_x'])
+        try:
+            self._merged_df = self._merged_df.drop(columns=['freq_m_x'])
+        except:
+            pass
         # get cumulative frequency
         self._merged_df = accum_count(self._merged_df)
         #self._merged_df.to_csv(self._all_csv_location)

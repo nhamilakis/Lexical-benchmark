@@ -1,6 +1,3 @@
-import numpy as np
-import pandas as pd
-import math
 from scipy.special import comb
 from scipy.stats import norm
 from collections import Counter
@@ -64,6 +61,13 @@ def month2model(model_dict, value):
         elif len(value_range) == 2 and value_range[0] <= value <= value_range[1]:
             return key
     return None
+
+def merge_score(df):
+    """merge rows of df"""
+    df.columns = df.columns.astype(int)
+    average_values = df.mean()
+    merged = pd.DataFrame(average_values).T
+    return merged 
 
 
 #################################################################################################
@@ -230,7 +234,7 @@ def tc_compute_miss_oov_rates(ref_count: TokenCount, gen_count: TokenCount, grou
 # E1 plotting functions
 #################################################################################################
 
-def plot_score(df, label, xlim=[0, 36], ylim=[0, 1], xlabel='(Pseudo) month', ylabel='Proportion of acquired words', color=False):
+def plot_score1(df, label, xlim=[0, 36], ylim=[0, 1], xlabel='(Pseudo) month', ylabel='Proportion of acquired words', color=False):
     """plot the thresholded counts"""
     # Convert column headers to integers
     df.columns = df.columns.astype(int)
@@ -247,6 +251,42 @@ def plot_score(df, label, xlim=[0, 36], ylim=[0, 1], xlabel='(Pseudo) month', yl
         plt.plot(average_values.index, average_values.values, label=label,color=color,linewidth=3.5)
     plt.grid(True)  # Show grid lines
     plt.legend()  # Show legend
+
+    
+
+def plot_score(df, label, xlim=[0, 36], ylim=[0, 1], xlabel='(Pseudo) month', ylabel='Proportion of acquired words', color=False):
+    """Plot the thresholded counts with color range for variability."""
+    # Convert column headers to integers
+    df.columns = df.columns.astype(int)
+    # Calculate average values across rows for each column
+    average_values = df.mean()
+    # Calculate standard deviation across rows for each column
+    std_dev_values = df.std() 
+    
+    # Plot the curve with color range
+    plt.xlabel(xlabel)  # Label for the x-axis
+    plt.ylabel(ylabel)  # Label for the y-axis
+    plt.xlim(xlim)
+    plt.ylim(ylim)
+    
+   
+    if not color:
+        # Fill the area between the average values +/- standard deviation
+        plt.plot(average_values.index, average_values.values, label=label, linewidth=2)
+        plt.fill_between(average_values.index, 
+                        average_values.values - std_dev_values.values, 
+                        average_values.values + std_dev_values.values, 
+                        alpha=0.3)
+    else:
+        plt.plot(average_values.index, average_values.values, label=label, color = color, linewidth=2)
+        plt.fill_between(average_values.index, 
+                        average_values.values - std_dev_values.values, 
+                        average_values.values + std_dev_values.values, 
+                        color = color, alpha=0.3)
+    
+    plt.legend()  # Show legend
+
+
 
 
 #################################################################################################
