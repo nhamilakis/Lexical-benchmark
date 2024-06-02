@@ -70,11 +70,8 @@ class TokenCount:
             word_counter.update(words)
         return TokenCount(word_counter, header)
 
-    
 
-
-    '''
-    def from_text_file(file_path):
+    def from_text_file_train(file_path):
         # Read from a text file and count words
         WORD_PATTERN = re.compile(r'\b\w+\b')
         word_counter = Counter()
@@ -86,7 +83,7 @@ class TokenCount:
                 word_counter.update(words)
         basename = os.path.splitext(os.path.basename(file_path))[0]
         return TokenCount(word_counter, basename)
-    '''
+
     @staticmethod
     def from_text_file(file_path):
         # Read from a text file and count words

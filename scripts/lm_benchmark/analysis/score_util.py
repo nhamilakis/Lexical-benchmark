@@ -203,7 +203,7 @@ class MonthCounter:
                 # try to rename the initial months' header
                 self._merged_df = self._merged_df.rename(columns={'freq_m_y': month})
                 # adjust count based on estimation
-                self._merged_df[month] = self._merged_df[month].apply(lambda x: adjust_count(x, self._estimation_df, month))
+                #self._merged_df[month] = self._merged_df[month].apply(lambda x: adjust_count(x, self._estimation_df, month))
                 print('Finished processing ' + str(month))
             except:
                 print('Failed processing ' + str(month))
@@ -215,7 +215,7 @@ class MonthCounter:
             pass
         # get cumulative frequency
         self._merged_df = accum_count(self._merged_df)
-        #self._merged_df.to_csv(self._all_csv_location)
+        self._merged_df.to_csv(self._all_csv_location)
         return self._merged_df
 
 

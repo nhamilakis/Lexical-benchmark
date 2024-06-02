@@ -10,15 +10,15 @@ from lm_benchmark.settings import ROOT, AGE_DICT, model_dict
 def arguments() -> argparse.Namespace:
     """Build & Parse command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--gen_file", default=f"{ROOT}/datasets/processed/generation/Transformer_gen.csv")
+    parser.add_argument("--gen_file", default=f"{ROOT}/datasets/processed/generation/accum.csv")
     parser.add_argument("--est_file", default=f"{ROOT}/datasets/raw/vocal_month.csv")
     parser.add_argument("--CDI_path", default=f"{ROOT}/datasets/processed/CDI/")
-    parser.add_argument("--freq_path", default=f"{ROOT}/datasets/processed/month_count/Transformer/")
+    parser.add_argument("--freq_path", default=f"{ROOT}/datasets/processed/month_count/LSTM/")
     parser.add_argument("--test_type", default="exp")
     parser.add_argument("--lang", default="AE")
     parser.add_argument("--set", default="machine")
     parser.add_argument(
-        "--header_lst", default=["unprompted_0.3","unprompted_0.6","unprompted_1.0","unprompted_1.5"]
+        "--header_lst", default=["train"]
     )
     parser.add_argument("--count", default=False)
     return parser.parse_args()
@@ -34,7 +34,8 @@ def main() -> None:
     test_file = Path(args.CDI_path) / f"{lang}_{args.test_type}_{args.set}.csv"
     score_dir = Path(f"{args.freq_path}{lang}")
     score_dir.mkdir(parents=True, exist_ok=True)
-    month_lst = [AGE_DICT[lang][0],36]    # try out different age ranges
+    #month_lst = [AGE_DICT[lang][0],36]    # try out different age ranges
+    month_lst = [6, 36]
     count = args.count
     # preprocess crf gen
     '''

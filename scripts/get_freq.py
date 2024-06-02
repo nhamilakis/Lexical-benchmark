@@ -9,8 +9,8 @@ from lm_benchmark.utils import TokenCount
 def arguments() -> argparse.Namespace:
     """Build & Parse command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--src_file", default=f"{ROOT}/datasets/processed/generation/LSTM_gen.csv")
-    parser.add_argument("--target_file", default=f"{ROOT}/datasets/processed/freq/LSTM_2/unprompted_1.5.csv")
+    parser.add_argument("--src_file", default=f"{ROOT}/datasets/raw/7100h.txt")
+    parser.add_argument("--target_file", default=f"{ROOT}/datasets/processed/freq/7100h.csv")
     parser.add_argument("--header", default="unprompted_1.5")
     return parser.parse_args()
 
