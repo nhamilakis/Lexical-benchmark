@@ -2,6 +2,7 @@ import numpy as np
 import math
 from scipy.special import comb
 from scipy.stats import norm
+import pandas as pd
 from lm_benchmark.utils import TokenCount
 
 #################################################################################################
@@ -146,3 +147,31 @@ def make_accu(ref_count:TokenCount)->TokenCount:
    accu_count=TokenCount(dict(zip(accuwords,accucountarray)),name="accu")
    accu_count.df=accu_count.df[accu_count.df["count"]!=0]
    return accu_count
+
+
+
+# get the accumulator model from the largest training set
+def segment_into_chunks(input_file, num_chunks):
+    # Read the text file into a DataFrame
+    df = pd.read_csv(input_file)
+    total_words = df['num_tokens'].sum()
+    # Calculate the approximate number of words per chunk
+    words_per_chunk = math.ceil(total_words / num_chunks)
+
+    # Initialize variables
+    current_chunk_number = 1
+    current_chunk_word_count = 0
+    chunk_numbers = []
+
+    # Assign chunk numbers to each sentence
+    for _, row in df.iterrows():
+        sentence_word_count = row['count']
+        if current_chunk_word_count + sentence_word_count > words_per_chunk and current_chunk_number < num_chunks:
+            current_chunk_number += 1
+            current_chunk_word_count = 0
+        chunk_numbers.append(current_chunk_number)
+        current_chunk_word_count += sentence_word_count
+
+    # Add the chunk numbers to the DataFrame
+    df['month'] = chunk_numbers
+    return df
