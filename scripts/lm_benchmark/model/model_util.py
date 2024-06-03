@@ -7,7 +7,7 @@ from collections import Counter
 from collections import defaultdict
 from tqdm import tqdm
 import random
-#from lm_benchmark.utils import TokenCount
+from lm_benchmark.utils import TokenCount
 
 #################################################################################################
 # function definitions useful for estimating theoretical probabilities of generations in the accumulator model
@@ -150,15 +150,42 @@ def accu_model_tok_stats(token_count, ref_corpus_size, gen_corpus_size=None):
 
 ### defining an accumulator model based on a reference corpus
 
-'''
 def make_accu(ref_count:TokenCount)->TokenCount:
    """Make a corpus from an accumulator model based on ref_count. Returns a TokenCount."""
-   accucountarray=np.random.multinomial(ref_count.nb_of_tokens(), ref_count.df["Count"]/ref_count.nb_of_tokens())
-   accuwords=ref_count.df.index
+   accucountarray=np.random.multinomial(ref_count.nb_of_tokens(), ref_count.df["count"]/ref_count.nb_of_tokens())
+   accuwords=ref_count.df['word']
    accu_count=TokenCount(dict(zip(accuwords,accucountarray)),name="accu")
-   accu_count.df=accu_count.df[accu_count.df["Count"]!=0]
+   accu_count.df=accu_count.df[accu_count.df["count"]!=0]
    return accu_count
-'''
+
+
+#
+
+def segment_into_chunks(input_file, num_chunks):
+    """get the accumulator model from the largest training set"""
+    # Read the text file into a DataFrame
+    df = pd.read_csv(input_file)
+    total_words = df['num_tokens'].sum()
+    # Calculate the approximate number of words per chunk
+    words_per_chunk = math.ceil(total_words / num_chunks)
+
+    # Initialize variables
+    current_chunk_number = 1
+    current_chunk_word_count = 0
+    chunk_numbers = []
+
+    # Assign chunk numbers to each sentence
+    for _, row in df.iterrows():
+        sentence_word_count = row['count']
+        if current_chunk_word_count + sentence_word_count > words_per_chunk and current_chunk_number < num_chunks:
+            current_chunk_number += 1
+            current_chunk_word_count = 0
+        chunk_numbers.append(current_chunk_number)
+        current_chunk_word_count += sentence_word_count
+
+    # Add the chunk numbers to the DataFrame
+    df['month'] = chunk_numbers
+    return df
 
 
 
@@ -224,59 +251,6 @@ def sample_word(model, n=3, start_symbol='^', end_symbol='$'):
 
 
 ## chinese restaurant process model
-'''
-
-def make_crp1(ref_count: TokenCount, alpha: float) -> TokenCount:
-    """Make a chinese restaurant process based on ref_count with concentration param alpha
-    Alpha should be scaled to correspond to the desired oov rate (alpha~oov_rate*total_token_count)
-    Attention, not optimized for speed: for large corpora, this is EXTREMELY SLOW (30min for a 1M word corpus)
-    Also, the process does not check that by accident an existing word could be generated
-    """
-    # make a 3-gram lm for words
-    ngram_model = build_ngram_model(ref_count.df['word'], 3)
-    # nb of tokens in the reference token count
-    nbtoks = ref_count.nb_of_tokens()
-    # initialize an empty generated token count; convert into df
-    gen_count = TokenCount.from_df(ref_count.df,'word')
-    gen_count.df.columns = ['word','PseudoCount','freq_m','correct']   # only preserve the
-    gen_count.df["count"] = 0
-
-    # set word as index and only preserve the pseudo and true word count
-    gen_frame = gen_count.df[['word','PseudoCount',"count"]]
-    gen_frame.set_index('word', inplace=True)
-
-    # make a new corpus with the same nb of tokens as the reference one
-    for i in tqdm(range(1, nbtoks + 1)):
-        # fist decide whether we should sample a new table (word)
-        p_new_table = alpha / (nbtoks + i - 1 + alpha)
-        if np.random.rand() < p_new_table:
-            # Start a new table (word, by using the ngram model)
-            new_word = sample_word(ngram_model, 3)
-            if new_word in gen_frame.index:
-                # if the word already existed, increment its count
-                gen_frame["count"].loc[new_word] += 1
-            else:
-                # create a new word (with pseudo count of 0)
-                gen_frame.loc[new_word] = [0, 1]
-        else:
-            # sample from existing tables
-            adjusted_probs = gen_frame["count"] + gen_frame["PseudoCount"]
-            ntables = len(adjusted_probs)
-            probs = adjusted_probs / np.sum(adjusted_probs)
-            # print(i,adjusted_probs,ntables,probs)
-            table_choice = np.random.choice(np.arange(ntables), p=probs)
-            gen_frame["count"].iloc[table_choice] += 1
-    del gen_frame["PseudoCount"]  # removing the extra pseudocount column
-    gen_frame = gen_frame[gen_frame["count"] != 0]  # removing missed words
-    #gen_count.df.set_index('Word', inplace=True)
-    gen_frame = gen_frame.reset_index()
-    return gen_frame
-
-
-
-'''
-
-
 def make_crp(ref_count: pd.DataFrame, alpha: float) -> pd.DataFrame:
     """Make a chinese restaurant process based on ref_count with concentration param alpha
     Alpha should be scaled to correspond to the desired oov rate (alpha~oov_rate*total_token_count)
@@ -322,3 +296,26 @@ def make_crp(ref_count: pd.DataFrame, alpha: float) -> pd.DataFrame:
     #gen_count.df.set_index('Word', inplace=True)
     gen_frame = gen_frame.reset_index()
     return gen_frame
+
+
+def get_crp_score(crp_path:Path,CDI_ROOT:str,lang:str,memory_threshold:int)->dict:
+    """get crp scores based on the machine CDI"""
+    test_filename = lang + '_exp_machine.csv'
+    test_frame = pd.read_csv(Path(CDI_ROOT)/test_filename)
+    test_lst = test_frame['word'].tolist()
+    crp_path = Path(gen_ROOT)/'crp'
+    overlap_words = {}
+    for file in crp_path.iterdir():
+        frame = pd.read_csv(file)
+        count = frame[frame['word'].isin(test_lst)]
+        merged_df = pd.merge(count, test_frame, on='word', how='outer')
+        merged_df = merged_df.fillna(0)
+        # apply thresholds on the results
+        merged_df = merged_df[['word','count_x']]
+        merged_df.columns = ['word','count']
+        merged_df['score'] = merged_df['count'].apply(lambda x: 1 if x > memory_threshold else 0)
+        score = merged_df['score'].mean()
+        overlap_words[int(file.name[:-4])] = score
+        # sort the dictionay based on months(key)
+        overlap_words = {key: overlap_words[key] for key in sorted(overlap_words)}
+    return overlap_words
