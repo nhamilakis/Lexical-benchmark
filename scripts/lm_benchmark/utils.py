@@ -16,7 +16,11 @@ d_uk = enchant.Dict("en_UK")
 d_us = enchant.Dict("en_US")
 
 ROOT = "/Users/jliu/PycharmProjects/Lexical-benchmark"
-CELEX = pd.read_excel(f'{ROOT}/datasets/raw/SUBTLEX.xlsx')['Word'].str.lower().tolist()
+
+
+with open(f'{ROOT}/datasets/raw/words.txt') as f:
+    word_lst = f.readlines()
+
 
 def is_word(word):
     # Function to check if a word is valid
@@ -25,7 +29,7 @@ def is_word(word):
                  "weve", "theyve", "shouldnt", "couldnt", "wouldnt", "mightnt", "mustnt", "thats", "whos", "whats", 
                  "wheres", "whens", "whys", "hows", "theres", "heres", "lets", "wholl", "whatll", "whod", "whatd", "whered", 
                  "howd", "thatll", "whatre", "therell", "herell"]
-    true_word.extend(CELEX)
+    true_word.extend(word_lst)
     try:
         if d_uk.check(word) or d_us.check(word) or d_us.check(word.capitalize()) or d_uk.check(word.capitalize()) or word in true_word:
             return True
