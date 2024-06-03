@@ -152,6 +152,8 @@ def make_accu(ref_count:TokenCount)->TokenCount:
 
 # get the accumulator model from the largest training set
 def segment_into_chunks(input_file, num_chunks):
+
+    """only get the traindat freq"""
     # Read the text file into a DataFrame
     df = pd.read_csv(input_file)
     total_words = df['num_tokens'].sum()

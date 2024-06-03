@@ -49,3 +49,31 @@ for i in range(num_splits):
 
     # Save the split DataFrame to a CSV file
     split_df.to_csv(file_name, index=False)
+
+
+def segment_sentences(file_path):
+    """prepare for prompts"""
+
+    segments = []
+
+    with open(file_path, 'r') as file:
+        for line in file:
+            words = line.lower().strip().split()
+            length = len(words)
+
+            # Process the sentence if it has more than 3 words
+            if length > 3:
+                i = 0
+                while i < length:
+                    # If remaining words are less than 3, take them as they are
+                    if length - i <= 3:
+                        segments.append(' '.join(words[i:]))
+                        break
+                    else:
+                        segments.append(' '.join(words[i:i + 3]))
+                        i += 3
+            else:
+                # If the sentence is 3 words or less, take it as it is
+                segments.append(' '.join(words))
+
+    return segments
