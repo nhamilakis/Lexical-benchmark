@@ -77,3 +77,19 @@ def segment_sentences(file_path):
                 segments.append(' '.join(words))
 
     return segments
+
+
+
+# prepare crp gen by segmenting into intermediate sets
+raw_ROOT = f'{ROOT}/datasets/raw/3200.csv'
+count = pd.read_csv(raw_ROOT)
+
+month_lst = [15]
+for month in month_lst:
+    threshold = count['num_tokens'].sum()/18*month
+    # Step 2: Compute the cumulative sum
+    count['cum_sum'] = count['num_tokens'].cumsum()
+    index_threshold = count[count['cum_sum'] <= threshold].index
+    subframe = count.loc[index_threshold]
+    wordcount = TokenCount.from_df(subframe,'train')
+    wordcount.df.to_csv(f'{ROOT}/datasets/processed/freq/{str(month)}.csv',index=None)

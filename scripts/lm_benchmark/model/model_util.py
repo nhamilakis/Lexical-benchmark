@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import pandas as pd
+from pathlib import Path
 from scipy.special import comb
 from scipy.stats import norm
 from collections import Counter
@@ -303,19 +304,19 @@ def get_crp_score(crp_path:Path,CDI_ROOT:str,lang:str,memory_threshold:int)->dic
     test_filename = lang + '_exp_machine.csv'
     test_frame = pd.read_csv(Path(CDI_ROOT)/test_filename)
     test_lst = test_frame['word'].tolist()
-    crp_path = Path(gen_ROOT)/'crp'
     overlap_words = {}
     for file in crp_path.iterdir():
-        frame = pd.read_csv(file)
-        count = frame[frame['word'].isin(test_lst)]
-        merged_df = pd.merge(count, test_frame, on='word', how='outer')
-        merged_df = merged_df.fillna(0)
-        # apply thresholds on the results
-        merged_df = merged_df[['word','count_x']]
-        merged_df.columns = ['word','count']
-        merged_df['score'] = merged_df['count'].apply(lambda x: 1 if x > memory_threshold else 0)
-        score = merged_df['score'].mean()
-        overlap_words[int(file.name[:-4])] = score
-        # sort the dictionay based on months(key)
-        overlap_words = {key: overlap_words[key] for key in sorted(overlap_words)}
+        if file.name.endswith('csv'):
+            frame = pd.read_csv(file)
+            count = frame[frame['word'].isin(test_lst)]
+            merged_df = pd.merge(count, test_frame, on='word', how='outer')
+            merged_df = merged_df.fillna(0)
+            # apply thresholds on the results
+            merged_df = merged_df[['word','count_x']]
+            merged_df.columns = ['word','count']
+            merged_df['score'] = merged_df['count'].apply(lambda x: 1 if x > memory_threshold else 0)
+            score = merged_df['score'].mean()
+            overlap_words[int(file.name[:-4])] = score
+            # sort the dictionay based on months(key)
+            overlap_words = {key: overlap_words[key] for key in sorted(overlap_words)}
     return overlap_words

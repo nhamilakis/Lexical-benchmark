@@ -264,8 +264,8 @@ def plot_score(df, label, xlim=[0, 36], ylim=[0, 1], xlabel='(Pseudo) month', yl
     std_dev_values = df.std() 
     
     # Plot the curve with color range
-    plt.xlabel(xlabel)  # Label for the x-axis
-    plt.ylabel(ylabel)  # Label for the y-axis
+    plt.xlabel(xlabel, fontsize=14)  # Label for the x-axis
+    plt.ylabel(ylabel, fontsize=14)  # Label for the y-axis
     plt.xlim(xlim)
     plt.ylim(ylim)
     
