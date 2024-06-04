@@ -1,11 +1,5 @@
-from scipy.special import comb
-from scipy.stats import norm
-from collections import Counter
-from collections import defaultdict
 from typing import List
 import matplotlib.pyplot as plt
-from tqdm import tqdm
-import random
 from .utils import *
 
 
@@ -93,7 +87,9 @@ def tc_summary(data, figures=False):
         data = [data]
     if type(data) == list:
         listofdic = [tc.stats() for tc in data]
+
     tc_stats = pd.DataFrame(listofdic)
+    tc_stats = tc_stats.sort_values(by='name')
     tc_stats.set_index('name', inplace=True)
     return tc_stats
 
@@ -414,6 +410,7 @@ def tc_plot_miss_oov_rates(ref_count: TokenCount, gen_count_list: List[TokenCoun
     poov = {}
     dfreqscore = {}
     pnonword = {}
+
     for gen_count in gen_count_list:
         try:
             msc, osc, nsc = tc_compute_miss_oov_rates(ref_count, gen_count, groupbin=groupbin)

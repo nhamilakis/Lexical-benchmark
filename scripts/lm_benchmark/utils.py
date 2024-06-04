@@ -59,7 +59,7 @@ class TokenCount:
         return self.df.to_string()
 
     @staticmethod
-    def from_df(file_path,header:str, name=None):
+    def from_df(file_path,header='word', name=None):
 
         try:
             lines = pd.read_csv(file_path)[header]
@@ -143,7 +143,7 @@ class TokenCount:
 
     def stats(self):
         """Simple descriptive Statistics of the TokenCount (type/token, etc)"""
-        print(self.df['correct'] == False)
+
         if self.nb_of_tokens() != 0:
             typetok = self.nb_of_types() / self.nb_of_tokens()
         else:
@@ -154,7 +154,8 @@ class TokenCount:
         nb_hapaxes = np.sum(self.df['count'] == 1)
         nb_dipaxes = np.sum(self.df['count'] == 2)
         nb_le10 = np.sum(self.df['count'] <= 10)
-        nb_nonwords = np.sum(self.df['correct'] == False)
+        nb_nonword_type = np.sum(self.df['correct'] == False)
+        nb_nonwords = self.df[self.df['correct'] == False]['count'].sum()
         d1 = {'nb_hapaxes': nb_hapaxes, 'p_hapaxes': nb_hapaxes / self.nb_of_types()}
         d2 = {'nb_dipaxes': nb_dipaxes, 'p_dipaxes': nb_dipaxes / self.nb_of_types()}
         d3 = {'nb_le_10': nb_le10, 'p_le_10': nb_le10 / self.nb_of_types()}
@@ -164,8 +165,9 @@ class TokenCount:
         d4 = {'prop_topcount': top_count / self.nb_of_tokens(),
               'prop_top_ge10_count': top_ge10_count / self.nb_of_tokens()}
         d5 = {'zipf_c': self.zipf_coef()[3]}
-        d6 = {'nb_nonwords': nb_nonwords, 'p_nonwords': nb_nonwords / self.nb_of_types()}
-        return {**d, **d1, **d2, **d3, **d4, **d5, **d6}
+        d6 = {'nb_nonword_type': nb_nonword_type, 'p_nonword_type': nb_nonword_type / self.nb_of_types()}
+        d7 = {'nb_nonword_token': nb_nonwords, 'p_nonword_token': nb_nonwords / self.nb_of_tokens()}
+        return {**d, **d1, **d2, **d3, **d4, **d5, **d6, **d7}
 
 
 

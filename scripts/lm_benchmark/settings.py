@@ -1,7 +1,6 @@
 import dataclasses
 import os
 import platform
-import pandas as pd 
 from pathlib import Path
 
 COML_SERVERS = {"oberon", "oberon2", "habilis", *[f"puck{i}" for i in range(1, 7)]}

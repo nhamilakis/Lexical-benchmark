@@ -9,9 +9,9 @@ from lm_benchmark.utils import TokenCount
 def arguments() -> argparse.Namespace:
     """Build & Parse command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--src_file", default=f"{ROOT}/datasets/processed/generation/corpus/400/train.txt")
-    parser.add_argument("--target_file", default=f"{ROOT}/datasets/processed/freq/400h.csv")
-    parser.add_argument("--header", default="train")
+    parser.add_argument("--src_file", default=f"{ROOT}/datasets/raw/ood/400.csv")
+    parser.add_argument("--target_file", default=f"{ROOT}/datasets/processed/freq/400/400_ood.csv")
+    parser.add_argument("--header", default="content")
     return parser.parse_args()
 
 
@@ -25,6 +25,7 @@ def main() -> None:
     print(f'Loading text from {src_file}')
 
     if src_file.endswith("txt"):
+        #count_df = TokenCount.from_text_file_train(src_file)
         count_df = TokenCount.from_text_file(src_file)
     elif src_file.endswith("csv"):
         count_df = TokenCount.from_df(src_file, header)
@@ -35,3 +36,5 @@ def main() -> None:
 if __name__ == "__main__":
     args = sys.argv[1:]
     main()
+
+
