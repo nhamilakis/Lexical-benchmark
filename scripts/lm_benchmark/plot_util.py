@@ -66,33 +66,23 @@ def merge_score(df):
     return merged 
 
 def get_equal_quantity(data_frame, col_header:str, n_bins:int):
-    '''
-    get bins with same quantity of points
-    input: a sorted array or a list of numbers; computes a split of the data into n_bins bins of approximately the same size
-    return
-        bins: array with each bin boundary
-        data_frame: updated df with an additional column of group
-    '''
+    n_bins += 1
     data = data_frame[col_header]
-    # preparing data (adding small jitter to remove ties)
+        # preparing data (adding small jitter to remove ties)
     size = len(data)
     assert n_bins <= size, "too many bins compared to data size"
-    mindif = np.min(np.abs(np.diff(np.sort(np.unique(data)))))  # minimum difference between consecutive distinct values
-    jitter = mindif * 0.01  # this small jitter will not change the relative order between datapoints
-    data_jitter = np.array(data) + np.random.uniform(low=-jitter, high=jitter, size=size)
-    data_sorted = np.sort(data_jitter)  # little jitter to remove ties
-
-    # Creating the bins with approx equal number of observations
     bin_indices = np.linspace(1, len(data), n_bins + 1) - 1  # indices to edges in sorted data
+    data_sorted = np.sort(data)
     bins = [data_sorted[0]]  # left edge inclusive
     bins = np.append(bins, [(data_sorted[int(b)] + data_sorted[int(b + 1)]) / 2 for b in bin_indices[1:-1]])
-    bins = np.append(bins, data_sorted[-1] + jitter)  # this is because the extreme right edge is inclusive in plt.hits
-    # computing bin membership for the original data; append bin membership to stat
+    bins = np.append(bins, data_sorted[-1])  # this is because the extreme right edge is inclusive in plt.hits
+        # computing bin membership for the original data; append bin membership to stat
     bin_membership = np.zeros(size, dtype=int)
-    for i in range(0, len(bins) - 1):
-        bin_membership[(data_jitter >= bins[i]) & (data_jitter < bins[i + 1])] = i
+    for i in range(0, len(bins)-1):
+        bin_membership[(data_sorted >= bins[i]) & (data_sorted < bins[i + 1])] = i
     data_frame['group'] = bin_membership
     return data_frame
+
 
 
 #################################################################################################
