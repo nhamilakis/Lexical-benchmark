@@ -26,10 +26,16 @@ def arguments() -> argparse.Namespace:
 
 def annotate_freq(cdi_file: Path, human_freq: Path) -> pd.DataFrame:
     """Annotate Frequencies."""
-    cdi_data = pd.read_csv(str(cdi_file))
-    human_freq_data = pd.read_csv(str(human_freq))
+    cdi_data = pd.read_csv(cdi_file)
+    human_freq_data = pd.read_csv(human_freq)
     merged_df = cdi_data.merge(human_freq_data, on="word", how="left")
-    return merged_df.dropna()
+    merged_df.dropna()
+    # add the freq column
+    #merged_df.drop(columns=['count_x', 'correct_x'])
+    #merged_df = merged_df.rename(columns={'count_y': 'count', 'correct_y': 'correct'})
+    # sort by count
+    #merged_df = merged_df.sort_values(by=['count', 'word']).reset_index(drop=True)
+    return merged_df
 
 
 def match_sample(
@@ -92,14 +98,16 @@ def main() -> None:
     # match human-CDI and CHILDES
     target = annotate_freq(cdi_file, human_freq_file)
     machine_freq = pd.read_csv(str(machine_freq_file))
-
+    target.to_csv(cdi_file)
     # match files
     pidx, _, stat = match_sample(target, machine_freq, args.sampling_ratio, args.nbins)
     # save the files
-    target.to_csv(cdi_file)
+
     machine_freq.iloc[pidx].to_csv(machine_cdi_file)
     stat.to_csv(cdi_stat_file)
     
+
+
 
 
 

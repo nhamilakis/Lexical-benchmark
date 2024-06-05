@@ -3,8 +3,8 @@ import argparse
 import sys
 from pathlib import Path
 from tqdm import tqdm
-from lm_benchmark.analysis.score_util import MonthCounter,merge_crf
-from lm_benchmark.settings import ROOT, AGE_DICT, model_dict
+from lm_benchmark.analysis.score_util import MonthCounter
+from lm_benchmark.settings import ROOT
 
 
 def arguments() -> argparse.Namespace:

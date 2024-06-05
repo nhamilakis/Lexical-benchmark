@@ -6,6 +6,7 @@ from .utils import *
 ################################################################################################
 # function to load csv data#
 #################################################################################################
+
 def load_csv(file_path, left_header, right_header):
     # Read the CSV file
     df = pd.read_csv(file_path)
@@ -14,6 +15,7 @@ def load_csv(file_path, left_header, right_header):
     df = df.loc[:, left_header:right_header]
     # Convert column headers to integers
     df.columns = df.columns.astype(int)
+    df = df.sort_values(by='count').reset_index(drop=True)
     return df
 
 
@@ -62,6 +64,35 @@ def merge_score(df):
     average_values = df.mean()
     merged = pd.DataFrame(average_values).T
     return merged 
+
+def get_equal_quantity(data_frame, col_header:str, n_bins:int):
+    '''
+    get bins with same quantity of points
+    input: a sorted array or a list of numbers; computes a split of the data into n_bins bins of approximately the same size
+    return
+        bins: array with each bin boundary
+        data_frame: updated df with an additional column of group
+    '''
+    data = data_frame[col_header]
+    # preparing data (adding small jitter to remove ties)
+    size = len(data)
+    assert n_bins <= size, "too many bins compared to data size"
+    mindif = np.min(np.abs(np.diff(np.sort(np.unique(data)))))  # minimum difference between consecutive distinct values
+    jitter = mindif * 0.01  # this small jitter will not change the relative order between datapoints
+    data_jitter = np.array(data) + np.random.uniform(low=-jitter, high=jitter, size=size)
+    data_sorted = np.sort(data_jitter)  # little jitter to remove ties
+
+    # Creating the bins with approx equal number of observations
+    bin_indices = np.linspace(1, len(data), n_bins + 1) - 1  # indices to edges in sorted data
+    bins = [data_sorted[0]]  # left edge inclusive
+    bins = np.append(bins, [(data_sorted[int(b)] + data_sorted[int(b + 1)]) / 2 for b in bin_indices[1:-1]])
+    bins = np.append(bins, data_sorted[-1] + jitter)  # this is because the extreme right edge is inclusive in plt.hits
+    # computing bin membership for the original data; append bin membership to stat
+    bin_membership = np.zeros(size, dtype=int)
+    for i in range(0, len(bins) - 1):
+        bin_membership[(data_jitter >= bins[i]) & (data_jitter < bins[i + 1])] = i
+    data_frame['group'] = bin_membership
+    return data_frame
 
 
 #################################################################################################
@@ -229,27 +260,6 @@ def tc_compute_miss_oov_rates(ref_count: TokenCount, gen_count: TokenCount, grou
 #################################################################################################
 # E1 plotting functions
 #################################################################################################
-
-def plot_score1(df, label, xlim=[0, 36], ylim=[0, 1], xlabel='(Pseudo) month', ylabel='Proportion of acquired words', color=False):
-    """plot the thresholded counts"""
-    # Convert column headers to integers
-    df.columns = df.columns.astype(int)
-    # Calculate average values across rows for each column
-    average_values = df.mean()
-    # Plot the curve
-    plt.xlabel(xlabel)  # Label for the x-axis
-    plt.ylabel(ylabel)  # Label for the y-axis
-    plt.xlim(xlim)
-    plt.ylim(ylim)
-    if not color:
-        plt.plot(average_values.index, average_values.values, label=label)
-    else:
-        plt.plot(average_values.index, average_values.values, label=label,color=color,linewidth=3.5)
-    plt.grid(True)  # Show grid lines
-    plt.legend()  # Show legend
-
-    
-
 def plot_score(df, label, xlim=[0, 36], ylim=[0, 1], xlabel='(Pseudo) month', ylabel='Proportion of acquired words', color=False):
     """Plot the thresholded counts with color range for variability."""
     # Convert column headers to integers
@@ -384,6 +394,71 @@ def plot_miss_oov_rates(ref_count: TokenCount, gen_count_list: List[TokenCount],
     line_plot(dfreqscore, ylim=[-1, 1])
     line_plot(poov)
     line_plot(pnonword)
+
+
+#### token count plots
+def tc_plot(tokcount: TokenCount):
+    """Three diagnostic plots from a token count:
+           - Cumulative types as a function of token counts (starting with hapaxes)
+           - Cumulative tokens as a function of token counts (starting with the highest frequency word)
+           - Zipf law plot
+    """
+    # cumulative freq plot
+    sorted_data = np.sort(tokcount.df["count"])
+    nbpoints = sorted_data.shape[0]
+
+    # Compute ranks
+    fraction_types = np.arange(1, len(sorted_data) + 1) / len(sorted_data)
+    # Plotting
+    plt.figure(figsize=(8, 5))
+    plt.plot(sorted_data, fraction_types, marker='o')
+    plt.title('Fraction of Types with less or equal a Token Count')
+    plt.xlabel('Token Counts')
+    plt.ylabel('Fraction of Total Types')
+    plt.grid(True)
+    plt.xscale("log")
+    plt.show()
+
+    # Compute cumulative fractions
+    cumulative_counts = np.cumsum(sorted_data[::-1])[::-1]
+    total_counts = cumulative_counts[0]
+    fractions = cumulative_counts / total_counts
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(sorted_data, fractions, marker='o')
+    plt.title('Fraction of Total Tokens for Types with more of equal Token Count')
+    plt.xlabel('Token Counts')
+    plt.ylabel('Fraction of Total Tokens')
+    plt.grid(True)
+    plt.xscale("log")
+    plt.show()
+
+    # Zipf law plot
+    x = np.arange(1, (nbpoints + 1))  # ranks
+    y = sorted_data[::-1]  # counts
+    # log_x = np.log(x)
+    # log_y = np.log(y)
+    # Fit a linear regression model in the log-log space
+    # weights = 1 / x
+    # wls_model = sm.WLS(log_y, sm.add_constant(log_x), weights=weights)
+    # results = wls_model.fit()
+    # intercept = results.params[0]
+    # slope = results.params[1]
+    # log_y_fit=results.fittedvalues
+    log_x, log_y_fit, intercept, slope = tokcount.zipf_coef()
+    plt.figure(figsize=(8, 5))
+    plt.plot(x, y, marker='o')
+    plt.plot(np.exp(log_x), np.exp(log_y_fit), 'r-',
+             label=f'Regression Line: y = {slope:.2f}x + {intercept:.2f}')  # Regression line
+    plt.title('Zipf plot')
+    plt.xlabel('Rank')
+    plt.ylabel('Count')
+    plt.grid(True)
+    plt.xscale("log")
+    plt.yscale("log")
+    plt.legend()
+    plt.show()
+
 
 
 #################################################################################################

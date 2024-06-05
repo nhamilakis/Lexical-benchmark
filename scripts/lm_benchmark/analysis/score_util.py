@@ -226,6 +226,7 @@ class MonthCounter:
         # filter the test set
         self._selected_rows = self._merged_df[self._merged_df['word'].isin(self._test_df['word'])]
         self._selected_rows.to_csv(self._count_filtered_location)
+        # add the group annotations for each word
 
 
 

@@ -5,8 +5,9 @@ import os
 import re
 import string
 import pandas as pd
+import numpy as np
 from tqdm import tqdm
-
+from scipy.optimize import linear_sum_assignment
 
 
 ROOT = "/Users/jliu/PycharmProjects/Lexical-benchmark"
@@ -78,6 +79,8 @@ def remove_file(large_list,sublist_to_remove):
     return large_list
 
 
+
+
 def cut_df(df,target_cum_sum,header = 'num_tokens'):
     """cut df rows until it has reached the target value"""
     # Calculate cumulative sum
@@ -92,47 +95,51 @@ def cut_df(df,target_cum_sum,header = 'num_tokens'):
     return df
 
 
-def get_ind_mat(filename_path:str, train_freq_dir:str, file:str,text_dir:str,meta_data_path:str):
+def match_dataframes(dfA, dfB):
+    """match files based on """
+
+    matched_rows = []
+    for genre in dfA['genre'].unique():
+        dfA_genre = dfA[dfA['genre'] == genre]
+        dfB_genre = dfB[dfB['genre'] == genre]
+
+        if len(dfB_genre) < len(dfA_genre):
+            raise ValueError(f"Not enough rows in dfB to match genre '{genre}' in dfA")
+
+        cost_matrix = np.abs(dfA_genre['num_tokens'].values[:, None] - dfB_genre['num_tokens'].values)
+
+        row_ind, col_ind = linear_sum_assignment(cost_matrix)
+
+        matched_rows.append(dfB_genre.iloc[col_ind])
+
+    matched_dfB = pd.concat(matched_rows)
+    return matched_dfB
+
+def get_ind_mat(filename_path:str, train_freq_dir:str, file:str,text_dir:str,meta_data):
 
     """
     construct the target pseudo dataset to estimate oov token freq
     """
-    meta_data = load_metadata(meta_data_path)
     # read train filename
     file_lst = pd.read_csv(filename_path,header=None)[0].tolist()
     # remove the ones that are already in the train list
     all_file_lst = os.listdir(text_dir)
-    selected_data = meta_data[meta_data['filename'].isin(all_file_lst)]
-    num_tokens = []
-    for file in selected_data['filename'].tolist():
-        frame = txt2csv(text_dir, file)
-        num_tokens.append(frame['num_tokens'].tolist()[0])
-    selected_data['num_tokens'] = num_tokens
-    selected_data.to_csv(train_freq_dir)
-    '''
     candi_lst = remove_file(all_file_lst,file_lst)
     # match the genre
     genre_candi = meta_data[meta_data['filename'].isin(candi_lst)]
-    genre_lst =  meta_data[meta_data['filename'].isin(file_lst)]['genre']
+    genre_target = meta_data[meta_data['filename'].isin(file_lst)]
     # count token numbers
-
-    
+    matched_df = match_dataframes(genre_target, genre_candi)
+    # get the total number of tokens
     train_num = pd.read_csv(train_freq_dir + file)['num_tokens'].sum()
 
-    oov_sum = 0
     train_frame = pd.DataFrame()
     # get constructed set
-    n = 0
-    while oov_sum < train_num:
-        txt = candi_lst[n]
-        frame = txt2csv(text_dir, txt)
-        oov_sum += frame['num_tokens'].sum()
+    for file in matched_df['filename'].tolist():
+        frame = txt2csv(text_dir, file)
         train_frame = pd.concat([train_frame,frame])
-        n += 1
-    
-
     return train_frame, train_num
-    '''
+
 
 
 
@@ -144,6 +151,7 @@ def get_ood_mat(text_path:str, train_freq_dir:str, out_dir:str):
     # get constructed set
     frame = pd.read_csv(text_path)
     frame = frame.dropna()
+    frame = frame.sample(frac=1, random_state=66).reset_index(drop=True)
     # loop train_freq file
     for file in tqdm(os.listdir(train_freq_dir)):
         try:
@@ -170,7 +178,7 @@ def get_ood_mat(text_path:str, train_freq_dir:str, out_dir:str):
 
 def main():
 
-    mode = 'ind'
+    mode = 'ood'
     # filenames of the largest set to remove all the possible files
     train_freq_dir = '/Users/jliu/PycharmProjects/Lexical-benchmark/datasets/raw/train/'
     out_dir = '/Users/jliu/PycharmProjects/Lexical-benchmark/datasets/raw/' + mode + '/'
@@ -178,13 +186,15 @@ def main():
     if mode == 'ind':
         meta_data_path = f"{ROOT}/datasets/raw"
         text_dir = '/Users/jliu/PycharmProjects/Lexical-benchmark/datasets/raw/audiobook/'
-        if not os.existfile():
-            load_metadata(meta_data_path + "/matched2.csv", text_dir, meta_data_path + "/matched.csv")
-
+        if not os.path.exists(meta_data_path + "/matched.csv"):
+            print('No metadata available, creating...')
+            meta_data = load_metadata(meta_data_path + "/matched2.csv", text_dir, meta_data_path + "/matched.csv")
+        else:
+            meta_data = pd.read_csv(meta_data_path + "/matched.csv")
         filename_path = '/Users/jliu/PycharmProjects/freq_bias_benchmark/data/train/filename/7100.csv'
         
         file = '400.csv'
-        train_frame, train_num = get_ind_mat(filename_path, train_freq_dir, file, text_dir,meta_data_path)
+        train_frame, train_num = get_ind_mat(filename_path, train_freq_dir, file, text_dir,meta_data)
 
         # print out the utt
         if not os.path.exists(out_dir):
@@ -193,8 +203,6 @@ def main():
         train_frame = pd.read_csv(out_dir + file)
         train_frame = cut_df(train_frame, train_num)
         train_frame.to_csv(out_dir + file)
-        
-
 
 
     else:
