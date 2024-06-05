@@ -66,9 +66,10 @@ def merge_score(df):
     return merged 
 
 def get_equal_quantity(data_frame, col_header:str, n_bins:int):
-    n_bins += 1
+    # sort the df based on the selected column
+    data_frame[col_header] = data_frame[col_header].astype(int)
+    data_frame = data_frame.sort_values(by=[col_header]).reset_index(drop=True)
     data = data_frame[col_header]
-        # preparing data (adding small jitter to remove ties)
     size = len(data)
     assert n_bins <= size, "too many bins compared to data size"
     bin_indices = np.linspace(1, len(data), n_bins + 1) - 1  # indices to edges in sorted data
@@ -82,8 +83,6 @@ def get_equal_quantity(data_frame, col_header:str, n_bins:int):
         bin_membership[(data_sorted >= bins[i]) & (data_sorted < bins[i + 1])] = i
     data_frame['group'] = bin_membership
     return data_frame
-
-
 
 #################################################################################################
 # Summary statistics for Token Counts
@@ -250,40 +249,38 @@ def tc_compute_miss_oov_rates(ref_count: TokenCount, gen_count: TokenCount, grou
 #################################################################################################
 # E1 plotting functions
 #################################################################################################
-def plot_score(df, label, xlim=[0, 36], ylim=[0, 1], xlabel='(Pseudo) month', ylabel='Proportion of acquired words', color=False):
+def plot_score(df, label, xlim=[0, 36], ylim=[0, 1], xlabel='(Pseudo) month', ylabel='Proportion of acquired words'
+               , color=False, error_bar=False, linewidth=2):
     """Plot the thresholded counts with color range for variability."""
     # Convert column headers to integers
     df.columns = df.columns.astype(int)
     # Calculate average values across rows for each column
     average_values = df.mean()
     # Calculate standard deviation across rows for each column
-    std_dev_values = df.std() 
-    
+    std_dev_values = df.std()
     # Plot the curve with color range
     plt.xlabel(xlabel, fontsize=14)  # Label for the x-axis
     plt.ylabel(ylabel, fontsize=14)  # Label for the y-axis
     plt.xlim(xlim)
     plt.ylim(ylim)
-    
-   
+
     if not color:
         # Fill the area between the average values +/- standard deviation
-        plt.plot(average_values.index, average_values.values, label=label, linewidth=2)
-        plt.fill_between(average_values.index, 
-                        average_values.values - std_dev_values.values, 
-                        average_values.values + std_dev_values.values, 
-                        alpha=0.3)
+        plt.plot(average_values.index, average_values.values, label=label, linewidth=linewidth)
+        if error_bar:
+            plt.fill_between(average_values.index,
+                             average_values.values - std_dev_values.values,
+                             average_values.values + std_dev_values.values,
+                             alpha=0.3)
     else:
-        plt.plot(average_values.index, average_values.values, label=label, color = color, linewidth=2)
-        plt.fill_between(average_values.index, 
-                        average_values.values - std_dev_values.values, 
-                        average_values.values + std_dev_values.values, 
-                        color = color, alpha=0.3)
-    
+        plt.plot(average_values.index, average_values.values, label=label, color=color, linewidth=linewidth)
+        if error_bar:
+            plt.fill_between(average_values.index,
+                             average_values.values - std_dev_values.values,
+                             average_values.values + std_dev_values.values,
+                             color=color, alpha=0.3)
+
     plt.legend()  # Show legend
-
-
-
 
 #################################################################################################
 # E2 plotting functions
