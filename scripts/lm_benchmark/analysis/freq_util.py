@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import collections
 import pandas as pd
 import numpy as np
 import random
-
+from nltk.util import ngrams
 
 def d_stats(x):
     """"descriptive stats for an array of values"""
@@ -61,7 +62,27 @@ def swap_index(pidx, nidx):
     p1[i], n1[j] = n1[j], p1[i]
     return p1, n1
 
-'''
-def get_freq(dataref, header):
-    return np.log10(dataref[header] / dataref[header].sum() * 1000000)
-'''
+
+def extract_ngrams(words:list, n:int):
+    """Generate n-grams from a list of words"""
+    n_grams = list(ngrams(words, n))
+    # convert tuple into a string
+    output = [' '.join(map(str, t)) for t in n_grams]
+    return output
+
+def count_ngrams(sentences, n:int):
+    """count n-grams from a list of words"""
+    # preprocess of the utt
+    #sentences = col.apply(lowercase_text).tolist() # lower the tokens
+    # Convert list of sentences into a single list of words
+    word_lst = [word for sentence in sentences for word in str(sentence).split()]
+    # extract ngrams
+    ngrams = extract_ngrams(word_lst, n)
+    # get freq
+    frequencyDict = collections.Counter(ngrams)
+    freq_lst = list(frequencyDict.values())
+    word_lst = list(frequencyDict.keys())
+    fre_table = pd.DataFrame([word_lst, freq_lst]).T
+    col_Names = ["Word", "Count"]
+    fre_table.columns = col_Names
+    return fre_table
