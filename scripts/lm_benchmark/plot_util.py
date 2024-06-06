@@ -1,5 +1,6 @@
 from typing import List
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
 from .utils import *
 
 
@@ -67,6 +68,7 @@ def merge_score(df):
 
 def get_equal_quantity(data_frame, col_header:str, n_bins:int):
     # sort the df based on the selected column
+    data_frame.dropna()
     data_frame[col_header] = data_frame[col_header].astype(int)
     data_frame = data_frame.sort_values(by=[col_header]).reset_index(drop=True)
     data = data_frame[col_header]
@@ -281,6 +283,53 @@ def plot_score(df, label, xlim=[0, 36], ylim=[0, 1], xlabel='(Pseudo) month', yl
                              color=color, alpha=0.3)
 
     plt.legend()  # Show legend
+
+
+def fit_sigmoid(score_df: pd.DataFrame, target_y, label):
+    """fit sigmoid curve of extrapolated exp vocab"""
+    def sigmoid(x, a, b):
+        return 1 / (1 + np.exp(-(a * x + b)))
+
+    x_data = score_df.columns.to_list()
+    x_data = np.array(x_data)  # month array
+    y_data = score_df.iloc[0].to_list()
+
+    # Fit the sigmoid function to the scatter plot data
+    popt, pcov = curve_fit(sigmoid, x_data, y_data, maxfev=100000, method='trf')
+
+    # Generate x values for the fitted curve
+    x_fit = np.linspace(0, max(x_data), 40)
+    # Use the optimized parameters to generate y values for the fitted curve
+    y_fit = sigmoid(x_fit, *popt)
+    # first find the target x in the given scatter plots
+    if max(y_data) < target_y:
+        # Use the optimized parameters to generate y values for the fitted curve
+        y_fit = sigmoid(x_fit, *popt)
+        while y_fit[-1] < target_y:
+            x_fit = np.append(x_fit, x_fit[-1] + 1)
+            y_fit = np.append(y_fit, sigmoid(x_fit[-1], *popt))
+            # Break the loop if the condition is met
+            if y_fit[-1] >= target_y:
+                break
+
+    # Generate x values for the fitted curve
+    # Find the index of the target y-value
+    target_y_index = np.argmin(np.abs(y_fit - target_y))
+    # Retrieve the corresponding x-value
+    target_x = x_fit[target_y_index]
+
+    plt.scatter(x_data, y_data)
+    # plot until it has reached the target x
+    plt.plot(x_fit, y_fit, linewidth=3.5, label=label + f': {target_x:.2f}')
+    plt.legend()
+    plt.ylim(0, 1)
+    # Marking the point where y reaches the target value
+    plt.axvline(x=int(target_x), linestyle='dotted')
+    header_lst = ['Group', "Month", "Slope", "Weighted_offset"]
+    # return the optimized parameters of the sigmoid function
+    para_frame = pd.DataFrame([label, target_x, popt[0], popt[1]]).T
+    para_frame.columns = header_lst
+    return para_frame
 
 #################################################################################################
 # E2 plotting functions
