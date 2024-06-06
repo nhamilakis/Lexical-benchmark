@@ -296,7 +296,6 @@ def fit_sigmoid(score_df: pd.DataFrame, target_y, label):
 
     # Fit the sigmoid function to the scatter plot data
     popt, pcov = curve_fit(sigmoid, x_data, y_data, maxfev=100000, method='trf')
-
     # Generate x values for the fitted curve
     x_fit = np.linspace(0, max(x_data), 40)
     # Use the optimized parameters to generate y values for the fitted curve
@@ -330,6 +329,34 @@ def fit_sigmoid(score_df: pd.DataFrame, target_y, label):
     para_frame = pd.DataFrame([label, target_x, popt[0], popt[1]]).T
     para_frame.columns = header_lst
     return para_frame
+
+
+def fit_log(x_data, y_data, label):
+    """Fit a logarithmic curve to the data and plot it."""
+
+    def log_curve(x, a, b):
+        return a * np.log2(x) + b
+
+    try:
+        # Fit the logarithmic function to the scatter plot data
+        popt, _ = curve_fit(log_curve, x_data, y_data, maxfev=100000, method='trf')
+        # Generate x values for the fitted curve
+        x_fit = np.linspace(min(x_data), max(x_data), 40)
+        # Use the optimized parameters to generate y values for the fitted curve
+        y_fit = log_curve(x_fit, *popt)
+        # Plot the original scatter plot data
+        plt.scatter(x_data, y_data)
+        # Plot the fitted curve
+        plt.plot(x_fit, y_fit, linewidth=3.5, label=label)
+        plt.xlabel('Median freq', fontsize=15)
+        plt.ylabel('Estimated months', fontsize=15)
+        plt.tick_params(axis='both', labelsize=10)
+        plt.legend()
+
+    except Exception as e:
+        print(f"An error occurred while fitting data for {label}: {e}")
+
+
 
 #################################################################################################
 # E2 plotting functions
