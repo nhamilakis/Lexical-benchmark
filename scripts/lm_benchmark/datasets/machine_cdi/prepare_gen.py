@@ -1,61 +1,10 @@
-import pandas as pd
-
-model_dict = {'50h':[1],'100h':[1],'200h':[2,3],'400h':[4,8],'800h':[9,18]
-    ,'1600h':[19,28],'3200h':[29,36],'4500h':[46,54],'7100h':[66,74]}
-
-
-model_dict = {'50h':[1],'100h':[1],'200h':[2,3],'400h':[4,8],'800h':[10,18]
-    ,'1600h':[19,28],'3200h':[29,36],'4500h':[46,54],'7100h':[66,74]}
-
-df = pd.read_csv('/Users/jliu/PycharmProjects/Lexical-benchmark/datasets/raw/CHILDES_child.csv'
-                   ,usecols = ['month','content','num_tokens'])
-
-month_lst = ['3200h']
-for month in month_lst:
-    selected = df[(df['month'] >= model_dict[month][0]) & (df['month'] <= model_dict[month][1])]
-    selected.columns = ['train','month','num_tokens']
-    selected.to_csv('/Users/jliu/PycharmProjects/freq_bias_benchmark/data/train/train_utt/' + month[:-1] + '_child1.csv')
-
-
 # segment the dataframes
-import os
-import numpy as np
-
-month = '800h'
-# Load the DataFrame from the CSV file
-df = pd.read_csv('/Users/jliu/PycharmProjects/freq_bias_benchmark/data/train/train_utt/' + month[:-1] + '.csv')
-
-# Define the number of splits and directories
-num_splits = 30
-num_dirs = 3
-files_per_dir = num_splits // num_dirs
-
-# Calculate the size of each split
-split_size = int(np.ceil(len(df) / num_splits))
-
-# Create directories
-for i in range(1, num_dirs + 1):
-    os.makedirs(f'dir_{i}', exist_ok=True)
-
-# Split the DataFrame and save to files
-for i in range(num_splits):
-    start_idx = i * split_size
-    end_idx = min((i + 1) * split_size, len(df))
-    split_df = df.iloc[start_idx:end_idx]
-
-    # Determine the directory for the current file
-    dir_idx = (i // files_per_dir) + 1
-    file_name = f'dir_{dir_idx}/data_{i + 1}.csv'
-
-    # Save the split DataFrame to a CSV file
-    split_df.to_csv(file_name, index=False)
-
+import pandas as pd
+from pathlib import Path
 
 def segment_sentences(file_path):
-    """prepare for prompts"""
-
+    """segment prompts into 3-grams"""
     segments = []
-
     with open(file_path, 'r') as file:
         for line in file:
             words = line.lower().strip().split()
@@ -75,21 +24,50 @@ def segment_sentences(file_path):
             else:
                 # If the sentence is 3 words or less, take it as it is
                 segments.append(' '.join(words))
-
     return segments
 
 
 
-# prepare crp gen by segmenting into intermediate sets
-raw_ROOT = f'{ROOT}/datasets/raw/3200.csv'
-count = pd.read_csv(raw_ROOT)
+def get_prompt_stat(prompt_path:Path,set_type:str,count=False)->pd.DataFrame:
+    """get the gen stat based on prompt len"""
+    ind_prompt = pd.read_csv(prompt_path)
+    if count:
+        ind_prompt['num_tokens'] = ind_prompt['prompt'].apply(count_token)    # count the number of tokens
+    utt_lst = [[1,2,3],[ind_prompt[ind_prompt['num_tokens']==1].shape[0],ind_prompt[ind_prompt['num_tokens']==2].shape[0],
+                        ind_prompt[ind_prompt['num_tokens']>=3].shape[0]],[ind_prompt[ind_prompt['num_tokens']==1]['num_tokens'].sum(),
+                        ind_prompt[ind_prompt['num_tokens']==2]['num_tokens'].sum(),ind_prompt[ind_prompt['num_tokens']>=3]['num_tokens'].sum()]]
+    utt_frame = pd.DataFrame(utt_lst).T
+    utt_frame.columns = ['length','num_utt','num_tokens']
+    utt_frame['set'] = set_type
+    return utt_frame
 
-month_lst = [15]
-for month in month_lst:
-    threshold = count['num_tokens'].sum()/18*month
-    # Step 2: Compute the cumulative sum
-    count['cum_sum'] = count['num_tokens'].cumsum()
-    index_threshold = count[count['cum_sum'] <= threshold].index
-    subframe = count.loc[index_threshold]
-    wordcount = TokenCount.from_df(subframe,'train')
-    wordcount.df.to_csv(f'{ROOT}/datasets/processed/freq/{str(month)}.csv',index=None)
+
+def filter_prompts(ind_prompt_path:Path,ood_prompt_path:Path)->pd.DataFrame:
+
+    # load files
+    ind_prompt = pd.read_csv(ind_prompt_path)
+    ood_prompt = pd.read_csv(ood_prompt_path)
+
+    # filter the prompts
+    ind_prompt['prompt'] = ind_prompt['train'].apply(lambda s: get_n_words(s, 3))
+    # get the prompt length
+    ind_prompt['prompt_len'] = ind_prompt['prompt'].apply(count_token)
+    ood_prompt['prompt_len'] = ood_prompt['prompt'].apply(count_token)
+    # List of words to check for
+    word_list = pd.read_csv(Path(CDI_ROOT)/'AE_exp_machine.csv')['word'].tolist()
+    BE_word = pd.read_csv(Path(CDI_ROOT)/'BE_exp_machine.csv')['word'].tolist()
+    word_list.extend(BE_word)
+    # Create a regular expression pattern that matches any of the words
+    pattern = '|'.join([f'\\b{word}\\b' for word in word_list])
+    # concat the DataFrame
+    filtered_ind = ind_prompt[~ind_prompt['prompt'].str.contains(pattern, case=False, regex=True)]
+    filtered_ood = ood_prompt[~ood_prompt['prompt'].str.contains(pattern, case=False, regex=True)]
+    '''
+    filtered_ind.pop('unprompted_0.3')
+    filtered_ind.pop('unprompted_1.0')
+    '''
+    filtered_ind.pop('prompt')
+    filtered_ood.pop('prompt')
+    filtered_frame = pd.concat([filtered_ind,filtered_ood])
+    filtered_3 = filtered_frame[filtered_frame['prompt_len']==3]
+    return filtered_frame,filtered_3
