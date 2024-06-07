@@ -33,17 +33,17 @@ def main() -> None:
             #count_df = TokenCount.from_text_file(src_file)
         elif src_file.endswith("csv"):
             count_df = TokenCount.from_df(src_file, header)
-
+        count_df.df.to_csv(target, index=False)
     elif ngram > 1:
         if src_file.endswith("txt"):
             header = 0 # load the text file as csv directly
         sentences = pd.read_csv(src_file)[header].tolist()
         count_df = count_ngrams(sentences, ngram)
-
+        count_df.to_csv(target, index=False)
     else:
         print('The ngram number should be an integer and above 0!')
 
-    count_df.df.to_csv(target, index=False)
+
     print(f'Writing freq file to {target}')
 
 if __name__ == "__main__":
