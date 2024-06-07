@@ -38,7 +38,10 @@ def main() -> None:
         if src_file.endswith("txt"):
             header = 0 # load the text file as csv directly
         sentences = pd.read_csv(src_file)[header].tolist()
-        count_ngrams(sentences, ngram)
+        count_df = count_ngrams(sentences, ngram)
+
+    else:
+        print('The ngram number should be an integer and above 0!')
 
     count_df.df.to_csv(target, index=False)
     print(f'Writing freq file to {target}')
