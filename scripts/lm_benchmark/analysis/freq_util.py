@@ -78,11 +78,13 @@ def count_ngrams(sentences, n:int):
     word_lst = [word for sentence in sentences for word in str(sentence).split()]
     # extract ngrams
     ngrams = extract_ngrams(word_lst, n)
-    # get freq
+    # get count
     frequencyDict = collections.Counter(ngrams)
     freq_lst = list(frequencyDict.values())
     word_lst = list(frequencyDict.keys())
     fre_table = pd.DataFrame([word_lst, freq_lst]).T
-    col_Names = ["Word", "Count"]
+    col_Names = ["word", "count"]
     fre_table.columns = col_Names
+    # get freq per million
+    fre_table['freq_m'] = fre_table['count'] / fre_table['count'].sum() * 1000000
     return fre_table

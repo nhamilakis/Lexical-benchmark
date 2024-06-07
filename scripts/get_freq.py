@@ -43,7 +43,6 @@ def main() -> None:
     else:
         print('The ngram number should be an integer and above 0!')
 
-
     print(f'Writing freq file to {target}')
 
 if __name__ == "__main__":
