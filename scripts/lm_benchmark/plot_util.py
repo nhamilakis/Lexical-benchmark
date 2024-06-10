@@ -16,7 +16,7 @@ def load_csv(file_path, left_header, right_header):
     df = df.loc[:, left_header:right_header]
     # Convert column headers to integers
     df.columns = df.columns.astype(int)
-    df = df.sort_values(by='count').reset_index(drop=True)
+    #df = df.sort_values(by='count').reset_index(drop=True)
     return df
 
 
@@ -362,11 +362,11 @@ def fit_log(x_data, y_data, label):
 # E2 plotting functions
 #################################################################################################
 
-def line_plot(data, xlog=True, ylim=[0, 1]):
+def line_plot(data,fig_path,xlog=True, ylim=[0, 1]):
     """Generic line plotting function; data is a dictionnary associating a name with a dataframe with two columns
     (the first one for x, the second one for y)
     """
-    plt.figure(figsize=(10, 5))  # Set the size of the plot
+    #plt.figure(figsize=(10, 5))  # Set the size of the plot
 
     for key in data:
         df = data[key]
@@ -383,6 +383,7 @@ def line_plot(data, xlog=True, ylim=[0, 1]):
         plt.xscale("log")
     plt.grid(True)  # Show grid lines
     plt.legend()  # Show legend
+    plt.savefig(fig_path, dpi=300, bbox_inches='tight')
     plt.show()  # Display the plot
 
 
@@ -509,7 +510,7 @@ def tc_plot(tokcount: TokenCount):
     # slope = results.params[1]
     # log_y_fit=results.fittedvalues
     log_x, log_y_fit, intercept, slope = tokcount.zipf_coef()
-    plt.figure(figsize=(8, 5))
+    #plt.figure(figsize=(8, 5))
     plt.plot(x, y, marker='o')
     plt.plot(np.exp(log_x), np.exp(log_y_fit), 'r-',
              label=f'Regression Line: y = {slope:.2f}x + {intercept:.2f}')  # Regression line
@@ -535,7 +536,8 @@ def tc_stats_plot(tc_stats, keyword):
     names = tc_stats.index
     bar_plot(values, names, ytitle=keyword)
 
-def tc_plot_miss_oov_rates(ref_count: TokenCount, gen_count_list: List[TokenCount], groupbin=50):
+
+def tc_plot_miss_oov_rates(ref_count: TokenCount, gen_count_list: List[TokenCount], fig_path: str, groupbin=50):
     """
      Plots three curves regarding missing words and oovs
 
@@ -558,9 +560,9 @@ def tc_plot_miss_oov_rates(ref_count: TokenCount, gen_count_list: List[TokenCoun
             pnonword[gen_count.name] = nsc[["medcount", "pnword"]]
         except:
             print(gen_count.name)
-        
-    line_plot(pmiss)
-    line_plot(dfreqscore, ylim=[-1, 1])
-    line_plot(poov)
-    line_plot(pnonword)
-    
+
+    # save figures respectively
+    line_plot(pmiss, fig_path + 'M.png')
+    line_plot(dfreqscore, fig_path + 'F.png', ylim=[-1, 1])
+    line_plot(poov, fig_path + 'O.png')
+    line_plot(pnonword, fig_path + 'N.png')
