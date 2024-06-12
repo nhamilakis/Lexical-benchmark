@@ -431,6 +431,84 @@ def bar_plot(values, names, lower_bounds=None, upper_bounds=None, colors=None, y
     plt.show()
 
 
+def plot_bars(df_values, color_dict: dict, fig_path, df_single=False, df_shades=False, ytitle=None, title=None,
+              showval=True):
+    """
+    Creates a grouped bar plot with shaded regions within each bar based on another DataFrame.
+
+    Parameters:
+    - df_values: pandas DataFrame where columns are group labels and index are the names for each group of bars (x labels)
+    - df_shades: if plot, pandas DataFrame with the same structure as df_values, representing the proportion of the shaded regions within each bar
+    - color_dict: dictionary where keys are group_labels (column names) and values are colors for the main bars
+    - ytitle: string for the y-axis title
+    - title: string for the plot title
+    - showval: boolean to show the value on top of the bars
+    """
+    names = df_values.index
+    group_labels = df_values.columns
+    grouped_values = df_values.values
+
+    # Initialize bar plot settings
+    plt.figure(figsize=(10, 5))
+
+    num_groups = len(names)
+    num_bars = len(group_labels)
+    bar_width = 0.8 / num_bars  # Width of each bar within a group
+    indices = np.arange(num_groups)  # The x locations for the groups
+
+    # Plot single df if there is any
+    if isinstance(df_single, pd.DataFrame):
+        single_values = df_single.values.flatten()
+        single_names = df_single.index
+
+        single_color = color_dict.get('single', 'grey')  # Default to blue if 'single' not found in color_dict
+        single_positions = np.linspace(0, -0.8, len(single_values))  # Positions for single bars
+        single_bars = plt.bar(single_positions, single_values, width=bar_width, color=single_color, alpha=0.75)
+        # Set x tick label in the middle of each single bar
+
+        if showval:
+            for bar, value, pos in zip(single_bars, single_values, single_positions):
+                yval = bar.get_height()
+                plt.text(pos + bar_width / 2, yval, f"{yval:.2g}", ha='center', va='bottom')
+
+    # Loop through each bar in the group
+    for i in range(num_bars):
+        values = grouped_values[:, i]
+        color = color_dict.get(group_labels[i], 'grey')  # Default to grey if label not found
+        # Bar positions for this group
+        positions = indices + (i + 2) * bar_width
+        bars = plt.bar(positions, values, width=bar_width, color=color, alpha=0.75, label=group_labels[i])
+
+        # Annotate main bar values if showval is True
+        if showval:
+            for bar, position, value in zip(bars, positions, values):
+                yval = bar.get_height()  # Get the height of each bar
+                plt.text(position, yval, f"{value:.2g}", ha='center', va='bottom')
+
+        # Plot shaded regions and annotate with proportions
+        if isinstance(df_shades, pd.DataFrame):  # only plot the result if there is df input
+            grouped_shades = df_shades.values
+            shades = grouped_shades[:, i]
+
+            for pos, val, shade in zip(positions, values, shades):
+                shade_value = val * shade
+                plt.bar(pos, shade_value, width=bar_width, color='lightgrey', alpha=0.5)
+                # Annotate with the proportion value below the shaded region
+                # plt.text(pos, 0, f"{shade:.3g}", ha='center', va='bottom', color='black')
+
+    all_pos = np.concatenate((single_positions, indices + (num_bars + 3) * bar_width / 2), axis=None)
+    all_names = list(single_names) + (list(names))
+    plt.xticks(all_pos, all_names, fontsize=10)
+    plt.ylabel(ytitle, fontsize=15)
+    plt.title(title)
+    plt.legend()
+    # Show the plot
+    plt.grid(True, linestyle='--', alpha=0.6)
+    # save the figure to the fig_path
+    plt.savefig(fig_path, dpi=300, bbox_inches='tight')
+    plt.show()
+
+
 def plot_miss_oov_rates(ref_count: TokenCount, gen_count_list: List[TokenCount], groupbin=50):
     """
      Plots three curves regarding missing words and oovs
