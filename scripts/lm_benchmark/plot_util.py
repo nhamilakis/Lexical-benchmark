@@ -3,6 +3,25 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from .utils import *
 
+# Revised color dictionary
+color_dict = {
+    'human_CDI': '#ff6699',  # Pink
+    'CHILDES': '#ff9933',    # Orange
+    'accum': '#8B0000',      # Dark Red
+    'train': '#1f77b4',      # Blue
+    'ind': '#ff7f0e',        # Orange
+    'ood': '#d62728',        # Red
+    'crp': '#66cc33',        # Green
+    't03': '#808080',        # Grey
+    't06': '#8A2BE2',        # BlueViolet
+    't08': '#A0522D',        # Sienna
+    't10': '#0000FF',        # Blue
+    't15': '#556B2F',        # DarkOliveGreen
+    'prompted_LSTM': '#87ceeb',  # SkyBlue
+    'unprompted_LSTM': '#4682b4',# SteelBlue
+    'prompted_Transformer': '#b0c4de',# LightSteelBlue
+    'unprompted_Transformer': '#778899' # LightSlateGrey
+}
 
 ################################################################################################
 # function to load csv data#
