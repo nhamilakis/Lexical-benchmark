@@ -1,6 +1,7 @@
 from typing import List
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
+from pathlib import Path
 from .utils import *
 
 # Revised color dictionary
@@ -111,7 +112,7 @@ def get_equal_quantity(data_frame, col_header:str, n_bins:int):
 
 ## custom numerical format
 def custom_format(num):
-    if (not np.isnan(num)) and num == int(num):  # Check if the number is effectively an integer
+    if (not np.isnan(num)) and num == int(num):  #f Check if the number is effectively an integer
         return f"{int(num)}"
     elif 0.001 < abs(num) < 1000:  # Check if the number is between 0 and 0.001
         return f"{num:.3g}"
@@ -350,11 +351,62 @@ def fit_sigmoid(score_df: pd.DataFrame, target_y, label):
     return para_frame
 
 
+# plot group extrapolations
+def plot_group(CDI_path:str,score_dir:str,month_range:list, n_bins:int,label:int,threshold:int):
+    # load CDI files
+    frame = pd.read_csv(CDI_path)
+    frame = get_equal_quantity(frame, 'count', n_bins)
+    frame_grouped = frame.groupby('group')
+
+    # load score files
+    all_score = load_csv(score_dir, str(month_range[0]),str(month_range[1]))
+    for group, frame_group in frame_grouped:
+        # select the corresponding words
+        df =  all_score[all_score.index.isin(frame_group['word'])]
+        score = apply_threshold(df, threshold)
+        merged = merge_score(score)
+        # merge results from different models
+        plot_score(merged, label=group)
+        plt.title(f'Vocabulary growth curve in {str(label)[1:-1]}', fontsize=16, fontweight='bold')
+    return frame
+
+
+def plot_sigmoid(CDI_path: Path, word_freq_path: Path, score_dir: Path, month_range: list, threshold: int, n_bins: int,
+                 target_y: int, genset_label):
+    # load files
+    word_freq = pd.read_csv(word_freq_path)
+    if genset_label == 'human_CDI':
+        all_score = pd.read_csv(CDI_path)
+        all_score.set_index('word', inplace=True)
+        all_score = all_score.loc[:, str(AGE_DICT[lang][0]): str(AGE_DICT[lang][1])]
+    else:
+        all_score = load_csv(score_dir, str(month_range[0]), str(month_range[1]))
+    frame = pd.read_csv(CDI_path)
+    frame = get_equal_quantity(frame, 'count', n_bins)
+    frame_grouped = frame.groupby('group')
+
+    para_all = pd.DataFrame()
+    for _, frame_group in frame_grouped:
+        # select the corresponding words
+        score = all_score[all_score.index.isin(frame_group['word'])]
+        # get log median freq of each bands
+        m_freq = np.log10(word_freq[word_freq['word'].isin(frame_group['word'])]['freq_m'].median())
+        # apply threhsold if not reported by human
+        if not genset_label == 'human_CDI':
+            score = apply_threshold(score, threshold)
+        merged = merge_score(score)
+        para = fit_sigmoid(merged, target_y, f"{m_freq:.2f}")
+        para_all = pd.concat([para_all, para])
+        plt.title(f'Vocab growth curve by ({str(genset_label)})')
+    plt.show()
+    para_all['gen_set'] = genset_label
+    return para_all
+
 def fit_log(x_data, y_data, label):
     """Fit a logarithmic curve to the data and plot it."""
 
     def log_curve(x, a, b):
-        return a * np.log2(x) + b
+        return a * np.log10(x) + b
 
     try:
         # Fit the logarithmic function to the scatter plot data
@@ -375,6 +427,52 @@ def fit_log(x_data, y_data, label):
     except Exception as e:
         print(f"An error occurred while fitting data for {label}: {e}")
 
+
+def plot_log(para_frame: pd.DataFrame):
+    """freq sensitivity in different bands"""
+    para_frame_grouped = para_frame.groupby(['gen_set'])
+
+    # Iterate over each group
+    for group, para_frame_group in para_frame_grouped:
+
+        # Convert 'Type' column from log scale to linear scale
+        median_lst = [10 ** x for x in para_frame_group['Group'].astype(float)]
+
+        # Ensure lengths match
+        if len(median_lst) != len(para_frame_group['Month']):
+            print(f"Length mismatch in group {group}: {len(median_lst)} vs {len(para_frame_group['Month'])}")
+            continue  # Skip this group if there's a mismatch
+        fit_log(median_lst, para_frame_group['Month'], str(group)[1:-2])
+        # Set plot title and legend
+        plt.title(f'Frequency sensitivity', fontsize=15, fontweight='bold')
+        legend_loc = 'upper right'
+        plt.legend(loc=legend_loc)
+        # Set Y-axis limits
+        plt.ylim(-10, 190)
+
+
+def plot_lines(para_frame: pd.DataFrame, prompt_type: str, model: str):
+    """freq sensitivity in different bands"""
+    para_frame_grouped = para_frame.groupby(['gen_set'])
+
+    # Iterate over each group
+    for group, para_frame_group in para_frame_grouped:
+        print(group)
+        # Convert 'Type' column from log scale to linear scale
+        median_lst = para_frame_group['Group'].astype(float)
+        plt.scatter(median_lst, para_frame_group['Month'], color=color_dict[str(group[0])])
+        plt.plot(median_lst, para_frame_group['Month'], label=str(group[0]), linewidth=3,
+                 color=color_dict[str(group[0])])
+        # Set plot title and legend
+        plt.title(f'Frequency sensitivity', fontsize=15, fontweight='bold')
+        legend_loc = 'upper right'
+        plt.legend(loc=legend_loc)
+        # Set Y-axis limits
+        plt.ylim(-10, 190)
+
+    plt.xlabel('Median freq', fontsize=15)
+    plt.ylabel('Estimated months', fontsize=15)
+    plt.title(f'{prompt_type} generations by {model}', fontsize=13, fontweight='bold')
 
 
 #################################################################################################
@@ -463,27 +561,24 @@ def plot_bars(df_values, color_dict: dict, fig_path, df_single=False, df_shades=
     - title: string for the plot title
     - showval: boolean to show the value on top of the bars
     """
+    plt.figure(figsize=(10, 5))
     names = df_values.index
     group_labels = df_values.columns
-    grouped_values = df_values.values
-
-    # Initialize bar plot settings
-    plt.figure(figsize=(10, 5))
-
     num_groups = len(names)
     num_bars = len(group_labels)
     bar_width = 0.8 / num_bars  # Width of each bar within a group
-    indices = np.arange(num_groups)  # The x locations for the groups
 
     # Plot single df if there is any
     if isinstance(df_single, pd.DataFrame):
+
         single_values = df_single.values.flatten()
         single_names = df_single.index
-
-        single_color = color_dict.get('single', 'grey')  # Default to blue if 'single' not found in color_dict
-        single_positions = np.linspace(0, -0.8, len(single_values))  # Positions for single bars
-        single_bars = plt.bar(single_positions, single_values, width=bar_width, color=single_color, alpha=0.75)
-        # Set x tick label in the middle of each single bar
+        # get a list of single colors
+        single_colors = []
+        for name in single_names:
+            single_colors.append(color_dict.get(name, 'grey'))
+        single_positions = np.linspace(0, -1.6, len(single_values))  # Positions for single bars
+        single_bars = plt.bar(single_positions, single_values, width=bar_width, color=single_colors, alpha=0.75)
 
         if showval:
             for bar, value, pos in zip(single_bars, single_values, single_positions):
@@ -491,6 +586,9 @@ def plot_bars(df_values, color_dict: dict, fig_path, df_single=False, df_shades=
                 plt.text(pos + bar_width / 2, yval, f"{yval:.2g}", ha='center', va='bottom')
 
     # Loop through each bar in the group
+    grouped_values = df_values.values
+    indices = np.arange(num_groups)  # The x locations for the groups
+
     for i in range(num_bars):
         values = grouped_values[:, i]
         color = color_dict.get(group_labels[i], 'grey')  # Default to grey if label not found
@@ -515,8 +613,12 @@ def plot_bars(df_values, color_dict: dict, fig_path, df_single=False, df_shades=
                 # Annotate with the proportion value below the shaded region
                 # plt.text(pos, 0, f"{shade:.3g}", ha='center', va='bottom', color='black')
 
-    all_pos = np.concatenate((single_positions, indices + (num_bars + 3) * bar_width / 2), axis=None)
-    all_names = list(single_names) + (list(names))
+    if isinstance(df_single, pd.DataFrame):
+        all_pos = np.concatenate((single_positions, indices + (num_bars + 3) * bar_width / 2), axis=None)
+        all_names = list(single_names) + (list(names))
+    else:
+        all_pos = indices + (num_bars + 3) * bar_width / 2
+        all_names = names
     plt.xticks(all_pos, all_names, fontsize=10)
     plt.ylabel(ytitle, fontsize=15)
     plt.title(title)
