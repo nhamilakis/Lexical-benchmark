@@ -110,6 +110,31 @@ def get_equal_quantity(data_frame, col_header:str, n_bins:int):
 # Summary statistics for Token Counts
 #################################################################################################
 
+# load TC objects recursively
+def load_files(freq_ROOT:str)->list:
+    all_count = []
+    # load all the generated sets
+    files = os.listdir(freq_ROOT)
+    files = sorted(files)
+    for file in files:
+        if file.endswith('.csv'):
+            word_count=TokenCount()
+            word_count.df=pd.read_csv(f'{freq_ROOT}{file}')
+            word_count.name = file[:-4].split('_')[-1]
+            all_count.append(word_count)
+
+    # divide into different types of sets
+    gen_count = []
+    unwanted_lst = ['train','child','adult']
+    for tc in all_count:
+        if tc.name not in unwanted_lst:
+            gen_count.append(tc)
+        if tc.name == 'train':
+            ref_count = tc
+        else:
+            pass
+    return all_count, ref_count, gen_count
+
 ## custom numerical format
 def custom_format(num):
     if (not np.isnan(num)) and num == int(num):  #f Check if the number is effectively an integer
@@ -175,7 +200,7 @@ def tc_compare(ref_count: TokenCount, gen_count_list: List[TokenCount], figures=
             oov_count = gen_count.difference(ref_count)
             nword_count = oov_count.nonword()
             m = nword_count.stats()
-            m["prop_nwords"] = nword_count.nb_of_types() / oov_count.nb_of_types()
+            m["prop_nwords"] = nword_count.nb_of_types() / gen_count.nb_of_types()
             m["name"] = gen_count.name
             listofdic.append(m)
         except:
@@ -208,7 +233,7 @@ def calculate_oov_scores(group):
 
 def calculate_word_scores(group):
     """function used in a groupby bin; computes various scores for the oov items"""
-    pnonword = (group['correct'] == False).mean()
+    pnonword = ((group['correct'] != False)&(group['ref_count'] == 0)).mean()
     nb = group.shape[0]
     medcount = (group['gen_count']).median()
     result = pd.Series([medcount, pnonword, nb], index=['medcount', 'pnword', 'nb'])
@@ -223,7 +248,6 @@ def build_bins(df, count_header: str, groupbin: int):
     df['ranks'] = df['rnd'].rank().astype(int)
     df['bin'] = pd.qcut(df['ranks'], q=num_bins, labels=[f"Bin_{i + 1}" for i in range(num_bins)])
     return df
-
 
 def tc_compute_miss_oov_rates(ref_count: TokenCount, gen_count: TokenCount, groupbin=20):
     """from two token counts (one reference and one generated or test),
@@ -257,15 +281,9 @@ def tc_compute_miss_oov_rates(ref_count: TokenCount, gen_count: TokenCount, grou
     oovdf = newdf.copy(deep=True)[newdf["gen_count"] != 0]
     oovdf = build_bins(oovdf, 'gen_count', groupbin)
     oscores = oovdf.groupby('bin').apply(calculate_oov_scores).reset_index()
-
-    # this is a df where only oov words are preserved (to reduce the nonword prop in train)
-    oovdf = newdf.copy(deep=True)[newdf["gen_count"] != 0]
-    nonworddf = oovdf[oovdf["ref_count"] == 0]
-    nonworddf = nonworddf.reset_index()
-    nonworddf = build_bins(nonworddf, 'gen_count', groupbin)
-    nscores = nonworddf.groupby('bin').apply(calculate_word_scores).reset_index()
-
+    nscores = oovdf.groupby('bin').apply(calculate_word_scores).reset_index()
     return mscores, oscores, nscores
+
 
 
 #################################################################################################
@@ -548,8 +566,8 @@ def bar_plot(values, names, lower_bounds=None, upper_bounds=None, colors=None, y
     plt.show()
 
 
-def plot_bars(df_values, color_dict: dict, fig_path, df_single=False, df_shades=False, ytitle=None, title=None,
-              showval=True):
+def plot_bars(df_values, color_dict: dict, fig_path, df_single=False, df_shades=False, single_df_shades=False,
+              ytitle=None, title=None, showval=True):
     """
     Creates a grouped bar plot with shaded regions within each bar based on another DataFrame.
 
@@ -570,20 +588,24 @@ def plot_bars(df_values, color_dict: dict, fig_path, df_single=False, df_shades=
 
     # Plot single df if there is any
     if isinstance(df_single, pd.DataFrame):
-
         single_values = df_single.values.flatten()
         single_names = df_single.index
         # get a list of single colors
         single_colors = []
         for name in single_names:
             single_colors.append(color_dict.get(name, 'grey'))
-        single_positions = np.linspace(0, -1.6, len(single_values))  # Positions for single bars
+        single_positions = np.linspace(0, -0.8, len(single_values))  # Positions for single bars
         single_bars = plt.bar(single_positions, single_values, width=bar_width, color=single_colors, alpha=0.75)
 
         if showval:
             for bar, value, pos in zip(single_bars, single_values, single_positions):
                 yval = bar.get_height()
                 plt.text(pos + bar_width / 2, yval, f"{yval:.2g}", ha='center', va='bottom')
+
+        # plot the sahdes inside each bar
+        if isinstance(single_df_shades, pd.DataFrame):
+            single_shades = single_df_shades.values.flatten()
+            plt.bar(single_positions, single_shades, width=bar_width, color='grey', alpha=0.5)
 
     # Loop through each bar in the group
     grouped_values = df_values.values
@@ -608,11 +630,11 @@ def plot_bars(df_values, color_dict: dict, fig_path, df_single=False, df_shades=
             shades = grouped_shades[:, i]
 
             for pos, val, shade in zip(positions, values, shades):
-                shade_value = val * shade
-                plt.bar(pos, shade_value, width=bar_width, color='lightgrey', alpha=0.5)
+                plt.bar(pos, shade, width=bar_width, color='grey', alpha=0.5)
                 # Annotate with the proportion value below the shaded region
                 # plt.text(pos, 0, f"{shade:.3g}", ha='center', va='bottom', color='black')
 
+    # assign all the x-axis labels
     if isinstance(df_single, pd.DataFrame):
         all_pos = np.concatenate((single_positions, indices + (num_bars + 3) * bar_width / 2), axis=None)
         all_names = list(single_names) + (list(names))
