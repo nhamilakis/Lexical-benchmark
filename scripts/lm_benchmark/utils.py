@@ -41,7 +41,7 @@ def is_word(word):
 
 
 class TokenCount:
-    def __init__(self, data=None, name=None):
+    def __init__(self, data=None, name=None, header=None):
         if data is not None:
             self.df = pd.DataFrame(list(data.items()), columns=['word', 'count']).sort_values(by='count')
             self.name = name
@@ -50,6 +50,7 @@ class TokenCount:
         # check the existence of the columns below
         self.df['freq_m'] = self.df['count']/self.df['count'].sum() * 1000000
         self.df['correct']=self.df['word'].apply(is_word)
+        #self.df.set_index('word', inplace=True)
 
     def __str__(self):
         return self.df.to_string()
@@ -59,9 +60,10 @@ class TokenCount:
 
     @staticmethod
     def from_df(file_path,header='word', name=None):
-        if type(file_path)==str:
+
+        try:
             lines = pd.read_csv(file_path)[header]
-        elif isinstance(file_path, pd.DataFrame):   # in the case that the input is already a dataframe
+        except:   # in the case that the input is already a dataframe
             lines = file_path[header]
         # remove nan in the column
         lines = lines.dropna()
