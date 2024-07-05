@@ -1,1 +1,0 @@
-from .settings import ROOT, AGE_DICT
