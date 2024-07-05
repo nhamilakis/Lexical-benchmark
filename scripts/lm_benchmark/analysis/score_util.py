@@ -180,9 +180,10 @@ class MonthCounter:
     def load(self):
         """ Load the dataset into dataframes """
         generation_df = pd.read_csv(self._generation_csv_location)
+        generation_df.dropna()
         generation_df['month'] = generation_df['month'].astype(int)
         generation_df = generation_df.sort_values('month')
-
+        # select the given month range
         self._generation_df = generation_df[(generation_df['month'] >= self._month_range[0]) & (generation_df['month'] <= self._month_range[1])]
         self._estimation_df = pd.read_csv(self._estimation_csv_location)
         self._test_df = load_csv(self._test_csv_location,'word')
