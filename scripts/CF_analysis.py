@@ -1,4 +1,3 @@
-"""catastrophic forgetting analysis"""
 import argparse
 import sys
 from lm_benchmark.settings import ROOT
