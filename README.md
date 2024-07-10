@@ -7,8 +7,38 @@ This repository focuses on a detailed comparison between human(CDI) and model pe
 2) Expressive Vocabulary using (un)prompted generations
 
 
+## Getting started
 
-# Getting started
+
+To get started with this module you will need to have compatible version of python (`python3.10+`).
+
+You can install the module using the following commands :
+
+```bash
+git clone URL
+cd Lexical-Benchmark
+pip install .
+```
+
+or 
+
+```bash
+git clone URL
+cd Lexical-Benchmark
+pip install -e .
+```
+
+For an editable installation (useful during devellopement).
+
+
+You can also install directly from the git repository (without cloning) using:
+
+```bash
+pip install git+git@github.com:Jing-L97/Lexical-benchmark.git
+```
+
+
+## Brief description
 
 You'll probably want to start from there:
 - [How to select the test set](docs/select_test.md)
