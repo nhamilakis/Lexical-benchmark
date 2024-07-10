@@ -1,12 +1,10 @@
 """match freq based on between human and machine cdi."""
 
 import argparse
-import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
 from lm_benchmark.analysis.freq_util import bin_stats, init_index, loss, swap_index
 from lm_benchmark.settings import ROOT
 
@@ -30,11 +28,6 @@ def annotate_freq(cdi_file: Path, human_freq: Path) -> pd.DataFrame:
     human_freq_data = pd.read_csv(human_freq)
     merged_df = cdi_data.merge(human_freq_data, on="word", how="left")
     merged_df.dropna()
-    # add the freq column
-    #merged_df.drop(columns=['count_x', 'correct_x'])
-    #merged_df = merged_df.rename(columns={'count_y': 'count', 'correct_y': 'correct'})
-    # sort by count
-    #merged_df = merged_df.sort_values(by=['count', 'word']).reset_index(drop=True)
     return merged_df
 
 
@@ -105,12 +98,7 @@ def main() -> None:
 
     machine_freq.iloc[pidx].to_csv(machine_cdi_file)
     stat.to_csv(cdi_stat_file)
-    
-
-
-
 
 
 if __name__ == "__main__":
-    args = sys.argv[1:]
     main()

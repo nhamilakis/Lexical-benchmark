@@ -23,13 +23,11 @@ documentation = "https://github.com/Jing-L97/Lexical-benchmark"
 repository = "https://github.com/Jing-L97/Lexical-benchmark"
 
 [project.scripts]
-# Analysis commands
-lma-get-freq = "lm_benchmark.analysis.entrypoints.get_freq:main"
-lma-count-adjust = "lm_benchmark.analysis.entrypoints.adjust_count:main"
-lma-get-matching = "lm_benchmark.analysis.entrypoints.match_freq:main"
-
-# A command to generate human data CSVs
-lmb-build-human-data = "lm_benchmark.datasets.entrypoints.build_human_cdi:main"
+adjust-count = "lm_benchmark.adjust_count:main"
+get-frequencies = "lm_benchmark.get_frequencies:main"
+match-frequencies = "lm_benchmark.match_frequencies:main"
+dataset-explore = "lm_benchmark.dataset_explore:main"
+cf-analysis = "lm_benchmark.cf_analysis:main"
 
 [project.optional-dependencies]
 dev = ["ruff", "mypy", "ipython", "jupyter"]

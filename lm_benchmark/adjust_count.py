@@ -1,10 +1,11 @@
-"""convert word count into accumulated monthly count"""
+"""Convert word count into accumulated monthly count."""
+
 import argparse
-import sys
 from pathlib import Path
-from tqdm import tqdm
+
 from lm_benchmark.analysis.score_util import MonthCounter
 from lm_benchmark.settings import ROOT
+from tqdm import tqdm
 
 
 def arguments() -> argparse.Namespace:
@@ -17,13 +18,17 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--prompt_type", default="unprompted")
     parser.add_argument("--lang", default="AE")
     parser.add_argument("--set", default="machine")
-    parser.add_argument("--header_lst", default=["unprompted_0.3","unprompted_0.6","unprompted_1.0","unprompted_1.5"])
+    parser.add_argument(
+        "--header_lst", default=["unprompted_0.3", "unprompted_0.6", "unprompted_1.0", "unprompted_1.5"]
+    )
     parser.add_argument("--count", default=False)
     return parser.parse_args()
+
+
 def main() -> None:
     """Run the GoldReference loader and write results to a file."""
     args = arguments()
-    model = args.gen_file.split('/')[-1][:-4].split('_')[1]
+    model = args.gen_file.split("/")[-1][:-4].split("_")[1]
     gen_file = Path(args.gen_file)
     est_file = Path(args.est_file)
     lang = args.lang
@@ -49,11 +54,10 @@ def main() -> None:
             count_test_file=count_test_file,
             header=header,
             month_range=month_lst,
-            count=count
+            count=count,
         )
         count_loader.get_count()  # get the adjusted test count
 
 
 if __name__ == "__main__":
-    args = sys.argv[1:]
     main()
