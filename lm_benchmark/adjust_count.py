@@ -3,9 +3,10 @@
 import argparse
 from pathlib import Path
 
+from tqdm import tqdm
+
 from lm_benchmark.analysis.score_util import MonthCounter
 from lm_benchmark.settings import ROOT
-from tqdm import tqdm
 
 
 def arguments() -> argparse.Namespace:

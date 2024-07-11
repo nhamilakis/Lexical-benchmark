@@ -2,6 +2,8 @@ matplotlib
 pandas
 numpy
 torch # todo check version
+requests
+rich
 spacy
 seaborn
 pyenchant
@@ -9,3 +11,4 @@ fairseq # todo check version
 tqdm
 transformers # todo check version
 scipy
+statsmodels

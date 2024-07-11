@@ -63,15 +63,17 @@ ignore = [
     "EM101",   # allow Exceptions to contain literals
     "ANN003",  # allow **kwargs to be without type-hints
     "D107",    # allow __init__ without docstring
-    "ANN101",  # "self" needs no typing (rule is Deprecated)
+    "ANN101", "ANN102",  # "self" & "cls" need no typing (rule is Deprecated)
     "T201",    # allow 'print' statements
     "TD003",   # not all todos require a issue
     "D104",    # allow scripts not to have docstring on top
     "EM102",   # allow exception to use f-strings
+    "FIX002",  # allow todos
 ]
 
 
 [tool.ruff.lint.flake8-import-conventions.aliases]
 typing = "t"
+
 
 [tool.setuptools_scm]
