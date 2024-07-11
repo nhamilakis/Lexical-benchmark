@@ -10,7 +10,14 @@ This repository focuses on a detailed comparison between human(CDI) and model pe
 ## Getting started
 
 
-To get started with this module you will need to have compatible version of python (`python3.10+`).
+#### Installation
+
+To get started with this module you will need to have 
+
+
+- a compatible version of python (`python3.10+`).
+- The enchant library
+- phonemizer
 
 You can install the module using the following commands :
 
@@ -36,6 +43,10 @@ You can also install directly from the git repository (without cloning) using:
 ```bash
 pip install git+https://github.com/Jing-L97/Lexical-benchmark.git
 ```
+
+#### Available Commands
+
+TBA
 
 
 ## Brief description
