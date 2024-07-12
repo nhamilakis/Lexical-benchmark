@@ -5,22 +5,24 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from lm_benchmark.analysis.score_util import MonthCounter
-from lm_benchmark.settings import ROOT
+from lm_benchmark import settings
+
+from .analysis.score_util import MonthCounter
 
 
 def arguments() -> argparse.Namespace:
     """Build & Parse command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--gen_file", default=f"{ROOT}/datasets/processed/generation/unprompted_LSTM_2.csv")
-    parser.add_argument("--est_file", default=f"{ROOT}/datasets/raw/vocal_month.csv")
-    parser.add_argument("--CDI_path", default=f"{ROOT}/datasets/processed/CDI/")
-    parser.add_argument("--freq_path", default=f"{ROOT}/datasets/processed/month_count/")
+    parser.add_argument("--gen_file", default=f"{settings.ROOT}/datasets/processed/generation/unprompted_LSTM_2.csv")
+    parser.add_argument("--est_file", default=f"{settings.ROOT}/datasets/raw/vocal_month.csv")
+    parser.add_argument("--CDI_path", default=f"{settings.ROOT}/datasets/processed/CDI/")
+    parser.add_argument("--freq_path", default=f"{settings.ROOT}/datasets/processed/month_count/")
     parser.add_argument("--prompt_type", default="unprompted")
     parser.add_argument("--lang", default="AE")
     parser.add_argument("--set", default="machine")
     parser.add_argument(
-        "--header_lst", default=["unprompted_0.3", "unprompted_0.6", "unprompted_1.0", "unprompted_1.5"]
+        "--header_lst",
+        default=["unprompted_0.3", "unprompted_0.6", "unprompted_1.0", "unprompted_1.5"],
     )
     parser.add_argument("--count", default=False)
     return parser.parse_args()

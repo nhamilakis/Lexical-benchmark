@@ -46,7 +46,74 @@ pip install git+https://github.com/Jing-L97/Lexical-benchmark.git
 
 #### Available Commands
 
-TBA
+**adjust-count** : Convert word count into accumulated monthly count.
+
+```bash
+❯ adjust-count --help
+usage: adjust-count [-h] [--gen_file GEN_FILE] [--est_file EST_FILE] [--CDI_path CDI_PATH]
+                    [--freq_path FREQ_PATH] [--prompt_type PROMPT_TYPE] [--lang LANG]
+                    [--set SET] [--header_lst HEADER_LST] [--count COUNT]
+
+options:
+  -h, --help            show this help message and exit
+  --gen_file GEN_FILE
+  --est_file EST_FILE
+  --CDI_path CDI_PATH
+  --freq_path FREQ_PATH
+  --prompt_type PROMPT_TYPE
+  --lang LANG
+  --set SET
+  --header_lst HEADER_LST
+  --count COUNT
+```
+
+
+**get-frequencies** : 
+
+```bash
+❯ get-frequencies --help
+usage: get-frequencies [-h] [--src_file SRC_FILE] [--target_file TARGET_FILE]
+                       [--header HEADER] [--ngram NGRAM]
+
+options:
+  -h, --help            show this help message and exit
+  --src_file SRC_FILE
+  --target_file TARGET_FILE
+  --header HEADER
+  --ngram NGRAM
+```
+
+**match-frequencies** :
+
+```bash
+usage: match-frequencies [-h] [--CDI_path CDI_PATH] [--human_freq HUMAN_FREQ]
+                         [--machine_freq MACHINE_FREQ] [--lang LANG]
+                         [--test_type TEST_TYPE] [--sampling_ratio SAMPLING_RATIO]
+                         [--nbins NBINS]
+
+options:
+  -h, --help            show this help message and exit
+  --CDI_path CDI_PATH
+  --human_freq HUMAN_FREQ
+  --machine_freq MACHINE_FREQ
+  --lang LANG
+  --test_type TEST_TYPE
+  --sampling_ratio SAMPLING_RATIO
+  --nbins NBINS
+  ```
+
+**dataset-explore** :
+
+```bash
+❯ dataset-explore --help
+usage: dataset-explore [-h] [--header HEADER] [--model MODEL] [--prompt PROMPT]
+
+options:
+  -h, --help       show this help message and exit
+  --header HEADER
+  --model MODEL
+  --prompt PROMPT
+```
 
 
 ## Brief description

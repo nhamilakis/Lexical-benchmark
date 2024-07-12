@@ -1,20 +1,21 @@
-"""match freq based on between human and machine cdi."""
+"""Match freq based on between human and machine cdi."""
 
 import argparse
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from lm_benchmark.analysis.freq_util import bin_stats, init_index, loss, swap_index
-from lm_benchmark.settings import ROOT
+
+from lm_benchmark import settings
+from lm_benchmark.analysis import frequency_utils
 
 
 def arguments() -> argparse.Namespace:
     """Build & Parse command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--CDI_path", default=f"{ROOT}/datasets/processed/CDI/")
-    parser.add_argument("--human_freq", default=f"{ROOT}/datasets/processed/freq/CHILDES_adult.csv")
-    parser.add_argument("--machine_freq", default=f"{ROOT}/datasets/processed/freq/3200h.csv")
+    parser.add_argument("--CDI_path", default=f"{settings.ROOT}/datasets/processed/CDI/")
+    parser.add_argument("--human_freq", default=f"{settings.ROOT}/datasets/processed/freq/CHILDES_adult.csv")
+    parser.add_argument("--machine_freq", default=f"{settings.ROOT}/datasets/processed/freq/3200h.csv")
     parser.add_argument("--lang", type=str, default="BE")
     parser.add_argument("--test_type", type=str, default="exp")
     parser.add_argument("--sampling_ratio", type=int, default=1)
@@ -37,7 +38,7 @@ def match_sample(
     sampling_ratio: int,
     nbins: int,
     n: int = 100000,
-) -> tuple[int, int, pd.DataFrame]:
+) -> tuple[np.ndarray, np.ndarray, pd.DataFrame]:
     """Match a source distribution to a target distribution.
 
     This is achieved by sampling randomly from the (larger)
@@ -55,22 +56,22 @@ def match_sample(
     if not lenref * sampling_ratio < lensam:
         raise ValueError("The sampling rate is too high to create matched sets!")
 
-    refstat = bin_stats(dataref, nbins)
-    pidx, nidx = init_index(lensam, lenref * sampling_ratio)
+    refstat = frequency_utils.bin_stats(np.array(dataref), nbins)
+    pidx, nidx = frequency_utils.init_index(lensam, lenref * sampling_ratio)
     data = datasam[pidx]
-    datastat = bin_stats(data, nbins)
-    lbest = loss(refstat, datastat)
+    datastat = frequency_utils.bin_stats(np.array(data), nbins)
+    lbest = frequency_utils.loss(np.array(refstat), np.array(datastat))
 
     for _ in range(n):
-        pidx1, nidx1 = swap_index(pidx, nidx)
+        pidx1, nidx1 = frequency_utils.swap_index(pidx, nidx)
         data = datasam[pidx1]
-        datastat = bin_stats(data, nbins)
-        l1 = loss(refstat, datastat)
+        datastat = frequency_utils.bin_stats(np.array(data), nbins)
+        l1 = frequency_utils.loss(np.array(refstat), np.array(datastat))
         if lbest > l1:
             lbest = l1
             pidx, nidx = np.array(pidx1, copy=True), np.array(nidx1, copy=True)
 
-    teststat = bin_stats(datasam[pidx], nbins)
+    teststat = frequency_utils.bin_stats(np.array(datasam[pidx]), nbins)
     refstat["set"] = "human"
     teststat["set"] = "machine"
     stat = pd.concat([refstat, teststat])

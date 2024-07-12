@@ -3,13 +3,12 @@ import math
 from pathlib import Path
 
 import pandas as pd
-from lm_benchmark.plot_util import *
-from lm_benchmark.settings import ROOT
-from lm_benchmark.utils import *
+
+from lm_benchmark import nlp_tools, plot_util, settings
 
 # set constant setting
-FREQ_ROOT = f"{ROOT}/datasets/processed/month_count/"
-GEN_ROOT = f"{ROOT}/datasets/processed/generation/"
+FREQ_ROOT = f"{settings.ROOT}/datasets/processed/month_count/"
+GEN_ROOT = f"{settings.ROOT}/datasets/processed/generation/"
 FIG_SIZE = (10, 10)
 month_range = [6, 36]
 
@@ -46,14 +45,14 @@ def chunk_dataframe(df, column_name, trans_header, m, n, out_path):
     while chunk_number <= n:
         # select rows based on the target sum
         current_chunk_df, df = select_rows(df, m)
-        count_df = TokenCount.from_df(current_chunk_df, trans_header)
+        count_df = nlp_tools.TokenCount.from_df(current_chunk_df, trans_header)
         tc_lst.append(count_df)
         # Save to CSV
         current_chunk_df.to_csv(Path(out_path) / f"{chunk_number}.csv", index=False)
         chunk_number += 1
 
     # Get the summary statistics
-    child_stats = tc_summary(tc_lst[:n])
+    child_stats = plot_util.tc_summary(tc_lst[:n])
     mean_nonword_type = child_stats["p_nonword_type"].mean()
     mean_nonword_token = child_stats["p_nonword_token"].mean()
 
@@ -81,10 +80,10 @@ def main() -> None:
 
     trans = pd.read_csv(trans_path)
 
-    vocal = pd.read_csv(ROOT + "/datasets/raw/vocal_month.csv")
+    vocal = pd.read_csv(settings.ROOT + "/datasets/raw/vocal_month.csv")
     sel = vocal[(vocal["month"] >= 6) & (vocal["month"] <= 36)][["child_num_tokens", "month"]]
     # get the sum of first few months
-    sel = sum_rows(sel, 9, "child_num_tokens")
+    sel = plot_util.sum_rows(sel, 9, "child_num_tokens")
     target_month = 16
 
     chunk_size = sel.at[target_month - 1, "child_num_tokens"]

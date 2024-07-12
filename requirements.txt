@@ -3,6 +3,7 @@ pandas
 numpy
 torch # todo check version
 requests
+nltk
 rich
 spacy
 seaborn

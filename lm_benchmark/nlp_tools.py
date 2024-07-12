@@ -73,6 +73,7 @@ CUSTOM_TRUE_WORD_LIST = [
     "therell",
     "herell",
 ]
+_IS_WORD_EN_FN = None
 
 
 def load_enchant_dict(langs: tuple[str, ...] = ("en_UK", "en_US")) -> tuple[enchant.Dict, ...]:
@@ -121,6 +122,8 @@ def load_en_extended_word_list() -> set[str]:
 
 def make_en_word_checker() -> t.Callable[[str], bool]:
     """Make function to check word validity."""
+    global _IS_WORD_EN_FN  # noqa: PLW0603
+
     en_uk, en_us = load_enchant_dict(langs=("en_UK", "en_US"))
     extended_en_wl = load_en_extended_word_list()
 
@@ -145,12 +148,15 @@ def make_en_word_checker() -> t.Callable[[str], bool]:
             ],
         )
 
-    return functools.partial(
-        _is_word,
-        d_us=en_us,
-        d_uk=en_uk,
-        d_ext_wl=extended_en_wl,
-    )
+    # keep in cache, to avoid loading twice
+    if _IS_WORD_EN_FN is None:
+        _IS_WORD_EN_FN = functools.partial(
+            _is_word,
+            d_us=en_us,
+            d_uk=en_uk,
+            d_ext_wl=extended_en_wl,
+        )
+    return _IS_WORD_EN_FN
 
 
 class TokenCount:
@@ -226,7 +232,7 @@ class TokenCount:
         """Return the sum of all word counts (nb of tokens=corpus size)."""
         return self.df["count"].sum()
 
-    def zipf_coef(self):  # TODO(@nhamilakis): check this function
+    def zipf_coef(self) -> tuple[np.ndarray, np.ndarray, np.float64, np.float64]:
         """Compute the zipf coefficient of a given token count."""
         sorted_data = np.sort(self.df["count"])
         nbpoints = sorted_data.shape[0]
@@ -243,32 +249,43 @@ class TokenCount:
         log_y_fit = results.fittedvalues
         return log_x, log_y_fit, intercept, slope
 
-    def stats(self):  # TODO(@nhamilakis): check this function
-        """Simple descriptive Statistics of the TokenCount (type/token, etc)"""
+    def stats(self) -> dict:
+        """Simple descriptive Statistics of the TokenCount (type/token, etc)."""
+        typetok = self.nb_of_types() / self.nb_of_tokens() if self.nb_of_tokens() != 0 else np.nan
+        d = {
+            "name": self.name,
+            "nb_token": self.nb_of_tokens(),
+            "nb_type": self.nb_of_types(),
+            "type/token": typetok,
+        }
 
-        if self.nb_of_tokens() != 0:
-            typetok = self.nb_of_types() / self.nb_of_tokens()
-        else:
-            typetok = np.nan
-        d = {"name": self.name, "nb_token": self.nb_of_tokens(), "nb_type": self.nb_of_types(), "type/token": typetok}
         if self.nb_of_types() == 0:
             return d
+
         nb_hapaxes = np.sum(self.df["count"] == 1)
         nb_dipaxes = np.sum(self.df["count"] == 2)
         nb_le10 = np.sum(self.df["count"] <= 10)
-        nb_nonword_type = np.sum(self.df["correct"] == False)
-        nb_nonwords = self.df[self.df["correct"] == False]["count"].sum()
-        d1 = {"nb_hapaxes": nb_hapaxes, "p_hapaxes": nb_hapaxes / self.nb_of_types()}
-        d2 = {"nb_dipaxes": nb_dipaxes, "p_dipaxes": nb_dipaxes / self.nb_of_types()}
-        d3 = {"nb_le_10": nb_le10, "p_le_10": nb_le10 / self.nb_of_types()}
+        nb_nonword_type = np.sum(~self.df["correct"])
+        nb_nonwords = self.df[~self.df["correct"]]["count"].sum()
+
         sorted_data = np.sort(self.df["count"])
         top_count = sorted_data[-1]
         top_ge10_count = np.sum(sorted_data[-11:-1])
-        d4 = {
+        _, _, intercept, _ = self.zipf_coef()
+
+        return {
+            **d,
+            "nb_hapaxes": nb_hapaxes,
+            "p_hapaxes": nb_hapaxes / self.nb_of_types(),
+            "nb_dipaxes": nb_dipaxes,
+            "p_dipaxes": nb_dipaxes / self.nb_of_types(),
+            "nb_le_10": nb_le10,
+            "p_le_10": nb_le10 / self.nb_of_types(),
             "prop_topcount": top_count / self.nb_of_tokens(),
             "prop_top_ge10_count": top_ge10_count / self.nb_of_tokens(),
+            "zipf_c": intercept,
+            "nb_nonword_type": nb_nonword_type,
+            "p_nonword_type": nb_nonword_type / self.nb_of_types(),
+            "nb_nonword_token": nb_nonwords,
+            "p_nonword_token": nb_nonwords / self.nb_of_tokens(),
         }
-        d5 = {"zipf_c": self.zipf_coef()[3]}
-        d6 = {"nb_nonword_type": nb_nonword_type, "p_nonword_type": nb_nonword_type / self.nb_of_types()}
-        d7 = {"nb_nonword_token": nb_nonwords, "p_nonword_token": nb_nonwords / self.nb_of_tokens()}
-        return {**d, **d1, **d2, **d3, **d4, **d5, **d6, **d7}

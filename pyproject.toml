@@ -69,6 +69,9 @@ ignore = [
     "D104",    # allow scripts not to have docstring on top
     "EM102",   # allow exception to use f-strings
     "FIX002",  # allow todos
+    "PLR2004", # Allow magic numbers (should be avoided, except some math contexts)
+    "S311",    # No cryptography done here random is safe enough
+    "PD901",   # Allow df variable name
 ]
 
 
