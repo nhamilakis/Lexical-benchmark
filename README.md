@@ -44,7 +44,7 @@ You can also install directly from the git repository (without cloning) using:
 pip install git+https://github.com/Jing-L97/Lexical-benchmark.git
 ```
 
-#### Available Commands
+### Available Commands
 
 **adjust-count** : Convert word count into accumulated monthly count.
 
@@ -86,6 +86,7 @@ options:
 **match-frequencies** :
 
 ```bash
+❯ match-frequencies --help
 usage: match-frequencies [-h] [--CDI_path CDI_PATH] [--human_freq HUMAN_FREQ]
                          [--machine_freq MACHINE_FREQ] [--lang LANG]
                          [--test_type TEST_TYPE] [--sampling_ratio SAMPLING_RATIO]
@@ -113,6 +114,23 @@ options:
   --header HEADER
   --model MODEL
   --prompt PROMPT
+```
+
+**create-machine-dataset** : 
+
+```bash
+❯ create-machine-dataset --help
+usage: create-machine-dataset [-h] [-m MODE] [-f FILE] train_freq_dir out_dir input_filename_path
+
+positional arguments:
+  train_freq_dir
+  out_dir
+  input_filename_path
+
+options:
+  -h, --help            show this help message and exit
+  -m MODE, --mode MODE
+  -f FILE, --file FILE
 ```
 
 

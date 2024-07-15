@@ -1,215 +1,232 @@
-"""
-Construct same-sized datasets in/out of the domain
-"""
+"""Construct same-sized datasets in/out of the domain."""
+
+import argparse
 import os
 import re
 import string
-import pandas as pd
+import typing as t
+from pathlib import Path
+
 import numpy as np
+import pandas as pd
+from scipy.optimize import linear_sum_assignment  # type: ignore[import-untyped]
 from tqdm import tqdm
-from scipy.optimize import linear_sum_assignment
+
+from lm_benchmark import settings
 
 
-ROOT = "/Users/jliu/PycharmProjects/Lexical-benchmark"
-
-def load_metadata(meta_data_path:str,text_dir:str,out_dir:str)->pd.DataFrame:
-    """load metadata for a fine-grained match"""
+def load_metadata(meta_data_path: Path, text_dir: Path) -> pd.DataFrame:
+    """Load metadata for a fine-grained match."""
     meta_data = pd.read_csv(meta_data_path)
-    def get_title(path_name: str) -> str:
-        return path_name.split('/')[-1]
-    meta_data['filename'] = meta_data['text_path'].apply(get_title)
 
-    all_file_lst = os.listdir(text_dir)
-    print(f'Counting token_num from {text_dir}')
-    selected_data = meta_data[meta_data['filename'].isin(all_file_lst)]
+    # Extract filenames
+    meta_data["filename"] = meta_data["text_path"].apply(lambda x: Path(x).name)
+
+    # All files in text_dir
+    print(f"Counting token_num from {text_dir}")
+    all_filenames = {f.name for f in text_dir.iterdir()}
+    selected_data = meta_data[meta_data["filename"].isin(all_filenames)]
+
     num_tokens = []
-    for file in selected_data['filename'].tolist():
-        frame = txt2csv(text_dir, file)
-        num_tokens.append(frame['num_tokens'].tolist()[0])
-    selected_data['num_tokens'] = num_tokens
-    selected_data.to_csv(out_dir)
+    for filename in selected_data["filename"].tolist():
+        frame = txt2csv(text_dir / filename)
+        num_tokens.append(frame["num_tokens"].tolist()[0])
+    selected_data["num_tokens"] = num_tokens
+    selected_data.to_csv(meta_data_path)
     return selected_data
 
 
-def clean_text(loaded:list):
-    """
-    remove digits and punct of a text string
+# TODO(@Jing): this clean-up has some logic issues & might remove too much content
+def clean_text(loaded: list[str]) -> list[str]:
+    """Remove digits and punct of a text string.
+
     Returns
     -------
-    a list of the cleaned string
+    a list of the cleaned strings
+
     """
+    # puctuation remover using translations
+    translator = str.maketrans("", "", string.punctuation + string.digits)
+    translator[ord("-")] = ord(" ")  # Replace hyphen with blank space
+
     result = [line for line in loaded if line.strip()]
     cleaned_text = []
     for sent in tqdm(result):
         # Filter out non-ASCII characters
-        sent = ''.join(char for char in sent if ord(char) < 128)
-        # remove punctuations
-        translator = str.maketrans('', '', string.punctuation + string.digits)
-        translator[ord('-')] = ' '  # Replace hyphen with blank space
-        clean_string = sent.translate(translator).lower()
-        clean_string = re.sub(r'\s+', ' ', clean_string)
+        clean_string = "".join(char for char in sent if ord(char) < 128)
+        # Filter punctuation using translator
+        clean_string = clean_string.translate(translator).lower()
+        # ISSUE: what does this remove ? spaces ? use str.strip for that redundant
+        clean_string = re.sub(r"\s+", " ", clean_string)
+        # Filter trailing spaces
         clean_string = clean_string.strip()
+        # Append to final text
         cleaned_text.append(clean_string)
     return cleaned_text
 
 
-def count_token(text):
+def count_token(text: str) -> int:
+    """Return number of word-tokens in a string."""
     return len(text.split())
 
-def txt2csv(text_dir:str, txt:str):
-    """convert txt file into csv dataframe: filename\ train\ num_token """
+
+def txt2csv(txt_file: Path) -> pd.DataFrame:
+    """Load a txt file into csv dataframe.
+
+    Columns: filename;train;num_token
+    """
     # read train filename
-    with open(text_dir + txt, encoding="utf8") as f:
-        lines = f.readlines()
-        cleaned_lines = clean_text(lines)
-        frame = pd.DataFrame(cleaned_lines)
-        # assign column headers
-        frame = frame.rename(columns={0: 'train'})
-        frame['num_tokens'] = frame['train'].apply(count_token)
-        frame.insert(loc=0, column='filename', value=txt)
+    cleaned_lines = clean_text(txt_file.read_text(encoding="utf8").split())
+    frame = pd.DataFrame(cleaned_lines)
+    # assign column headers
+    frame = frame.rename(columns={0: "train"})
+    frame["num_tokens"] = frame["train"].apply(count_token)
+    frame.insert(loc=0, column="filename", value=txt_file.name)
+
     return frame
 
 
+def remove_sublist(main_list: t.Sequence[t.Hashable], sublist: t.Sequence[t.Hashable]) -> list[t.Hashable]:
+    """Remove a sublist from the main list if it's found."""
+    sublist_len = len(sublist)
+    m_list = list(main_list)
+    for i in range(len(main_list) - sublist_len + 1):
+        if main_list[i : i + sublist_len] == sublist:
+            return m_list[:i] + m_list[i + sublist_len :]
+    return list(main_list)  # Sublisst not found
 
-def remove_file(large_list,sublist_to_remove):
-    # Find the index where the sublist to remove starts
-    start_index = large_list.index(sublist_to_remove[0])
-    # Remove the sublist from the large list
-    large_list = large_list[:start_index] + large_list[start_index + len(sublist_to_remove):]
-    return large_list
 
-
-
-
-def cut_df(df,target_cum_sum,header = 'num_tokens'):
-    """cut df rows until it has reached the target value"""
+def cut_df(df: pd.DataFrame, target_cum_sum: pd.DataFrame, header: str = "num_tokens") -> pd.DataFrame:
+    """Cut df rows until it has reached the target value."""
     # Calculate cumulative sum
     cum_sum = df[header].cumsum()
     # Find the index where the cumulative sum exceeds or equals the target value
     index_to_cut = cum_sum[cum_sum >= target_cum_sum].index.min()
     # If no index found, keep all rows
-    if pd.isnull(index_to_cut):
+    if pd.isna(index_to_cut):
         index_to_cut = len(df)
     # Remove rows after the index_to_cut
-    df = df.iloc[:index_to_cut]
-    return df
+    return df.iloc[:index_to_cut]
 
 
-def match_dataframes(dfA, dfB):
-    """match files based on """
-
+def match_dataframes(dfa: pd.DataFrame, dfb: pd.DataFrame) -> pd.DataFrame:
+    """Match files based on genre."""
     matched_rows = []
-    for genre in dfA['genre'].unique():
-        dfA_genre = dfA[dfA['genre'] == genre]
-        dfB_genre = dfB[dfB['genre'] == genre]
+    for genre in dfa["genre"].unique():
+        dfa_genre = dfa[dfa["genre"] == genre]
+        dfb_genre = dfb[dfb["genre"] == genre]
 
-        if len(dfB_genre) < len(dfA_genre):
+        if len(dfb_genre) < len(dfa_genre):
             raise ValueError(f"Not enough rows in dfB to match genre '{genre}' in dfA")
 
-        cost_matrix = np.abs(dfA_genre['num_tokens'].values[:, None] - dfB_genre['num_tokens'].values)
-
+        cost_matrix = np.abs(dfa_genre["num_tokens"].to_numpy()[:, None] - dfb_genre["num_tokens"].to_numpy())
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        matched_rows.append(dfb_genre.iloc[col_ind])
 
-        matched_rows.append(dfB_genre.iloc[col_ind])
+    # Return concatenation of matched rows
+    return pd.concat(matched_rows)
 
-    matched_dfB = pd.concat(matched_rows)
-    return matched_dfB
 
-def get_ind_mat(filename_path:str, train_freq_dir:str, file:str,text_dir:str,meta_data):
-
-    """
-    construct the target pseudo dataset to estimate oov token freq
-    """
+def get_ind_mat(
+    filename_path: Path,
+    train_freq_dir: Path,
+    file: str,
+    text_dir: Path,
+    meta_data: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Construct the target pseudo dataset to estimate oov token freq."""
     # read train filename
-    file_lst = pd.read_csv(filename_path,header=None)[0].tolist()
+    file_lst = pd.read_csv(filename_path, header=None)[0].tolist()
+
     # remove the ones that are already in the train list
-    all_file_lst = os.listdir(text_dir)
-    candi_lst = remove_file(all_file_lst,file_lst)
+    all_file_lst = [f.name for f in text_dir.iterdir()]
+    candi_lst = remove_sublist(all_file_lst, file_lst)
+
     # match the genre
-    genre_candi = meta_data[meta_data['filename'].isin(candi_lst)]
-    genre_target = meta_data[meta_data['filename'].isin(file_lst)]
+    genre_candi = meta_data[meta_data["filename"].isin(candi_lst)]
+    genre_target = meta_data[meta_data["filename"].isin(file_lst)]
+
     # count token numbers
     matched_df = match_dataframes(genre_target, genre_candi)
-    # get the total number of tokens
-    train_num = pd.read_csv(train_freq_dir + file)['num_tokens'].sum()
 
-    train_frame = pd.DataFrame()
+    # get the total number of tokens
+    train_num = pd.read_csv(train_freq_dir / file)["num_tokens"].sum()
+
     # get constructed set
-    for file in matched_df['filename'].tolist():
-        frame = txt2csv(text_dir, file)
-        train_frame = pd.concat([train_frame,frame])
+    train_frames = [txt2csv(text_dir / file) for file in matched_df["filename"].tolist()]
+    train_frame = pd.concat([*train_frames])
+
     return train_frame, train_num
 
 
-
-
-def get_ood_mat(text_path:str, train_freq_dir:str, out_dir:str):
-
-    """
-    construct the target pseudo dataset from CHIDLES transcript
-    """
+def get_ood_mat(text_path: Path, train_freq_dir: Path, out_dir: Path) -> None:
+    """Construct the target pseudo dataset from CHIDLES transcript."""
     # get constructed set
     frame = pd.read_csv(text_path)
     frame = frame.dropna()
     frame = frame.sample(frac=1, random_state=66).reset_index(drop=True)
     # loop train_freq file
     for file in tqdm(os.listdir(train_freq_dir)):
-        try:
-            # count token numbers
-            train_num = pd.read_csv(train_freq_dir + file)['num_tokens'].sum()
-            oov_sum = 0
-            train_frame = pd.DataFrame()
-            n = 0
-            while oov_sum < train_num:
-                oov_sum += frame['num_tokens'].sum()
-                train_frame = pd.concat([train_frame,frame])
-                n += 1
+        # count token numbers
+        train_num = pd.read_csv(train_freq_dir / file)["num_tokens"].sum()
+        oov_sum = 0
+        train_frame = pd.DataFrame()
+        n = 0
+        while oov_sum < train_num:
+            oov_sum += frame["num_tokens"].sum()
+            train_frame = pd.concat([train_frame, frame])
+            n += 1
 
-            # cut additional line to align with the target train set
-            train_frame = cut_df(train_frame,train_num,'num_tokens')
-            # print out the utt
-            if not os.path.exists(out_dir):
-                os.makedirs(out_dir)
-            train_frame.to_csv(out_dir + file)
-
-        except:
-            print(file)
+        # cut additional line to align with the target train set
+        train_frame = cut_df(train_frame, train_num, "num_tokens")
+        # print out the utt
+        if not out_dir.is_dir():
+            out_dir.mkdir(parents=True)
+        train_frame.to_csv(out_dir / file)
 
 
-def main():
+def parse_args() -> argparse.Namespace:
+    """Parse arguments for dataset creation."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("train_freq_dir")
+    parser.add_argument("out_dir")
+    parser.add_argument("input_filename_path")
+    parser.add_argument("-m", "--mode", default="ood")
+    # TODO(@Jing): What is this ?
+    parser.add_argument("-f", "--file", default="400.csv")
 
-    mode = 'ood'
-    # filenames of the largest set to remove all the possible files
-    train_freq_dir = '/Users/jliu/PycharmProjects/Lexical-benchmark/datasets/raw/train/'
-    out_dir = '/Users/jliu/PycharmProjects/Lexical-benchmark/datasets/raw/' + mode + '/'
+    return parser.parse_args()
 
-    if mode == 'ind':
-        meta_data_path = f"{ROOT}/datasets/raw"
-        text_dir = '/Users/jliu/PycharmProjects/Lexical-benchmark/datasets/raw/audiobook/'
-        if not os.path.exists(meta_data_path + "/matched.csv"):
-            print('No metadata available, creating...')
-            meta_data = load_metadata(meta_data_path + "/matched2.csv", text_dir, meta_data_path + "/matched.csv")
+
+def main() -> None:
+    """Main function allowing to create the dataset."""
+    args = parse_args()
+    mode = args.mode
+    train_freq_dir = Path(args.train_freq_dir)
+    out_dir = Path(args.out_dir) / mode
+
+    if mode == "ind":
+        meta_data_path = settings.conf.transcript_path
+        text_dir = settings.conf.audiobook_txt_path
+        if not (meta_data_path / "matched.csv").is_file():
+            print("No metadata available, creating...")
+            meta_data = load_metadata(meta_data_path / "matched2.csv", text_dir)
         else:
-            meta_data = pd.read_csv(meta_data_path + "/matched.csv")
-        filename_path = '/Users/jliu/PycharmProjects/freq_bias_benchmark/data/train/filename/7100.csv'
-        
-        file = '400.csv'
-        train_frame, train_num = get_ind_mat(filename_path, train_freq_dir, file, text_dir,meta_data)
+            meta_data = pd.read_csv(meta_data_path / "matched.csv")
+        # "/Users/jliu/PycharmProjects/freq_bias_benchmark/data/train/filename/7100.csv"
+        filename_path = Path(args.input_filename_path)
+
+        file = args.file
+        train_frame, train_num = get_ind_mat(filename_path, train_freq_dir, file, text_dir, meta_data)
 
         # print out the utt
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir)
-        train_frame.to_csv(out_dir + file)
-        train_frame = pd.read_csv(out_dir + file)
+        if not out_dir.is_dir():
+            out_dir.mkdir(parents=True)
+
+        train_frame.to_csv(out_dir / file)
+        train_frame = pd.read_csv(out_dir / file)
         train_frame = cut_df(train_frame, train_num)
         train_frame.to_csv(out_dir + file)
 
-
     else:
-        text_path = '/Users/jliu/PycharmProjects/Lexical-benchmark/datasets/raw/CHILDES_adult.csv'
-        get_ood_mat(text_path, train_freq_dir, out_dir)
-
-if __name__ == "__main__":
-    main()
-
-
+        get_ood_mat(settings.conf.childes_adult_csv_path, train_freq_dir, out_dir)

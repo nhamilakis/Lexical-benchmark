@@ -1,15 +1,14 @@
-from polyglot.downloader import downloader
+import pymorphy2  # type:ignore[import-untyped]
+from polyglot.downloader import downloader  # type:ignore[import-untyped]
+from polyglot.text import Word  # type:ignore[import-untyped]
+
 print(downloader.supported_languages_table("morph2"))
 
-from polyglot.text import Text, Word
 words = ["preprocessing", "processor", "invaluable", "thankful", "crossed"]
 for w in words:
-      w = Word(w, language="en")
-      print("{:<20}{}".format(w, w.morphemes))
+    word = Word(w, language="en")
+    print(f"{word:<20}{word.morphemes}")
 
-
-
-import pymorphy2
 
 morph = pymorphy2.MorphAnalyzer()
 word = "unhappinessly"

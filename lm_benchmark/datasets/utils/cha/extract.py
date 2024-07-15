@@ -16,7 +16,7 @@ AFTER_SEMI = re.compile(r":(?!=)")
 
 
 class CHATranscriptions:
-    """ Structure holding annotations """
+    """Structure holding annotations"""
 
     def __init__(self, speaker_type: str):
         self._transcription = []
@@ -31,19 +31,19 @@ class CHATranscriptions:
         return list(filter(None, speech.split(" ")))
 
     def extract_word_frequency(self):
-        """ Word frequency of content """
+        """Word frequency of content"""
 
         return collections.Counter(self.raw_words())
 
 
 @dataclasses.dataclass
 class CHAData:
-    child_tr: CHATranscriptions = dataclasses.field(default_factory=lambda: CHATranscriptions(speaker_type='CHILD'))
-    adult_tr: CHATranscriptions = dataclasses.field(default_factory=lambda: CHATranscriptions(speaker_type='ADULT'))
+    child_tr: CHATranscriptions = dataclasses.field(default_factory=lambda: CHATranscriptions(speaker_type="CHILD"))
+    adult_tr: CHATranscriptions = dataclasses.field(default_factory=lambda: CHATranscriptions(speaker_type="ADULT"))
 
 
 def extract_from_cha(file: Path) -> CHAData:
-    """ Data extraction from CHA files """
+    """Data extraction from CHA files"""
     # TODO: fix proper parsing
     # lexer = CHALexer()
     # parser = CHAParser()
@@ -54,20 +54,19 @@ def extract_from_cha(file: Path) -> CHAData:
 
 
 def extract_from_cha_dirty(file: Path) -> CHAData:
-    """ Quick & dirty parsing for CHA files to extract wanted data """
+    """Quick & dirty parsing for CHA files to extract wanted data"""
 
     def extract_text(_line: str) -> t.Optional[str]:
         match = AFTER_SEMI.search(_line)
         if match:
             # Extract everything after the first colon
-            extracted_text = _line[match.start() + 1:].strip()
+            extracted_text = _line[match.start() + 1 :].strip()
             return extracted_text
         return None
 
     cha_data = CHAData()
 
     for line in file.read_text().splitlines():
-
         if line.startswith("*CHI:"):
             line_content = extract_text(line)
             cha_data.child_tr.add_annotation(line_content)
@@ -84,6 +83,6 @@ def extract_from_cha_dirty(file: Path) -> CHAData:
 # Temp replacement of parsing
 extract_from_cha: t.Callable[[Path], CHAData] = extract_from_cha_dirty
 
-if __name__ == '__main__':
-    _file = Path('data/datasets/Bates/Free20/amy.cha')
+if __name__ == "__main__":
+    _file = Path("data/datasets/Bates/Free20/amy.cha")
     _data = extract_from_cha(_file)

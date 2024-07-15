@@ -2,13 +2,13 @@ matplotlib
 pandas
 numpy
 torch # todo check version
+polyglot
 requests
 nltk
 rich
 spacy
 seaborn
 pyenchant
-fairseq # todo check version
 tqdm
 transformers # todo check version
 scipy

@@ -31,15 +31,33 @@ def cache_dir() -> Path:
 @dataclasses.dataclass
 class _MySettings:
     DATA_DIR: Path = Path(os.environ.get("DATA_DIR", "data/"))
+    COML_SERVERS: tuple = tuple({"oberon", "oberon2", "habilis", *[f"puck{i}" for i in range(1, 7)]})
 
     def __post_init__(self) -> None:
-        if platform.node() in COML_SERVERS:
+        if platform.node() in self.COML_SERVERS:
             self.DATA_DIR = Path("/scratch1/projects/lexical-benchmark")
+        # TODO(@Jing): add local hostname
         elif platform.node() == "...":
             self.DATA_DIR = Path("/Users/jliu/PycharmProjects/Lexical-benchmark/")
 
+    @property
+    def transcript_path(self) -> Path:
+        return self.DATA_DIR / "datasets/sources/CHILDES/transcript"
 
-settings = _MySettings()
+    @property
+    def metadata_path(self) -> Path:
+        return self.DATA_DIR / "datasets/raw"
+
+    @property
+    def audiobook_txt_path(self) -> Path:
+        return self.DATA_DIR / "datasets/raw/audiobook"
+
+    @property
+    def childes_adult_csv_path(self) -> Path:
+        return self.DATA_DIR / "datasets/raw/CHILDES_adult.csv"
 
 
-__all__ = ["settings"]
+conf = _MySettings()
+
+
+__all__ = ["conf", "cache_dir"]

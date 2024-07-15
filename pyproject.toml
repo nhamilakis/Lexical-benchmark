@@ -28,9 +28,13 @@ get-frequencies = "lm_benchmark.get_frequencies:main"
 match-frequencies = "lm_benchmark.match_frequencies:main"
 dataset-explore = "lm_benchmark.dataset_explore:main"
 cf-analysis = "lm_benchmark.cf_analysis:main"
+create-machine-dataset = "lm_benchmark.datasets.machine_cdi.create_dataset:main"
 
 [project.optional-dependencies]
 dev = ["ruff", "mypy", "ipython", "jupyter"]
+polyglot = ["polyglot", "pyicu", "pycld2", "morfessor"]
+# Fairseq is having issues installing so lets make it optional
+train = ["fairseq"]
 
 [build-system]
 requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
