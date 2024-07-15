@@ -18,9 +18,13 @@ def extract_word_list(file_path: Path, chunksize: int = 10000) -> set[str]:
     return {word.lower() for word in word_list}
 
 
-ROOT = "/Users/jliu/PycharmProjects/Lexical-benchmark/datasets/raw"
+def main() -> None:
+    """Merge generations.
 
-CELEX = pd.read_excel(f"{ROOT}/SUBTLEX.xlsx")["Word"].str.lower().tolist()
-words = extract_word_list_with_pandas(f"{ROOT}/wiki.json")
-# prepare for the word list
-intersection = CELEX.intersection(words)
+    TODO(@Jing): add more explanation for what that is
+    """
+    celex = pd.read_excel(settings.PATH.metadata_path / "SUBTLEX.xlsx")["Word"].str.lower().tolist()
+    words = extract_word_list(settings.PATH.metadata_path / "wiki.json")
+    # prepare for the word list
+    _ = celex.intersection(words)
+    # TODO(@Jing): What happens after that?

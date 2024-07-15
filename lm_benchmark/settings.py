@@ -3,10 +3,13 @@ import os
 import platform
 from pathlib import Path
 
-COML_SERVERS = {"oberon", "oberon2", "habilis", *[f"puck{i}" for i in range(1, 7)]}
-ROOT = "/Users/jliu/PycharmProjects/Lexical-benchmark"
+# URL to the KAIKI extended english word dictionairy
 KAIKI_ENGLISH_WORD_DICT_URL = "https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz"
+# Dictionairy containing age filters
 AGE_DICT = {"AE": [8, 18], "BE": [12, 25]}
+# Placeholder string for empty rows
+PLACEHOLDER_MONTH = "placeholder"
+# Model list
 model_dict = {
     "50h": [1],
     "100h": [1],
@@ -19,6 +22,22 @@ model_dict = {
     "7100h": [66, 74],
 }
 
+#######################################################
+# Filters for CHILDES content
+CONTENT_POS = {"ADJ", "NOUN", "VERB", "ADV", "PROPN"}
+CATEGORY = {
+    "connecting_words",
+    "helping_verbs",
+    "pronouns",
+    "quantifiers",
+    "prepositions",
+    "sounds",
+    "locations",
+    "question_words",
+}
+WORD = {"now", "dont", "hi"}
+#######################################################
+
 
 def cache_dir() -> Path:
     """Return a directory to use as cache."""
@@ -29,7 +48,7 @@ def cache_dir() -> Path:
 
 
 @dataclasses.dataclass
-class _MySettings:
+class _MyPathSettings:
     DATA_DIR: Path = Path(os.environ.get("DATA_DIR", "data/"))
     COML_SERVERS: tuple = tuple({"oberon", "oberon2", "habilis", *[f"puck{i}" for i in range(1, 7)]})
 
@@ -57,7 +76,4 @@ class _MySettings:
         return self.DATA_DIR / "datasets/raw/CHILDES_adult.csv"
 
 
-conf = _MySettings()
-
-
-__all__ = ["conf", "cache_dir"]
+PATH = _MyPathSettings()

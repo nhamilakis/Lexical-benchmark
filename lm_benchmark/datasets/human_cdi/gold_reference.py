@@ -5,20 +5,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from lm_benchmark import settings
 from lm_benchmark.datasets import utils
-
-CONTENT_POS = {"ADJ", "NOUN", "VERB", "ADV", "PROPN"}
-CATEGORY = {
-    "connecting_words",
-    "helping_verbs",
-    "pronouns",
-    "quantifiers",
-    "prepositions",
-    "sounds",
-    "locations",
-    "question_words",
-}
-WORD = {"now", "dont", "hi"}
 
 
 class POSTypes(str, enum.Enum):
@@ -118,15 +106,15 @@ class GoldReferenceCSV:
         # Filter words by PoS
         if self.pos_filter_type == POSTypes.content:
             # filter out all PoS that is not in CONTENT_POS
-            df = df[df["POS"].isin(CONTENT_POS)]
+            df = df[df["POS"].isin(settings.CONTENT_POS)]
 
         elif self.pos_filter_type == POSTypes.function:
             # Filter out all PoS that is in CONTENT_POS
-            df = df[~df["POS"].isin(CONTENT_POS)]
+            df = df[~df["POS"].isin(settings.CONTENT_POS)]
 
         # Filter polysemous words by annotations from original data
-        df = df[~df["category"].isin(CATEGORY)]
-        df = df[~df["item_definition"].isin(WORD)]
+        df = df[~df["category"].isin(settings.CATEGORY)]
+        df = df[~df["item_definition"].isin(settings.WORD)]
 
         # merge different word senses by adding the prop
         df = utils.merge_word(df, "word")

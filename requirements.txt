@@ -13,3 +13,4 @@ tqdm
 transformers # todo check version
 scipy
 statsmodels
+deep-phonemizer

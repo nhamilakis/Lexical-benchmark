@@ -206,8 +206,8 @@ def main() -> None:
     out_dir = Path(args.out_dir) / mode
 
     if mode == "ind":
-        meta_data_path = settings.conf.transcript_path
-        text_dir = settings.conf.audiobook_txt_path
+        meta_data_path = settings.PATH.transcript_path
+        text_dir = settings.PATH.audiobook_txt_path
         if not (meta_data_path / "matched.csv").is_file():
             print("No metadata available, creating...")
             meta_data = load_metadata(meta_data_path / "matched2.csv", text_dir)
@@ -229,4 +229,4 @@ def main() -> None:
         train_frame.to_csv(out_dir + file)
 
     else:
-        get_ood_mat(settings.conf.childes_adult_csv_path, train_freq_dir, out_dir)
+        get_ood_mat(settings.PATH.childes_adult_csv_path, train_freq_dir, out_dir)
