@@ -57,7 +57,9 @@ class _MyPathSettings:
             self.DATA_DIR = Path("/scratch1/projects/lexical-benchmark")
         # TODO(@Jing): add local hostname
         elif platform.node() == "...":
-            self.DATA_DIR = Path("/Users/jliu/PycharmProjects/Lexical-benchmark/")
+            self.DATA_DIR = Path.home() / "PycharmProjects/Lexical-benchmark"
+        elif platform.node() == "nicolass-mbp":
+            self.DATA_DIR = Path.home() / "workspace/coml/data/Lexical-benchmark/data"
 
     @property
     def transcript_path(self) -> Path:
@@ -74,6 +76,11 @@ class _MyPathSettings:
     @property
     def childes_adult_csv_path(self) -> Path:
         return self.DATA_DIR / "datasets/raw/CHILDES_adult.csv"
+
+    @property
+    def cdi_root(self) -> Path:
+        # TODO(@Jing): verify that path is correct ?
+        return self.DATA_DIR / "datasets/sources/wordbank"
 
 
 PATH = _MyPathSettings()

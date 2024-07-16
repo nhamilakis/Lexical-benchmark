@@ -7,8 +7,8 @@ import pandas as pd
 from lm_benchmark import nlp_tools, plot_util, settings
 
 # set constant setting
-FREQ_ROOT = f"{settings.ROOT}/datasets/processed/month_count/"
-GEN_ROOT = f"{settings.ROOT}/datasets/processed/generation/"
+FREQ_ROOT = f"{settings.PATH.DATA_DIR / 'datasets/processed/month_count'}"
+GEN_ROOT = f"{settings.PATH.DATA_DIR / 'datasets/processed/generation'}"
 FIG_SIZE = (10, 10)
 month_range = [6, 36]
 
@@ -80,9 +80,10 @@ def main() -> None:
 
     trans = pd.read_csv(trans_path)
 
-    vocal = pd.read_csv(settings.ROOT + "/datasets/raw/vocal_month.csv")
+    vocal = pd.read_csv(settings.PATH.DATA_DIR / "datasets/raw/vocal_month.csv")
     sel = vocal[(vocal["month"] >= 6) & (vocal["month"] <= 36)][["child_num_tokens", "month"]]
     # get the sum of first few months
+    # BUG(@Jing): function sum_rows not defined ??
     sel = plot_util.sum_rows(sel, 9, "child_num_tokens")
     target_month = 16
 

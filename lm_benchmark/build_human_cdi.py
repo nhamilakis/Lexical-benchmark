@@ -2,8 +2,8 @@ import argparse
 import dataclasses
 from pathlib import Path
 
+from lm_benchmark import settings
 from lm_benchmark.datasets.human_cdi import GoldReferenceCSV, POSTypes
-from lm_benchmark.settings import AGE_DICT, ROOT
 
 
 @dataclasses.dataclass
@@ -23,8 +23,8 @@ def arguments() -> argparse.Namespace:
     )
     parser.add_argument("--lang", type=str, default="AE")
     parser.add_argument("--test_type", type=str, default="exp")
-    parser.add_argument("--src_file", type=str, default=f"{ROOT}/datasets/raw/")
-    parser.add_argument("--target_file", type=str, default=f"{ROOT}/datasets/processed/CDI/")
+    parser.add_argument("--src_file", type=str, default=f"{settings.PATH.DATA_DIR}/datasets/raw/")
+    parser.add_argument("--target_file", type=str, default=f"{settings.PATH.DATA_DIR}/datasets/processed/CDI/")
     return parser.parse_args()
 
 
@@ -35,8 +35,8 @@ def main() -> None:
     src = Path(args.src_file).joinpath(args.lang + "_" + args.test_type + ".csv")
     target = Path(args.target_file).joinpath(args.lang + "_" + args.test_type + "_human.csv")
     print(f"{args.lang} {args.test_type} loaded")
-    age_min = AGE_DICT[args.lang][0]
-    age_max = AGE_DICT[args.lang][1]
+    age_min = settings.AGE_DICT[args.lang][0]
+    age_max = settings.AGE_DICT[args.lang][1]
 
     gd_loader = GoldReferenceCSV(
         raw_csv=src,

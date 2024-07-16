@@ -3,11 +3,15 @@ from pathlib import Path
 
 import pandas as pd
 
+from lm_benchmark import settings
 
-def segment_sentences(file_path):
-    """segment prompts into 3-grams"""
+from .create_dataset import count_token
+
+
+def segment_sentences(file_path: Path) -> list[str]:
+    """Segment prompts into 3-grams."""
     segments = []
-    with open(file_path, "r") as file:
+    with file_path.open("r") as file:
         for line in file:
             words = line.lower().strip().split()
             length = len(words)
@@ -20,17 +24,16 @@ def segment_sentences(file_path):
                     if length - i <= 3:
                         segments.append(" ".join(words[i:]))
                         break
-                    else:
-                        segments.append(" ".join(words[i : i + 3]))
-                        i += 3
+                    segments.append(" ".join(words[i : i + 3]))
+                    i += 3
             else:
                 # If the sentence is 3 words or less, take it as it is
                 segments.append(" ".join(words))
     return segments
 
 
-def get_prompt_stat(prompt_path: Path, set_type: str, count=False) -> pd.DataFrame:
-    """get the gen stat based on prompt len"""
+def get_prompt_stat(prompt_path: Path, set_type: str, *, count: bool = False) -> pd.DataFrame:
+    """Get the gen stat based on prompt len."""
     ind_prompt = pd.read_csv(prompt_path)
     if count:
         ind_prompt["num_tokens"] = ind_prompt["prompt"].apply(count_token)  # count the number of tokens
@@ -48,25 +51,27 @@ def get_prompt_stat(prompt_path: Path, set_type: str, count=False) -> pd.DataFra
         ],
     ]
     utt_frame = pd.DataFrame(utt_lst).T
-    utt_frame.columns = ["length", "num_utt", "num_tokens"]
+    utt_frame.columns = pd.Index(["length", "num_utt", "num_tokens"])
     utt_frame["set"] = set_type
     return utt_frame
 
 
-def filter_prompts(ind_prompt_path: Path, ood_prompt_path: Path) -> pd.DataFrame:
+def filter_prompts(ind_prompt_path: Path, ood_prompt_path: Path) -> tuple(pd.DataFrame, pd.DataFrame):
+    """Filtering of prompts (?)."""
     # load files
     ind_prompt = pd.read_csv(ind_prompt_path)
     ood_prompt = pd.read_csv(ood_prompt_path)
 
     # filter the prompts
+    # BUG(@JING): function missing ?
     ind_prompt["prompt"] = ind_prompt["train"].apply(lambda s: get_n_words(s, 3))
     # get the prompt length
     ind_prompt["prompt_len"] = ind_prompt["prompt"].apply(count_token)
     ood_prompt["prompt_len"] = ood_prompt["prompt"].apply(count_token)
     # List of words to check for
-    word_list = pd.read_csv(Path(CDI_ROOT) / "AE_exp_machine.csv")["word"].tolist()
-    BE_word = pd.read_csv(Path(CDI_ROOT) / "BE_exp_machine.csv")["word"].tolist()
-    word_list.extend(BE_word)
+    word_list = pd.read_csv(settings.PATH.cdi_root / "AE_exp_machine.csv")["word"].tolist()
+    be_word = pd.read_csv(settings.PATH.cdi_root / "BE_exp_machine.csv")["word"].tolist()
+    word_list.extend(be_word)
     # Create a regular expression pattern that matches any of the words
     pattern = "|".join([f"\\b{word}\\b" for word in word_list])
     # concat the DataFrame

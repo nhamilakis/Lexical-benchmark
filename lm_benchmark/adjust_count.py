@@ -13,10 +13,12 @@ from .analysis.score_util import MonthCounter
 def arguments() -> argparse.Namespace:
     """Build & Parse command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--gen_file", default=f"{settings.ROOT}/datasets/processed/generation/unprompted_LSTM_2.csv")
-    parser.add_argument("--est_file", default=f"{settings.ROOT}/datasets/raw/vocal_month.csv")
-    parser.add_argument("--CDI_path", default=f"{settings.ROOT}/datasets/processed/CDI/")
-    parser.add_argument("--freq_path", default=f"{settings.ROOT}/datasets/processed/month_count/")
+    parser.add_argument(
+        "--gen_file", default=f"{settings.PATH.DATA_DIR}/datasets/processed/generation/unprompted_LSTM_2.csv"
+    )
+    parser.add_argument("--est_file", default=f"{settings.PATH.DATA_DIR}/datasets/raw/vocal_month.csv")
+    parser.add_argument("--CDI_path", default=f"{settings.PATH.DATA_DIR}/datasets/processed/CDI/")
+    parser.add_argument("--freq_path", default=f"{settings.PATH.DATA_DIR}/datasets/processed/month_count/")
     parser.add_argument("--prompt_type", default="unprompted")
     parser.add_argument("--lang", default="AE")
     parser.add_argument("--set", default="machine")

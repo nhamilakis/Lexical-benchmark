@@ -116,6 +116,8 @@ options:
   --prompt PROMPT
 ```
 
+**cf-analysis** : ... TBA
+
 **create-machine-dataset** : 
 
 ```bash
@@ -132,6 +134,14 @@ options:
   -m MODE, --mode MODE
   -f FILE, --file FILE
 ```
+
+**merge-generations** : ... TBA
+
+**morphology** : ... TBA
+
+**phonemize-data** : ... TBA
+
+**train-model** : ... TBA
 
 
 ## Brief description

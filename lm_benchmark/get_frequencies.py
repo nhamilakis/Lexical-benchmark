@@ -10,8 +10,8 @@ from lm_benchmark.analysis import frequency_utils
 def arguments() -> argparse.Namespace:
     """Build & Parse command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--src_file", default=f"{settings.ROOT}/datasets/raw/train/3200.csv")
-    parser.add_argument("--target_file", default=f"{settings.ROOT}/datasets/processed/freq/3200_3gram.csv")
+    parser.add_argument("--src_file", default=f"{settings.PATH.DATA_DIR / 'datasets/raw/train/3200.csv'}")
+    parser.add_argument("--target_file", default=f"{settings.PATH.DATA_DIR / 'datasets/processed/freq/3200_3gram.csv'}")
     parser.add_argument("--header", default="train")
     parser.add_argument("--ngram", default=3)
     return parser.parse_args()

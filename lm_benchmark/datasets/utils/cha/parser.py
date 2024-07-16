@@ -1,3 +1,7 @@
+""" File containing CHA file parsing.
+INFO: this file does not pass ruff linting so it has been excluded, because of sly syntax.
+INFO: this file does not pass mypy type-check so it has been excluded, because of sly syntax.
+"""
 import dataclasses
 import typing as t
 from pathlib import Path
@@ -7,7 +11,7 @@ from sly import (
     Parser,
 )
 
-ENCODINGS = {'UTF8'}
+ENCODINGS = {"UTF8"}
 
 
 @dataclasses.dataclass
@@ -27,30 +31,27 @@ class CHAFileAST:
 
 
 class CHALexer(Lexer):
-    """ Lexer for CHA files """
-    tokens = {
-        ENCODING, BEGIN, END,  # noqa: sly syntaxt
-        HEADER_NAME, ANNOT_NAME, META_NAME,  # noqa: sly syntaxt
-        VALUE_STRING  # noqa: sly syntaxt
-    }
-    ignore = ' \t'
+    """Lexer for CHA files"""
+
+    tokens = {ENCODING, BEGIN, END, HEADER_NAME, ANNOT_NAME, META_NAME, VALUE_STRING}
+    ignore = " \t"
     literals = {}
 
-    ENCODING = '@UTF8'
+    ENCODING = "@UTF8"
     BEGIN = r"@Begin"
     END = r"@End"
     HEADER_NAME = r"@[A-Za-z0-9]+:"
     ANNOT_NAME = r"\*[A-Za-z0-9]+:"
     META_NAME = r"%[A-Za-z0-9]+:"
-    VALUE_STRING = r'[^@\*%\n]+'
+    VALUE_STRING = r"[^@\*%\n]+"
 
-    @_(r'\n+')  # noqa: sly syntax
+    @_(r"\n+")  # noqa: sly syntax
     def newline(self, t):
-        self.lineno += t.value.count('\n')
+        self.lineno += t.value.count("\n")
 
     @staticmethod
     def find_column(text, token):
-        last_cr = text.rfind('\n', 0, token.index)
+        last_cr = text.rfind("\n", 0, token.index)
         if last_cr < 0:
             last_cr = 0
         column = (token.index - last_cr) + 1
@@ -75,15 +76,15 @@ NAME := STRING
 
 class CHAParser(Parser):
     tokens = CHALexer.tokens
-    debugfile = 'parser.out'
+    debugfile = "parser.out"
 
     def __init__(self):
         self.parsed_data = CHAFileAST(header={}, annotations=[])
         self._current_annotation = None
 
-    @_(r'HEADER_NAME VALUE_STRING')  # noqa: sly syntaxt
+    @_(r"HEADER_NAME VALUE_STRING")
     def statement(self, line):
-        name = line.HEADER_NAME.replace('@', '').replace(':', '')
+        name = line.HEADER_NAME.replace("@", "").replace(":", "")
         value = line.VALUE_STRING
 
         if name in self.parsed_data.header:
@@ -91,49 +92,44 @@ class CHAParser(Parser):
         else:
             self.parsed_data.header[name] = value
 
-    @_(r'ANNOT_NAME VALUE_STRING')  # noqa: sly syntaxt
+    @_(r"ANNOT_NAME VALUE_STRING")
     def statement(self, line):
-        name = line.ANNOT_NAME.replace('*', '').replace(':', '')
+        name = line.ANNOT_NAME.replace("*", "").replace(":", "")
         value = line.VALUE_STRING
 
         if self._current_annotation is not None:
             self.parsed_data.annotations.append(self._current_annotation)
             self._current_annotation = None
 
-        self._current_annotation = Annotation(
-            speaker=name,
-            text=value,
-            meta={}
-        )
+        self._current_annotation = Annotation(speaker=name, text=value, meta={})
 
-    @_(r'META_NAME VALUE_STRING')  # noqa: sly syntaxt
+    @_(r"META_NAME VALUE_STRING")
     def statement(self, line):
-        name = line.META_NAME.replace('%', '').replace(':', '')
+        name = line.META_NAME.replace("%", "").replace(":", "")
         value = line.VALUE_STRING
 
         if self._current_annotation is None:
-            raise ValueError('No annotation for meta')
+            raise ValueError("No annotation for meta")
 
         self._current_annotation.meta[name] = value
 
-
-    @_(r'ENCODING')  # noqa: sly syntaxt
+    @_(r"ENCODING")
     def statement(self, line):
-        self.parsed_data.encoding = line.ENCODING.replace('@', '')
+        self.parsed_data.encoding = line.ENCODING.replace("@", "")
 
-    @_(r'BEGIN')  # noqa: sly syntaxt
-    def statement(self, line):
-        pass
-
-    @_(r'END')  # noqa: sly syntaxt
+    @_(r"BEGIN")
     def statement(self, line):
         pass
 
-    @_(r'HEADER_NAME')  # noqa: sly syntaxt
+    @_(r"END")
     def statement(self, line):
-        name = line.HEADER_NAME.replace('@', '').replace(':', '')
+        pass
+
+    @_(r"HEADER_NAME")
+    def statement(self, line):
+        name = line.HEADER_NAME.replace("@", "").replace(":", "")
         if name in ENCODINGS:
-            self.parsed_data.header['encoding'] = name
+            self.parsed_data.header["encoding"] = name
         print(f"{name}")
 
     def error(self, p):
@@ -146,11 +142,11 @@ class CHAParser(Parser):
             print("Syntax error at EOF")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Testing
     test_data = Path("~/workspace/coml/data/Lexical-benchmark/data/datasets").expanduser()
     lexer = CHALexer()
     parser = CHAParser()
-    cha_text = (test_data / 'Bates/Free28/amy28.cha').read_text()
+    cha_text = (test_data / "Bates/Free28/amy28.cha").read_text()
     tokens = lexer.tokenize(cha_text)
     result = parser.parse(tokens)

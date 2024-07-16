@@ -13,9 +13,11 @@ from lm_benchmark.analysis import frequency_utils
 def arguments() -> argparse.Namespace:
     """Build & Parse command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--CDI_path", default=f"{settings.ROOT}/datasets/processed/CDI/")
-    parser.add_argument("--human_freq", default=f"{settings.ROOT}/datasets/processed/freq/CHILDES_adult.csv")
-    parser.add_argument("--machine_freq", default=f"{settings.ROOT}/datasets/processed/freq/3200h.csv")
+    parser.add_argument("--CDI_path", default=f"{settings.PATH.DATA_DIR / 'datasets/processed/CDI/'}")
+    parser.add_argument(
+        "--human_freq", default=f"{settings.PATH.DATA_DIR / 'datasets/processed/freq/CHILDES_adult.csv'}"
+    )
+    parser.add_argument("--machine_freq", default=f"{settings.PATH.DATA_DIR / 'datasets/processed/freq/3200h.csv'}")
     parser.add_argument("--lang", type=str, default="BE")
     parser.add_argument("--test_type", type=str, default="exp")
     parser.add_argument("--sampling_ratio", type=int, default=1)

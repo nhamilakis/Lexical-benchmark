@@ -34,13 +34,14 @@ merge-generations = "lm_benchmark.datasets.machine_cdi.merge_generations:main"
 # Not completed ?
 morphology = "lm_benchmark.analysis.morphology:main"
 phonemize-data = "lm_benchmark.datasets.machine_cdi.phonemize:main"
+train-model = "lm_benchmark.model.train:cli_main"
 
 
 [project.optional-dependencies]
 dev = ["ruff", "mypy", "ipython", "jupyter"]
 polyglot = ["polyglot", "pyicu", "pycld2", "morfessor"]
 # Fairseq is having issues installing so lets make it optional
-train = ["fairseq"]
+train = ["fairseq", "iopath"]
 
 [build-system]
 requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
@@ -54,10 +55,16 @@ where = ["."]
 include = ["lm_benchmark*"]
 exclude = ["examples*", "tests*"]
 
+[tool.mypy]
+exclude = [
+    'parser\.py$' # Exclude parser.py -> sly does not type-check
+]
+
 [tool.ruff]
 target-version = "py311"
 line-length = 120
 fixable = ["ALL"]
+exclude = ["parser.py"] # Exclude parser.py -> sly does not lint proper
 
 
 [tool.ruff.lint]
@@ -82,6 +89,8 @@ ignore = [
     "PLR2004", # Allow magic numbers (should be avoided, except some math contexts)
     "S311",    # No cryptography done here random is safe enough
     "PD901",   # Allow df variable name
+    "COM812",  # Allow trailing comma to be missing
+    "G004",    # Allow f-strings in logger (reasonable, but not here)
 ]
 
 

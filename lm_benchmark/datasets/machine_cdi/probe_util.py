@@ -1,25 +1,24 @@
-"""util functions to create probe sets"""
+"""Util functions to create probe sets."""
 
+import collections
 import re
 from pathlib import Path
 
 import pandas as pd
-from scipy.stats import ttest_rel
+from scipy.stats import ttest_rel  # type: ignore[import-untyped]
 from tqdm import tqdm
 
-from lm_benchmark.plot_util import tc_compute_miss_oov_rates
-from lm_benchmark.utils import TokenCount
+from lm_benchmark import nlp_tools, plot_util
 
 
-def rename_files(directory: Path) -> dict:
-    """Given a directory of gen files, rename the batch number and return a dictionary of filenames by epochs"""
-    # Get all files with the format baseName_number.csv
-    files = list(directory.glob("*.csv"))
+def rename_files(directory: Path) -> dict[str, list[str]]:
+    """Given a directory of gen files, rename the batch number and return a dictionary of filenames by epochs."""
     # List to hold tuples of (base name, number, file path)
     file_info = []
     # Regex to extract the base name and number
     pattern = re.compile(r"(.+?)_(\d+)\.csv")
-    for file in files:
+    # Get all files with the format baseName_number.csv
+    for file in directory.rglob("*.csv"):
         match = pattern.match(file.name)
         if match:
             base_name, number = match.groups()
@@ -29,40 +28,42 @@ def rename_files(directory: Path) -> dict:
     # Sort the list by base name and then by number
     file_info.sort(key=lambda x: (x[0], x[1]))
     # Dictionary to store filenames by epochs
-    filenames_by_epochs = {}
+    filenames_by_epochs = collections.defaultdict(list)
     for base_name, _, file in file_info:
-        if base_name not in filenames_by_epochs:
-            filenames_by_epochs[base_name] = []
         filenames_by_epochs[base_name].append(file.stem)
         new_index = len(filenames_by_epochs[base_name]) - 1
-        new_filename = f"{base_name}_{new_index}.csv"
-        new_filepath = directory / new_filename
+        new_filepath = directory / f"{base_name}_{new_index}.csv"
         print(f"Renaming {file} to {new_filepath}")
         file.rename(new_filepath)
-    return filenames_by_epochs
+    return dict(filenames_by_epochs)
 
 
-def load_files(file_names: list, parent_path: Path, suffix: str) -> TokenCount:
-    """
-    Load files as TC objects
+def load_files(file_names: list[str], parent_path: Path, suffix: str) -> dict[str, nlp_tools.TokenCount]:
+    """Load files as TC objects.
 
-    Args:
-    - file_names (list): List of filenames in the desired order.
-    - parent_dir (str): Path to the common parent directory.
+    Arguments:
+    ---------
+    file_names (list):
+        List of filenames in the desired order.
+    parent_path (str):
+        Path to the common parent directory.
+    suffix (str):
+        the file suffix.
 
     Returns:
-    - dataframes (list): List of TokwnCounts read from the files.
+    -------
+        dataframes (list): List of TokwnCounts read from the files.
+
     """
     dataframes = {}
 
     for file_name in file_names:
-        filename = file_name + "." + suffix
-        file_path = parent_path / filename
-        if suffix == "txt":
+        file_path = parent_path / f"{file_name}.{suffix}"
+        if file_path.suffix == ".txt":
             # load as TC object
-            word_count = TokenCount.from_text_file(file_path)
-        elif suffix == "csv":
-            word_count = TokenCount.from_df(file_path, "LSTM_segmented")
+            word_count = nlp_tools.TokenCount.from_text_file(file_path)
+        elif file_path.suffix == ".csv":
+            word_count = nlp_tools.TokenCount.from_csv(file_path, "LSTM_segmented")
 
         word_count.name = file_name
         dataframes[file_name] = word_count
@@ -70,10 +71,10 @@ def load_files(file_names: list, parent_path: Path, suffix: str) -> TokenCount:
     return dataframes
 
 
-def select_probe_set(files: dict, out_dir: Path, prop: float) -> dict:
-    """
-    input: a dictionary of sorted files
-    return: a dictionary of unique probe files
+def select_probe_set(files: dict, out_dir: Path, prop: float) -> dict[str, nlp_tools.TokenCount]:
+    """Select probe set.
+
+    returns: a dictionary of unique probe files
     """
     # Create out_dir if it does not exist
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -110,7 +111,7 @@ def select_probe_set(files: dict, out_dir: Path, prop: float) -> dict:
         # Get statistics for the CSV file
         stat_lst.append([curr_file, selected_df.shape[0]])
         # Convert it to TokenCount object
-        word_count = TokenCount()
+        word_count = nlp_tools.TokenCount()
         word_count.name = curr_file
         word_count.df = selected_df
         dataframes[curr_file] = word_count
@@ -119,13 +120,14 @@ def select_probe_set(files: dict, out_dir: Path, prop: float) -> dict:
         print(f"Probe set for batch {curr_file} saved to {out_dir}")
 
     stat_df = pd.DataFrame(stat_lst, columns=["filename", "token_count"])
-    filename = f"stat_probe_{str(prop)}.csv"
+    filename = f"stat_probe_{prop}.csv"
     stat_df.to_csv(out_dir / filename, index=False)
     return dataframes
 
 
 # Assuming `stat` is the DataFrame with the required columns
 def add_difference(stat: pd.DataFrame) -> pd.DataFrame:
+    """Add the difference (??)."""
     # Define the new column names
     new_columns = {
         "freq_score": ["freq_score_learn", "freq_score_forget"],
@@ -143,6 +145,7 @@ def add_difference(stat: pd.DataFrame) -> pd.DataFrame:
 
 
 def compare_scores(probe_files: dict, gen_files: dict, *, run_stat: bool = False) -> pd.DataFrame:
+    """Score comparison."""
     stat = pd.DataFrame(
         columns=[
             "freq_score_prev",
@@ -165,9 +168,13 @@ def compare_scores(probe_files: dict, gen_files: dict, *, run_stat: bool = False
         prev_filename = filename.split("_")[0] + "_" + str(int(filename.split("_")[1]) - 1)
         next_filename = filename.split("_")[0] + "_" + str(int(filename.split("_")[1]) + 1)
 
-        msc_prev, osc_prev, nsc_prev = tc_compute_miss_oov_rates(probe_tc, gen_files[prev_filename], groupbin=1)
-        msc_cur, osc_cur, nsc_cur = tc_compute_miss_oov_rates(probe_tc, gen_files[filename], groupbin=1)
-        msc_next, osc_next, nsc_next = tc_compute_miss_oov_rates(probe_tc, gen_files[next_filename], groupbin=1)
+        msc_prev, osc_prev, nsc_prev = plot_util.tc_compute_miss_oov_rates(
+            probe_tc, gen_files[prev_filename], groupbin=1
+        )
+        msc_cur, osc_cur, nsc_cur = plot_util.tc_compute_miss_oov_rates(probe_tc, gen_files[filename], groupbin=1)
+        msc_next, osc_next, nsc_next = plot_util.tc_compute_miss_oov_rates(
+            probe_tc, gen_files[next_filename], groupbin=1
+        )
 
         stat_temp = pd.DataFrame(
             [
@@ -206,40 +213,39 @@ def compare_scores(probe_files: dict, gen_files: dict, *, run_stat: bool = False
 
     if not run_stat:
         # add additional difference score
-        stat = add_difference(stat)
-        return stat
+        return add_difference(stat)
 
-    else:
-        # Run stat analysis
-        result = pd.DataFrame(
-            columns=[
-                "freq_score_learn_p",
-                "freq_score_learn_t",
-                "freq_score_forget_p",
-                "freq_score_forget_t",
-                "pmiss_learn_p",
-                "pmiss_learn_t",
-                "pmiss_forget_p",
-                "pmiss_forget_t",
-                "poov_learn_p",
-                "poov_learn_t",
-                "poov_forget_p",
-                "poov_forget_t",
-                "pnword_learn_p",
-                "pnword_learn_t",
-                "pnword_forget_p",
-                "pnword_forget_t",
-            ]
-        )
+    # Run stat analysis
+    # BUG(@Jing): DataFrames should not be used as dictionairies, appending is not a good use-case, not optimal
+    result = pd.DataFrame(
+        columns=[
+            "freq_score_learn_p",
+            "freq_score_learn_t",
+            "freq_score_forget_p",
+            "freq_score_forget_t",
+            "pmiss_learn_p",
+            "pmiss_learn_t",
+            "pmiss_forget_p",
+            "pmiss_forget_t",
+            "poov_learn_p",
+            "poov_learn_t",
+            "poov_forget_p",
+            "poov_forget_t",
+            "pnword_learn_p",
+            "pnword_learn_t",
+            "pnword_forget_p",
+            "pnword_forget_t",
+        ]
+    )
 
-        score_lst = ["freq_score", "pmiss", "poov", "pnword"]
-        for score in score_lst:
-            t_learn, p_learn = ttest_rel(stat[f"{score}_cur"], stat[f"{score}_prev"])
-            t_forget, p_forget = ttest_rel(stat[f"{score}_cur"], stat[f"{score}_next"])
+    score_lst = ["freq_score", "pmiss", "poov", "pnword"]
+    for score in score_lst:
+        t_learn, p_learn = ttest_rel(stat[f"{score}_cur"], stat[f"{score}_prev"])
+        t_forget, p_forget = ttest_rel(stat[f"{score}_cur"], stat[f"{score}_next"])
 
-            result.loc[0, f"{score}_learn_p"] = p_learn
-            result.loc[0, f"{score}_learn_t"] = t_learn
-            result.loc[0, f"{score}_forget_p"] = p_forget
-            result.loc[0, f"{score}_forget_t"] = t_forget
+        result.loc[0, f"{score}_learn_p"] = p_learn
+        result.loc[0, f"{score}_learn_t"] = t_learn
+        result.loc[0, f"{score}_forget_p"] = p_forget
+        result.loc[0, f"{score}_forget_t"] = t_forget
 
-        return result
+    return result

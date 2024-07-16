@@ -3,15 +3,16 @@
 import argparse
 
 import pandas as pd
-from lm_benchmark.model.model_util import make_crp
-from lm_benchmark.settings import ROOT
+
+from lm_benchmark import settings
+from lm_benchmark.model import model_util
 
 
 def arguments() -> argparse.Namespace:
     """Build & Parse command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--src_file", default=f"{ROOT}/datasets/processed/freq/800h.csv")
-    parser.add_argument("--target_file", default=f"{ROOT}/datasets/processed/generation/800h.csv")
+    parser.add_argument("--src_file", default=f"{settings.PATH.DATA_DIR}/datasets/processed/freq/800h.csv")
+    parser.add_argument("--target_file", default=f"{settings.PATH.DATA_DIR}/datasets/processed/generation/800h.csv")
     parser.add_argument("--fixed_alpha", default=True)
     parser.add_argument("--alpha", type=int, default=80000, help="?")
     parser.add_argument(
@@ -53,7 +54,7 @@ def main() -> None:
         alpha = calculate_alpha(ref_count["count"].sum(), args.desired_oov)
         print("Adjusting alpha to reach the desired oov rate")
 
-    gen_count = make_crp(ref_count, alpha)
+    gen_count = model_util.make_crp(ref_count, alpha)
     gen_count.to_csv(args.target_file, index=False)
 
 

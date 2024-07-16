@@ -5,22 +5,34 @@ from pathlib import Path
 
 import pandas as pd
 
+from lm_benchmark import nlp_tools, settings
+
 from .datasets.machine_cdi import probe_util
-from .settings import ROOT
 
 
 def arguments() -> argparse.Namespace:
     """Build & Parse command-line arguments."""
     parser = argparse.ArgumentParser(description="Select probe set that is unique to the target dir")
-    parser.add_argument("--input_dir", type=str, default=f"{ROOT}/datasets/raw/100", help="batch dir")
     parser.add_argument(
-        "--CDI_dir", type=str, default=f"{ROOT}/datasets/processed/CDI/100", help="unique probe set dir"
+        "--input_dir", type=str, default=f"{settings.PATH.DATA_DIR / 'datasets/raw/100' }", help="batch dir"
     )
     parser.add_argument(
-        "--output_dir", type=str, default=f"{ROOT}/datasets/processed/CF/100.csv", help="dir to save stat file"
+        "--CDI_dir",
+        type=str,
+        default=f"{settings.PATH.DATA_DIR / 'datasets/processed/CDI/100' }",
+        help="unique probe set dir",
     )
     parser.add_argument(
-        "--gen_dir", type=str, default=f"{ROOT}/datasets/processed/generation/100", help="generation dir"
+        "--output_dir",
+        type=str,
+        default=f"{settings.PATH.DATA_DIR / 'datasets/processed/CF/100.csv'}",
+        help="dir to save stat file",
+    )
+    parser.add_argument(
+        "--gen_dir",
+        type=str,
+        default=f"{settings.PATH.DATA_DIR / 'datasets/processed/generation/100' }",
+        help="generation dir",
     )
     parser.add_argument("--prop_lst", type=list, default=[0.5, 1], help="prop of reserved words")
     parser.add_argument("--run_stat", default=False, help="whether to perform stat")
@@ -28,7 +40,7 @@ def arguments() -> argparse.Namespace:
 
 
 def analyze_pipeline(
-    filenames: dict,
+    filenames: list[str],
     input_dir: Path,
     gen_dir: Path,
     cdi_dir: Path,
@@ -37,7 +49,7 @@ def analyze_pipeline(
     probe_files_all: dict,
     *,
     run_stat: bool,
-):
+) -> tuple[pd.DataFrame, dict[str, nlp_tools.TokenCount], dict[str, nlp_tools.TokenCount]]:
     """Smallest unit to get stat results."""
     # load files
     print(f"Loading reference files from {input_dir}")
@@ -82,7 +94,7 @@ def main() -> None:
                         prop,
                         gen_files_all,
                         probe_files_all,
-                        run_stat,
+                        run_stat=run_stat,
                     )
                     print(gen_dir)
                     result["epoch"] = epoch
@@ -99,7 +111,3 @@ def main() -> None:
 
     result_all.to_csv(output_dir)
     print("Finished stat analysis")
-
-
-if __name__ == "__main__":
-    main()

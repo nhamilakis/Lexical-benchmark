@@ -1,78 +1,99 @@
 import argparse
-import os
+import collections
 import re
 import string
-import sys
+from pathlib import Path
+
 import pandas as pd
 from tqdm import tqdm
 
-def parseArgs(argv):
-    # Run parameters
-    parser = argparse.ArgumentParser(description='Select test sets by freq')
 
-    parser.add_argument('--filename_path', type=str,
-                        default='/Users/jliu/PycharmProjects/freq_bias_benchmark/data/train/filename/',
-                        help='path to corresponding filenames to each model')
-    parser.add_argument('--dataset_path', type=str,
-                        default='/Users/jliu/PycharmProjects/Machine_CDI/Lexical-benchmark_data/train_phoneme/dataset/',
-                        help='path to raw dataset')
-    parser.add_argument('--mat_path', type=str,
-                        default='/Users/jliu/PycharmProjects/freq_bias_benchmark/data/train/train_mat/',
-                        help='path to preprocessed files')
-    parser.add_argument('--utt_path', type=str,
-                        default='/Users/jliu/PycharmProjects/freq_bias_benchmark/data/train/train_utt/',
-                        help='path to preprocessed files')
+def parse_arguments() -> argparse.Namespace:
+    """Parse Command Line arguments."""
+    parser = argparse.ArgumentParser(description="Select test sets by frequency")
 
-    return parser.parse_args(argv)
+    parser.add_argument(
+        "--filename_path",
+        type=str,
+        default="/Users/jliu/PycharmProjects/freq_bias_benchmark/data/train/filename/",
+        help="path to corresponding filenames to each model",
+    )
+    parser.add_argument(
+        "--dataset_path",
+        type=str,
+        default="/Users/jliu/PycharmProjects/Machine_CDI/Lexical-benchmark_data/train_phoneme/dataset/",
+        help="path to raw dataset",
+    )
+    parser.add_argument(
+        "--mat_path",
+        type=str,
+        default="/Users/jliu/PycharmProjects/freq_bias_benchmark/data/train/train_mat/",
+        help="path to preprocessed files",
+    )
+    parser.add_argument(
+        "--utt_path",
+        type=str,
+        default="/Users/jliu/PycharmProjects/freq_bias_benchmark/data/train/train_utt/",
+        help="path to preprocessed files",
+    )
+
+    return parser.parse_args()
 
 
 # preprocess the data
-def remove_blank(x):
-    if isinstance(x, str):  # Check if x is a string
-        return x.strip()    # Strip leading and trailing spaces if it's a string
+def remove_blank(s: str) -> str:
+    """Remove trailing and leading blank spaces."""
+    if not isinstance(s, str):
+        raise TypeError("Requires an str")
+    return s.strip()
 
-def get_len(x):
+
+def get_len(x: collections.Sized) -> int:
+    """Returns the length of an object."""
     try:
         return len(x)
-    except:
+    except TypeError:
         return 0
 
-def count_words(sentence):
-    # Split the sentence into words based on whitespace
+
+def count_words(sentence: str) -> int:
+    """Split the sentence into words based on whitespace."""
     words = sentence.split()
     return len(words)
 
-def clean_txt(sent:str):
-    """clean the input string"""
+
+def clean_txt(sent: str) -> str:
+    """Clean the input string."""
     # Filter out non-ASCII characters
-    sent = ''.join(char for char in sent if ord(char) < 128)
+    sent = "".join(char for char in sent if ord(char) < 128)
     # remove punctuations
-    translator = str.maketrans('', '', string.punctuation + string.digits)
-    translator[ord('-')] = ' '  # Replace hyphen with blank space
+    translator = str.maketrans("", "", string.punctuation + string.digits)
+    translator[ord("-")] = ord(" ")  # Replace hyphen with blank space
     clean_string = sent.translate(translator).lower()
-    clean_string = re.sub(r'\s+', ' ', clean_string)
-    clean_string = clean_string.strip()
-    return clean_string
+    clean_string = re.sub(r"\s+", " ", clean_string)
+    return clean_string.strip()
 
 
+def preprocess(raw: list[str]) -> tuple[list[str], list[str], list[str]]:
+    """Preprocessing of words.
 
-def preprocess(raw:list):
-    '''
-    input: the string list
-    return: the cleaned files
-    '''
+    Returns
+    -------
+        the cleaned files
+
+    """
     raw = [line.strip() for line in raw if line.strip()]
     processed_without_all = []
     processed_with_all = []
     sent_all = []
     for sent in tqdm(raw):
         clean_string = clean_txt(sent)
-        word_lst = clean_string.split(' ')
+        word_lst = clean_string.split(" ")
         # convert into corresponding format string
-        processed_with = ''
-        processed_without = ''
+        processed_with = ""
+        processed_without = ""
         for word in word_lst:
-            upper_char = ' '.join(word).upper()
+            upper_char = " ".join(word).upper()
             if not word.isspace():
                 processed_with += upper_char + " | "
                 processed_without += upper_char + " "
@@ -81,68 +102,60 @@ def preprocess(raw:list):
         processed_without_all.append(processed_without)
         processed_with_all.append(processed_with)
     # convert the final results into
-    return sent_all,processed_with_all, processed_without_all
+    return sent_all, processed_with_all, processed_without_all
 
 
-
-def get_utt_frame(sent:list,file:str,all_frame):
-    """save the cleaned utt as a dataframe"""
+def get_utt_frame(sent: list, file: str, all_frame: pd.DataFrame) -> pd.DataFrame:
+    """Save the cleaned utt as a dataframe."""
     utt_frame = pd.DataFrame(sent)
-    utt_frame = utt_frame.rename(columns={0: 'train'})
-    utt_frame['filename'] = file
-    all_frame = pd.concat([all_frame, utt_frame])
-    return all_frame
+    utt_frame = utt_frame.rename(columns={0: "train"})
+    utt_frame["filename"] = file
+    return pd.concat([all_frame, utt_frame])
 
 
+def main() -> None:
+    """Main function allowing to run preprocessing via command line."""
+    args = parse_arguments()  # Parse command line arguments
+    filename_path = Path(args.filename_path)
+    dataset_path = Path(args.dataset_path)
+    mat_path = Path(args.mat_path)
+    utt_path = Path(args.utt_path)
 
-def main(argv):
-    # load args
-    args = parseArgs(argv)
-    filename_path = args.filename_path
-    dataset_path = args.dataset_path
-    mat_path = args.mat_path
-    utt_path = args.utt_path
-    if not os.path.exists(mat_path):
-        os.makedirs(mat_path)
+    if not mat_path.is_dir():
+        mat_path.mkdir(parents=True)
 
-    if not os.path.exists(utt_path):
-        os.makedirs(utt_path)
+    if not utt_path.is_dir():
+        utt_path.mkdir(parents=True)
 
-    for file in os.listdir(filename_path):
+    for file in filename_path.iterdir():
         # loop over different hours
-        if file.endswith('.csv'):
+        if file.suffix == ".csv":
             # load training data based on filename list
-            file_lst = pd.read_csv(filename_path + file,header=None)
+            file_lst = pd.read_csv(file, header=None)
             all_frame = pd.DataFrame()
             train = []
-            for txt in file_lst[0]:
-                with open(dataset_path + txt, 'r') as f:
+            for txt_file in file_lst[0]:
+                with (dataset_path / txt_file).open("r") as f:
                     raw = f.readlines()
-                    sent_all,processed_with, _ = preprocess(raw)
-                    all_frame = get_utt_frame(sent_all,txt,all_frame)
+                    sent_all, processed_with, _ = preprocess(raw)
+                    all_frame = get_utt_frame(sent_all, txt_file, all_frame)
                     train.extend(processed_with)
 
             # save the utt csv file
-            all_frame.to_csv(utt_path + file)
+            all_frame.to_csv(utt_path / file.name)
             print(f"Finish prepare utt for {file}")
 
-            out_path = mat_path + file[:-4]
-            if not os.path.exists(out_path):
-                os.makedirs(out_path)
+            out_path = mat_path / file.stem
+            if not out_path.is_dir():
+                out_path.mkdir(parents=True)
 
             # Open the file in write mode
-            with open(out_path + '/data.txt', 'w') as f:
+            with (out_path / "data.txt").open("w") as f:
                 # Write each element of the list to the file
                 for item in train:
-                    f.write('%s\n' % item)
-
+                    f.write(f"{item}\n")
             print(f"Finish preprocessing {file}")
 
 
-
-
-
 if __name__ == "__main__":
-    args = sys.argv[1:]
-    main(args)
-
+    main()
