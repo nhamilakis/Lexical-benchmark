@@ -12,7 +12,7 @@ import pandas as pd
 from scipy.optimize import linear_sum_assignment  # type: ignore[import-untyped]
 from tqdm import tqdm
 
-from lm_benchmark import settings
+from lexical_benchmark import settings
 
 
 def load_metadata(meta_data_path: Path, text_dir: Path) -> pd.DataFrame:

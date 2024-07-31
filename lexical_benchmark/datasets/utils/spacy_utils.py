@@ -2,7 +2,7 @@ import spacy
 
 
 def spacy_model(model_name: str) -> spacy.Language:
-    """ Safely load spacy Language Model """
+    """Safely load spacy Language Model."""
     try:
         return spacy.load(model_name)
     except OSError:

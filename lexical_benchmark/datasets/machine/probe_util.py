@@ -8,7 +8,7 @@ import pandas as pd
 from scipy.stats import ttest_rel  # type: ignore[import-untyped]
 from tqdm import tqdm
 
-from lm_benchmark import nlp_tools, plot_util
+from lexical_benchmark import nlp_tools, plot_util
 
 
 def rename_files(directory: Path) -> dict[str, list[str]]:

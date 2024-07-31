@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from lm_benchmark import settings
+from lexical_benchmark import settings
 
 
 def extract_word_list(file_path: Path, chunksize: int = 10000) -> set[str]:

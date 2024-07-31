@@ -2,8 +2,9 @@
 name = "lexical-benchmark"
 description = "A detailed comparison between human (CDI) and model performance at the lexical level"
 authors = [
-    { name = "Jing Liu", email = "jing.liu@student.ru.nl" },
+    { name = "Nicolas Hamilakis", email = "nicolas.hamilakis@ens.psl.eu" },
     { name = "CoML Team", email = "dev@cognitive-ml.fr" },
+    { name = "Jing Liu", email = "jing.liu@student.ru.nl" },
 ]
 license = { text = "MIT License" }
 readme = { file = "README.md", content-type = "text/markdown" }
@@ -23,18 +24,7 @@ documentation = "https://github.com/Jing-L97/Lexical-benchmark"
 repository = "https://github.com/Jing-L97/Lexical-benchmark"
 
 [project.scripts]
-adjust-count = "lm_benchmark.adjust_count:main"
-get-frequencies = "lm_benchmark.get_frequencies:main"
-match-frequencies = "lm_benchmark.match_frequencies:main"
-dataset-explore = "lm_benchmark.dataset_explore:main"
-cf-analysis = "lm_benchmark.cf_analysis:main"
-create-machine-dataset = "lm_benchmark.datasets.machine_cdi.create_dataset:main"
-# Not completed ?
-merge-generations = "lm_benchmark.datasets.machine_cdi.merge_generations:main"
-# Not completed ?
-morphology = "lm_benchmark.analysis.morphology:main"
-phonemize-data = "lm_benchmark.datasets.machine_cdi.phonemize:main"
-train-model = "lm_benchmark.model.train:cli_main"
+
 
 
 [project.optional-dependencies]
@@ -52,7 +42,7 @@ dependencies = { file = ["requirements.txt"] }
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["lm_benchmark*"]
+include = ["lexical_benchmark*"]
 exclude = ["examples*", "tests*"]
 
 [tool.mypy]

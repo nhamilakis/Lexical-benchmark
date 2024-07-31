@@ -55,11 +55,13 @@ class _MyPathSettings:
     def __post_init__(self) -> None:
         if platform.node() in self.COML_SERVERS:
             self.DATA_DIR = Path("/scratch1/projects/lexical-benchmark")
-        # TODO(@Jing): add local hostname
-        elif platform.node() == "...":
-            self.DATA_DIR = Path.home() / "PycharmProjects/Lexical-benchmark"
         elif platform.node() == "nicolass-mbp":
             self.DATA_DIR = Path.home() / "workspace/coml/data/Lexical-benchmark/data"
+
+    @property
+    def code_root(self) -> Path:
+        import lexical_benchmark
+        return Path(lexical_benchmark.__file__).parents[1]
 
     @property
     def transcript_path(self) -> Path:

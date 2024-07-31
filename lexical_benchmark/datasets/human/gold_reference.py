@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from lm_benchmark import settings
-from lm_benchmark.datasets import utils
+from lexical_benchmark import settings
+from lexical_benchmark.datasets import utils
 
 
 class POSTypes(str, enum.Enum):

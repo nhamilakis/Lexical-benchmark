@@ -4,7 +4,7 @@ import re
 import sys
 from pathlib import Path
 
-from lm_benchmark import settings
+from lexical_benchmark import settings
 
 
 def extract_subpath(full_path: Path, target_string: str) -> Path | None:

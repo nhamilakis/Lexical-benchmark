@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from lm_benchmark import settings
+from lexical_benchmark import settings
 
 from .create_dataset import count_token
 

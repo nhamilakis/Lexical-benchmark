@@ -1,16 +1,14 @@
-matplotlib
+# matplotlib
 pandas
 numpy
-torch # todo check version
+# torch # todo check version
 polyglot
 requests
 nltk
 rich
 spacy
-seaborn
-pyenchant
-tqdm
+# seaborn
+# pyenchant
 transformers # todo check version
 scipy
 statsmodels
-deep-phonemizer
