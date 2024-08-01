@@ -24,7 +24,7 @@ documentation = "https://github.com/Jing-L97/Lexical-benchmark"
 repository = "https://github.com/Jing-L97/Lexical-benchmark"
 
 [project.scripts]
-
+prepare-childes = "lexical_benchmark.datasets.human.childes_preparation:main"
 
 
 [project.optional-dependencies]
