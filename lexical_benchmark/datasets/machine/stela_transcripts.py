@@ -10,12 +10,6 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 import pandas as pd  # noqa: E402 (Deprecation avoid)
 
 
-def clean_text(text: str) -> str:
-    """Clean a text file from unwanted items."""
-    # TODO(nhamilakis): add cleaning of texts
-    return text
-
-
 def word_frequency(file_list: list[Path], *, as_df: bool = True) -> pd.DataFrame | collections.Counter:
     """Build a word frequency mapping (Requires clean text)."""
     words = []
@@ -164,7 +158,7 @@ class InfTrainStructure:
 
 
 class STELATranscripts:
-    """Classh used to manipulate STELA transcripts."""
+    """Class used to manipulate STELA transcripts."""
 
     @property
     def associations_file(self) -> Path:
@@ -179,8 +173,8 @@ class STELATranscripts:
     def __init__(
         self,
         lang: str,
-        root_dir: Path = Path(" /scratch1/projects/lexical-benchmark/"),
-        inf_train_dir: Path = Path(" /scratch1/projects/InfTrain"),
+        root_dir: Path = Path("/scratch1/projects/lexical-benchmark/"),
+        inf_train_dir: Path = Path("/scratch1/projects/InfTrain"),
     ) -> None:
         self.datasets_root = root_dir / "datasets"
         self.lang = lang.upper()
@@ -225,7 +219,7 @@ class STELATranscripts:
                 if text_path is None:
                     raise ValueError(f"Not found {book}")
 
-                fh.write(clean_text(text_path.read_text()))
+                fh.write(text_path.read_text())
                 fh.write(" ")
 
     def iter_transcriptions_by_split(self) -> t.Iterable[tuple[str, str, list[str]]]:
@@ -252,7 +246,7 @@ class STELATranscripts:
             (root_dir / hour / split).mkdir(exist_ok=True, parents=True)
             # Write transcriptions into file
             self.merge_transcriptions(booklist, root_dir / hour / split / "transcription.txt")
-            # TODO: add tokenized transcriptions
-            # TODO: add word_frequency
+            # TODO(@nhamilakis): add tokenized transcriptions
+            # TODO(@nhamilakis): add word_frequency
             # Write list of books used for transcription
             (root_dir / hour / split / "books.txt").write_text("\n".join(booklist))

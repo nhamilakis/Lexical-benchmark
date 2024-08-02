@@ -5,6 +5,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
 def str_or_none(s: str | None) -> str:
     """Return '-' if string is None."""
     if s is None:
@@ -26,8 +27,10 @@ class CHAData:
     def csv_entry(self) -> tuple[str, ...]:
         """Return as metadata.csv row."""
         return (
-            self.file_id, str_or_none(self.language_code), str_or_none(self.child_gender),
-            str_or_none(self.child_age)
+            self.file_id,
+            str_or_none(self.language_code),
+            str_or_none(self.child_gender),
+            str_or_none(self.child_age),
         )
 
 
@@ -42,13 +45,12 @@ def extract_from_cha(file: Path) -> CHAData:
     raise NotImplementedError("SLY parsing not working with .cha files")
 
 
-
 def extract_cha_header(file: Path) -> dict[str, t.Any]:
     """Extract header metadata from .cha file."""
     language_code = None
     child_age = None
     child_gender = None
-    header = [ line for line in file.read_text().split("\n") if line.startswith("@")]
+    header = [line for line in file.read_text().split("\n") if line.startswith("@")]
 
     for line in header:
         logger.debug(line)
@@ -69,7 +71,6 @@ def extract_cha_header(file: Path) -> dict[str, t.Any]:
             child_gender = data[4]
             logger.debug(f"found CHILD ID : {data}")
 
-
     return {
         "child_gender": child_gender,
         "language_code": language_code,
@@ -79,13 +80,12 @@ def extract_cha_header(file: Path) -> dict[str, t.Any]:
 
 def extract_child_speech(file: Path) -> list[str]:
     """Extract child speech from .cha file."""
-    return [
-        line.replace("*CHI:", "").strip() for line in file.read_text().split("\n")
-        if line.startswith("*CHI:")
-    ]
+    return [line.replace("*CHI:", "").strip() for line in file.read_text().split("\n") if line.startswith("*CHI:")]
+
 
 def extract_adult_speech(file: Path) -> list[str]:
     """Extract adult speech from .cha file."""
+
     def remove_speaker(s: str) -> str:
         """Remove speaker information."""
         # partition splits using first instance (from the left).
@@ -93,9 +93,11 @@ def extract_adult_speech(file: Path) -> list[str]:
         return content
 
     return [
-        remove_speaker(line).strip() for line in file.read_text().split("\n")
+        remove_speaker(line).strip()
+        for line in file.read_text().split("\n")
         if line.startswith("*") and "*CHI:" not in line
     ]
+
 
 def extract_from_cha_dirty(file: Path, file_id: str) -> CHAData:
     """Quick & dirty parsing for CHA files to extract wanted data."""
@@ -108,4 +110,4 @@ def extract_from_cha_dirty(file: Path, file_id: str) -> CHAData:
 
 
 # Temp replacement of parsing
-extract_from_cha: t.Callable[[Path, str], CHAData] = extract_from_cha_dirty  # type: ignore[no-redef] # noqa: F811
+extract: t.Callable[[Path, str], CHAData] = extract_from_cha_dirty  # type: ignore[no-redef] # noqa: F811

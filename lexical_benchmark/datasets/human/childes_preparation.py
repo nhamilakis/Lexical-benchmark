@@ -1,4 +1,3 @@
-import argparse
 import sys
 from pathlib import Path
 
@@ -7,7 +6,7 @@ import pandas as pd
 from rich.progress import track
 
 from lexical_benchmark import settings
-from lexical_benchmark.datasets import utils
+from lexical_benchmark.datasets import parsing
 
 
 def parse_childes_age(age: str) -> float:
@@ -81,7 +80,7 @@ class CHILDESPreparation:
                 filelist, description=f"Processing {lang} .cha files...", disable=not show_progress
             ):
                 try:
-                    data = utils.extract_from_cha(file, name)  # type: ignore[call-arg]
+                    data = parsing.cha.extract(file, name)  # type: ignore[call-arg]
                     (lang_loc / "child").mkdir(parents=True, exist_ok=True)
                     (lang_loc / "adult").mkdir(parents=True, exist_ok=True)
 
@@ -109,7 +108,7 @@ class OrganizeByAge:
             metadata_df = pd.read_csv(data_dir / "metadata.csv", sep=",")
             metadata_df["child_age(float)"] = metadata_df["child_age"].apply(parse_childes_age)
 
-            for min_age, max_age in settings.CHILDES_AGE_RANGES:
+            for min_age, max_age in settings.CHILDES.AGE_RANGES:
                 metadata_df[
                     (metadata_df["child_age(float)"] >= min_age) & (metadata_df["child_age(float)"] < max_age)
                 ].to_csv(data_dir / f"child_{min_age}_{max_age}.csv", index=False, sep=",")
@@ -126,27 +125,4 @@ class OrganizeByAge:
                 age_range = target / file.stem.replace("child_", "")
                 age_range.mkdir(exist_ok=True, parents=True)
                 for row in df.itertuples():
-                    (age_range / f"{row.file_id}.txt").symlink_to(
-                        data_dir / "child" / f"{row.file_id}.txt"
-                    )
-
-
-
-def main() -> None:
-    """Run prep via command-line."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument("input_items", help="File containing a list of tuples 'path, lang_code'")
-    parser.add_argument("target")
-    argv = parser.parse_args()
-
-    input_items = Path(argv.input_items)
-    input_df = pd.read_csv(input_items, sep=",", names=["path", "lang"])
-
-    prep = CHILDESPreparation()
-    for row in input_df.itertuples():
-        loc = Path(str(row.path))
-        if not loc.is_dir():
-            print(f"Skipping {loc}...")
-            continue
-        prep.load_dir(loc, str(row.lang))
-    prep.export_to_dir(Path(argv.target))
+                    (age_range / f"{row.file_id}.txt").symlink_to(data_dir / "child" / f"{row.file_id}.txt")
