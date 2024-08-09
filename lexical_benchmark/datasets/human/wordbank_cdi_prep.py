@@ -21,9 +21,10 @@ class POSTypes(str, enum.Enum):
         return self.value
 
 
-class GoldReferenceCSV:
-    """Download CDI data from the wordbank website.
+class CDIPreparation:
+    """Prepare the MB-CDI csv.
 
+    To Download CDI data you have to use the wordbank website.
     URL: https://wordbank.stanford.edu/data?name=item_data
     This CSV contains ... TODO add brief description
     More info: docs/datasets/human_cdi (TODO: add correct documentation file)
@@ -36,19 +37,21 @@ class GoldReferenceCSV:
         - [16 - 30] these columns correspond to the month of the child
             - the cell values correspond to score based on knowledge of the word
 
-
-    Gold<pd.DataFrame>:
+    Returns
+    -------
+    CDI<pd.DataFrame>:
         - word<str>: (the word)
         - word_length<int>: the length of the utterance in characters
         - POS<str>: a string representing the part of speech the utterance belongs to (see docs/... TODO)
         - category: string representing the category of the utterance
         - [16 - 30] these columns correspond to the month of the child
             - the cell values correspond to score based on knowledge of the word
+
     """
 
     def __init__(
         self,
-        age_min: int,
+        age_min: int = settings.,
         age_max: int,
         raw_csv: Path,
         pos_filter_type: POSTypes = POSTypes.content,

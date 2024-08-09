@@ -45,15 +45,15 @@ class CHILDESPreparation:
         EN_UK/
             metadata.csv
             child_speech/
-                *.txt
+                *.raw
             adult_speech/
-                *.txt
+                *.raw
         EN_NA/
             metadata.csv
             child_speech/
-                *.txt
+                *.raw
             adult_speech/
-                *.txt
+                *.raw
     """
 
     def __init__(self) -> None:
@@ -84,8 +84,8 @@ class CHILDESPreparation:
                     (lang_loc / "child").mkdir(parents=True, exist_ok=True)
                     (lang_loc / "adult").mkdir(parents=True, exist_ok=True)
 
-                    (lang_loc / "child" / f"{name}.txt").write_text("\n".join(data.child_speech))
-                    (lang_loc / "adult" / f"{name}.txt").write_text("\n".join(data.adult_speech))
+                    (lang_loc / "child" / f"{name}.raw").write_text("\n".join(data.child_speech))
+                    (lang_loc / "adult" / f"{name}.raw").write_text("\n".join(data.adult_speech))
                     metadata.append(data.csv_entry())
                 except UnicodeDecodeError:
                     print(f"Failed to process {file}...", file=sys.stderr)
