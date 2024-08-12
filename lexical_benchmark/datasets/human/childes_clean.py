@@ -9,85 +9,119 @@ from pathlib import Path
 CLEANER_TYPE = t.Callable[[str], tuple[str, int]]
 
 
-def pattern_remove(line: str, *, pattern: t.Pattern[str], replace_with: str = "") -> tuple[str, int]:
+def pattern_remover(*, patern: t.Pattern[str], replace_with: str = "") -> CLEANER_TYPE:
     """Removes given pattern from given string."""
-    return pattern.sub(replace_with, line), len(pattern.findall(line))
+
+    def _internal_fn(line: str, *, _pattern: t.Pattern[str], _replace_with: str = replace_with) -> tuple[str, int]:
+        return _pattern.sub(_replace_with, line), len(_pattern.findall(line))
+
+    # Return as a partial rule
+    return functools.partial(_internal_fn, _patern=patern, _replace_with=replace_with)
 
 
-def substring_remove(line: str, *, seq: str, replace_with: str = "") -> tuple[str, int]:
+def substring_remover(*, seq: str, replace_with: str = "") -> CLEANER_TYPE:
     """Replace sequence of characters from given string."""
-    return line.replace(seq, replace_with), line.count(seq)
+
+    def _internal_fn(line: str, _seq: str, _replace_with: str = "") -> tuple[str, int]:
+        return line.replace(_seq, _replace_with), line.count(_seq)
+
+    return functools.partial(_internal_fn, _seq=seq, _replace_with=replace_with)
+
+
+def word_remover(*, pattern: t.Pattern[str]) -> CLEANER_TYPE:
+    """Remove a word from the coprus."""
+    return pattern_remover(patern=pattern, replace_with=" ")
 
 
 cleaning_adult_speech_rules: list[tuple[CLEANER_TYPE, str]] = [
-    # Extracts all items between brackets from each line in a text file.
-    (functools.partial(pattern_remove, pattern=re.compile(r"\[([^\]]+)\]")), "bracket-annotation"),
-    # Remove Paranthesis
-    (functools.partial(pattern_remove, pattern=re.compile(r"\s\(([^()]*?)\)\s")), "parenthesis-annotation"),
-    # TODO(@nhamilakis): handle onomatopoeia (@o)
-    # TODO(@nhamilakis): handle Phonological consistent forms (@p)
-    # TODO(@nhamilakis): handle Babbling (@b)
-    # TODO(@nhamilakis): handle Word-Play (@wp)
-    # TODO(@nhamilakis): handle Child Invented Form (@c)
-    # TODO(@nhamilakis): handle Family Specific Form (@f)
-    # TODO(@nhamilakis): handle Dialect Word (@d)
+    # Remove Bracket  ([text]) Annotations
+    (pattern_remover(patern=re.compile(r"\[([^\]]+)\]")), "bracket-annotation"),
+    # Remove Paranthesis Annotations
+    (pattern_remover(patern=re.compile(r"\s\(([^()]*?)\)\s")), "parenthesis-annotation"),
+    # Onomatopoeia (@o): KEEP
+    (substring_remover(seq="@o"), "@o"),
+    # Phonological consistent forms (@p): KEEP
+    (substring_remover(seq="@p"), "@p"),
+    # Babbling (@b): Discard
+    (word_remover(pattern=re.compile(r"\s[^ ]*@b\s?")), "@b"),
+    # Word-Play (@wp): Discard
+    (word_remover(pattern=re.compile(r"\s[^ ]*@wp\s?")), "@wp"),
+    # Child Invented Form (@c): Discard
+    (word_remover(pattern=re.compile(r"\s[^ ]*@c\s?")), "@c"),
+    # Family Specific Form (@f): Discard
+    (word_remover(pattern=re.compile(r"\s[^ ]*@c\s?")), "@c"),
+    # Dialect Word (@d): KEEP
+    (substring_remover(seq="@d"), "@d"),
     # TODO(@nhamilakis): handle Second (or other) Language (@s:...)
-    # TODO(@nhamilakis): handle Neologism (@n)
-    # TODO(@nhamilakis): handle Singing (@si)
-    # TODO(@nhamilakis): handle interjection/interaction (@i)
+    # Neologism (@n): KEEP
+    (substring_remover(seq="@n"), "@n"),
+    # Singing (@si): KEEP
+    (substring_remover(seq="@si"), "@si"),
+    # Interjection/interaction (@i): KEEP
+    (substring_remover(seq="@si"), "@si"),
     # Remove Test Words (@t) annotation
-    (functools.partial(substring_remove, seq="@t"), "@t"),
-    # TODO(@nhamilakis): handle Meta-Linguistic Form (@q)
-    # TODO(@nhamilakis): handle Phonetic Transcription (@u)
-    # TODO(@nhamilakis): handle Letters (@l)
-    # TODO(@nhamilakis): handle Multi-letter (@k)
+    (substring_remover(seq="@t"), "@t"),
+    # Meta-Linguistic Form (@q): KEEP (TODO(@nhamilakis):  maybe should not ?)
+    (substring_remover(seq="@q"), "@q"),
+    # Phonetic Transcription (@u): Discard (TODO(@nhamilakis):  maybe should not ?)
+    (word_remover(pattern=re.compile(r"\s[^ ]*@u\s?")), "@u"),
+    # Letters (@l): KEEP
+    (substring_remover(seq="@l"), "@l"),
+    # Multi-letter (@k)
+    (substring_remover(seq="@k"), "@k"),
     # Remove custom code Braunwald
-    (functools.partial(substring_remove, seq="@z:sc"), "@z:sc"),
+    (substring_remover(seq="@z:sc"), "@z:sc"),
     # Excluded words (@x)
-    (functools.partial(substring_remove, seq="@x"), "@x"),
+    (substring_remover(seq="@x"), "@x"),
     # Remove general form (1 instance)
-    (functools.partial(substring_remove, seq="@g"), "@g"),
+    (substring_remover(seq="@g"), "@g"),
     # Remove accidental tags
-    (functools.partial(substring_remove, seq="@m"), "@m"),
+    (substring_remover(seq="@m"), "@m"),
     # Remove Non-Comprehensible Speech
-    (functools.partial(substring_remove, seq="xxx"), "xxx"),
+    (substring_remover(seq="xxx"), "xxx"),
     # Punctuation (That is surrounded by space)
-    (functools.partial(substring_remove, seq=" . ", replace_with=" "), "."),
-    (functools.partial(substring_remove, seq=" ? ", replace_with=" "), "?"),
-    (functools.partial(substring_remove, seq=" ! ", replace_with=" "), "!"),
-    (functools.partial(substring_remove, seq=" : ", replace_with=" "), ":"),
-    (functools.partial(substring_remove, seq=" , ", replace_with=" "), ","),
+    (substring_remover(seq=" . ", replace_with=" "), "."),
+    (substring_remover(seq=" ? ", replace_with=" "), "?"),
+    (substring_remover(seq=" ! ", replace_with=" "), "!"),
+    (substring_remover(seq=" : ", replace_with=" "), ":"),
+    (substring_remover(seq=" , ", replace_with=" "), ","),
     # Useless Characters (replace with space)
-    (functools.partial(substring_remove, seq="↑", replace_with=" "), "↑"),
-    (functools.partial(substring_remove, seq="↓", replace_with=" "), "↓"),
-    (functools.partial(substring_remove, seq="≠", replace_with=" "), "≠"),
-    (functools.partial(substring_remove, seq="‡", replace_with=" "), "‡"),
-    (functools.partial(substring_remove, seq="+...", replace_with=" "), "+..."),
-    (functools.partial(substring_remove, seq="+..?", replace_with=" "), "+..?"),
-    (functools.partial(substring_remove, seq="+!?", replace_with=" "), "+!?"),
-    (functools.partial(substring_remove, seq="+/.", replace_with=" "), "+/."),
-    (functools.partial(substring_remove, seq="+/?", replace_with=" "), "+/?"),
-    (functools.partial(substring_remove, seq="+//.", replace_with=" "), "+//."),
-    (functools.partial(substring_remove, seq="+//?", replace_with=" "), "+//?"),
-    (functools.partial(substring_remove, seq="+.", replace_with=" "), "+."),
-    (functools.partial(substring_remove, seq="“", replace_with=" "), "“"),
-    (functools.partial(substring_remove, seq="”", replace_with=" "), "”"),
-    (functools.partial(substring_remove, seq='+"/.', replace_with=" "), '+"/.'),
-    (functools.partial(substring_remove, seq='+".', replace_with=" "), '+".'),
-    (functools.partial(substring_remove, seq='+"', replace_with=" "), '+"'),
-    (functools.partial(substring_remove, seq="+^", replace_with=" "), "+^"),
-    (functools.partial(substring_remove, seq="+,", replace_with=" "), "+,"),
-    (functools.partial(substring_remove, seq="++", replace_with=" "), "++"),
-    (functools.partial(substring_remove, seq="+<", replace_with=" "), "+<"),
-    # TODO(@nhamilakis): handle Phonological Fragments (&+)
-    # TODO(@nhamilakis): handle Fillers (&-)
-    # TODO(@nhamilakis): handle Remove Actions (&=)
+    (substring_remover(seq="↑", replace_with=" "), "↑"),
+    (substring_remover(seq="↓", replace_with=" "), "↓"),
+    (substring_remover(seq="≠", replace_with=" "), "≠"),
+    (substring_remover(seq="‡", replace_with=" "), "‡"),
+    (substring_remover(seq="+...", replace_with=" "), "+..."),
+    (substring_remover(seq="+..?", replace_with=" "), "+..?"),
+    (substring_remover(seq="+!?", replace_with=" "), "+!?"),
+    (substring_remover(seq="+/.", replace_with=" "), "+/."),
+    (substring_remover(seq="+/?", replace_with=" "), "+/?"),
+    (substring_remover(seq="+//.", replace_with=" "), "+//."),
+    (substring_remover(seq="+//?", replace_with=" "), "+//?"),
+    (substring_remover(seq="+.", replace_with=" "), "+."),
+    (substring_remover(seq="“", replace_with=" "), "“"),
+    (substring_remover(seq="”", replace_with=" "), "”"),
+    (substring_remover(seq='+"/.', replace_with=" "), '+"/.'),
+    (substring_remover(seq='+".', replace_with=" "), '+".'),
+    (substring_remover(seq='+"', replace_with=" "), '+"'),
+    (substring_remover(seq="+^", replace_with=" "), "+^"),
+    (substring_remover(seq="+,", replace_with=" "), "+,"),
+    (substring_remover(seq="++", replace_with=" "), "++"),
+    (substring_remover(seq="+<", replace_with=" "), "+<"),
+    # Handle Compounds & Linkages (Remove <text> the '<' and '>' symbols but keep the text)
+    (substring_remover(seq="<", replace_with=" "), "<"),
+    (substring_remover(seq=">", replace_with=" "), ">"),
+    # Phonological Fragments (&+): KEEP
+    (substring_remover(seq="&+", replace_with=" "), "&+"),
+    # Fillers (&-): KEEP
+    (substring_remover(seq="&-", replace_with=" "), "&-"),
+    # Actions (&=): Discard
+    (word_remover(pattern=re.compile(r"&=[^\s]*")), "ACTIONS"),
     ## Inside word cleaning
     # TODO(@nhamilakis): handle NonCompletion of a Word (text(text)text)
     # TODO(@nhamilakis): handle Pause Between Syllables
     # TODO(@nhamilakis): handle Accronyms (F_B_I)
-    # TODO(@nhamilakis): handle Compounds & Linkages
     # TODO(@nhamilakis): handle Word Stress ()
+    # TODO(@nhamilakis): Handle Compounds (word_word_word)
 ]
 
 cleaning_child_speech_rules: list[tuple[CLEANER_TYPE, str]] = []
@@ -119,6 +153,10 @@ class CleanerMeta:
         """Dump stats in file."""
         with (location / f"{self.file_id}.stats.json").open("w") as fh:
             json.dump(self.export(), fh, indent=4)
+
+
+def apply_cleaner_rules(file: path, cleaner_rules: list[tuple[CLEANER_TYPE, str]], metadata: CleanerMeta) -> None:
+    """Apply a set of cleaning rules to 
 
 
 class CHILDESCleaner:
