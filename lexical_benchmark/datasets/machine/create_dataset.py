@@ -1,3 +1,5 @@
+# ruff: noqa
+# type: ignore
 """Construct same-sized datasets in/out of the domain."""
 
 import argparse

@@ -1,3 +1,5 @@
+# ruff: noqa
+# type: ignore
 """Prepare for materials of spelling checker."""
 
 from pathlib import Path

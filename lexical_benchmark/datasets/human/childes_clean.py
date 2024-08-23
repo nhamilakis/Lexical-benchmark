@@ -9,6 +9,47 @@ from pathlib import Path
 CLEANER_TYPE = t.Callable[[str], tuple[str, int]]
 
 
+class WordLogger:
+    """Class that allows logging of words."""
+
+    _LOGS: t.ClassVar[dict[str, list[str]]] = collections.defaultdict(list)
+
+    @classmethod
+    def add_word(cls, label: str, word: str) -> None:
+        """Save a clean word to the Log."""
+        cls._LOGS[label].append(word)
+
+    @classmethod
+    def get_log(cls, label: str) -> list[str]:
+        """Extract a log by category."""
+        return cls._LOGS[label]
+
+    @classmethod
+    def export_logs(cls) -> dict[str, list[str]]:
+        """Export logs as dictionairy."""
+        return dict(cls._LOGS)
+
+
+class TagCleaner(WordLogger):
+    """A class helper for cleaning CHILDES tags."""
+
+    def __init__(self, *, clean_pattern: str, match_pattern: t.Pattern[str], label: str, clean: bool = True) -> None:
+        self.clean_pattern = clean_pattern
+        self.match_pattern = match_pattern
+        self.label = label
+        self.clean = clean
+
+    def __call__(self, line: str) -> str:
+        """Run clean Operation."""
+        matches = self.match_pattern.findall(line)
+
+        for m in matches:
+            self.add_word(m.replace(self.clean_pattern, ""), self.label)
+
+        # Return line cleanned of tagged words
+        return line.replace(self.clean_pattern, "")
+
+
 def pattern_remover(*, patern: t.Pattern[str], replace_with: str = "") -> CLEANER_TYPE:
     """Removes given pattern from given string."""
 
@@ -16,7 +57,7 @@ def pattern_remover(*, patern: t.Pattern[str], replace_with: str = "") -> CLEANE
         return _pattern.sub(_replace_with, line), len(_pattern.findall(line))
 
     # Return as a partial rule
-    return functools.partial(_internal_fn, _patern=patern, _replace_with=replace_with)
+    return functools.partial(_internal_fn, _pattern=patern, _replace_with=replace_with)
 
 
 def substring_remover(*, seq: str, replace_with: str = "") -> CLEANER_TYPE:
@@ -155,8 +196,8 @@ class CleanerMeta:
             json.dump(self.export(), fh, indent=4)
 
 
-def apply_cleaner_rules(file: path, cleaner_rules: list[tuple[CLEANER_TYPE, str]], metadata: CleanerMeta) -> None:
-    """Apply a set of cleaning rules to 
+def apply_cleaner_rules(file: Path, cleaner_rules: list[tuple[CLEANER_TYPE, str]], metadata: CleanerMeta) -> None:
+    """Apply a set of cleaning rules to."""
 
 
 class CHILDESCleaner:

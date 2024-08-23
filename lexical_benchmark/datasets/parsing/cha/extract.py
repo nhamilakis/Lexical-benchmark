@@ -37,9 +37,11 @@ class CHAData:
 def extract_from_cha(file: Path) -> CHAData:
     """Data extraction from CHA files."""
     # TODO(@nhamilakis): fix proper parsing
-    # lexer = CHALexer()
-    # parser = CHAParser()
-    # parsed_ast = parser.parse(lexer.tokenize(file.read_text()))
+    from .parser import CHALexer, CHAParser  # type: ignore[attr-defined]
+
+    lexer = CHALexer()
+    parser = CHAParser()
+    _ = parser.parse(lexer.tokenize(file.read_text()))
     # TODO(@nhamilakis): extract wanted data from AST
 
     raise NotImplementedError("SLY parsing not working with .cha files")
@@ -110,4 +112,4 @@ def extract_from_cha_dirty(file: Path, file_id: str) -> CHAData:
 
 
 # Temp replacement of parsing
-extract: t.Callable[[Path, str], CHAData] = extract_from_cha_dirty  # type: ignore[no-redef] # noqa: F811
+extract: t.Callable[[Path, str], CHAData] = extract_from_cha_dirty  # type: ignore[no-redef]

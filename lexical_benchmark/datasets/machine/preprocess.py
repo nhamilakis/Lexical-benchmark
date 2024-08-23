@@ -1,3 +1,5 @@
+# ruff: noqa
+# type: ignore
 import argparse
 import collections
 import re

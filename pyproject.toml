@@ -50,17 +50,17 @@ exclude = [
 [tool.ruff]
 target-version = "py311"
 line-length = 120
-fixable = ["ALL"]
 exclude = ["parser.py"] # Exclude parser.py -> sly does not lint proper
 
 
 [tool.ruff.lint]
 select = ["ALL"] # Be brave use all rules
-
+fixable = ["ALL"]
 # remove the ones that make no sense
 ignore = [
     "D100",    # allow top doc-string to be missing
     "D401",    # imperative mood in docstring is ambiguous
+    "D203", "D213", # Conflicting rules about docstrings
     "S603",    # allow subprocess to be called using literals
     "PLR0913", # allow functions to have more tha 12 arguments
     "TRY003",  # allow Exceptions to contain long messages

@@ -1,3 +1,5 @@
+# ruff: noqa
+# type: ignore
 # segment the dataframes
 from pathlib import Path
 

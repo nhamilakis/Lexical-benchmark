@@ -8,7 +8,7 @@ import warnings
 from rich.console import Console
 
 try:
-    import enchant  # type:ignore[import-untyped]
+    import enchant  # type:ignore[import-untyped, import-not-found]
 except ImportError:
     enchant = None
 

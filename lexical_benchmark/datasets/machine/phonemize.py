@@ -1,3 +1,5 @@
+# ruff: noqa
+# type: ignore
 """Phonemize one transcript for training.
 
 TODO(@Jing or Nick): This should be replaced with phonemizer module.

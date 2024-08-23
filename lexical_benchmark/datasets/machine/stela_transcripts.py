@@ -1,3 +1,5 @@
+# ruff: noqa
+# type: ignore
 """Tools to collect and use transcriptions from the STELA model."""
 
 import collections

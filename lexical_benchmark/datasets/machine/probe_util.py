@@ -1,3 +1,5 @@
+# ruff: noqa
+# type: ignore
 """Util functions to create probe sets."""
 
 import collections

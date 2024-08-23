@@ -51,7 +51,7 @@ class CDIPreparation:
 
     def __init__(
         self,
-        age_min: int = settings.,
+        age_min: int,
         age_max: int,
         raw_csv: Path,
         pos_filter_type: POSTypes = POSTypes.content,

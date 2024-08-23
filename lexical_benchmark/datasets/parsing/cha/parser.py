@@ -1,3 +1,4 @@
+# type: ignore
 """ File containing CHA file parsing.
 INFO: this file does not pass ruff linting so it has been excluded, because of sly syntax.
 INFO: this file does not pass mypy type-check so it has been excluded, because of sly syntax.
