@@ -108,7 +108,7 @@ class _MyPathSettings:
 
     @property
     def clean_datasets(self) -> _Path:
-        return self.dataset_root / "raw"
+        return self.dataset_root / "clean"
 
     @property
     def clean_childes(self) -> _Path:

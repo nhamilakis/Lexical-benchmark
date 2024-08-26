@@ -6,13 +6,12 @@ import typing as t
 from datetime import date
 from pathlib import Path
 
-CLEANER_TYPE = t.Callable[[str], tuple[str, int]]
-
 
 class WordLogger:
     """Class that allows logging of words."""
 
     _LOGS: t.ClassVar[dict[str, list[str]]] = collections.defaultdict(list)
+    _COUNT_LOGS: t.ClassVar[dict[str, int]] = collections.defaultdict(lambda: 0)
 
     @classmethod
     def add_word(cls, label: str, word: str) -> None:
@@ -20,24 +19,70 @@ class WordLogger:
         cls._LOGS[label].append(word)
 
     @classmethod
-    def get_log(cls, label: str) -> list[str]:
-        """Extract a log by category."""
-        return cls._LOGS[label]
+    def update_log(cls, label: str) -> None:
+        """Add one to the count of an action."""
+        cls._COUNT_LOGS[label] += 1
 
     @classmethod
-    def export_logs(cls) -> dict[str, list[str]]:
+    def get_log(cls, label: str) -> list[str] | int:
+        """Extract a log by category."""
+        if label in cls._LOGS:
+            return cls._LOGS[label]
+        return cls._COUNT_LOGS[label]
+
+    @classmethod
+    def export_logs(cls) -> dict[str, list[str] | int]:
         """Export logs as dictionairy."""
-        return dict(cls._LOGS)
+        return {**dict(cls._LOGS), **dict(cls._COUNT_LOGS)}
+
+    @classmethod
+    def dump_logs(cls, file: Path) -> None:
+        """Dump all logs into a file."""
+        logs = cls.export_logs()
+
+        with file.open("w") as fh:
+            json.dump(logs, fh, indent=4)
+
+        # Remove all items
+        cls._COUNT_LOGS.clear()
+        cls._LOGS.clear()
+
+
+class CleanerFN(t.Protocol):
+    """Protocol for clean function-class."""
+
+    def __call__(self, line: str) -> str:
+        """Run clean."""
+
+
+class PatternRemover(WordLogger):
+    """A class to help remove patterns."""
+
+    def __init__(self, *, match: t.Pattern[str], label: str, subst: str = "") -> None:
+        self.pattern = match
+        self.label = label
+        self.subst = subst
+
+    def __call__(self, line: str) -> str:
+        """Run clean Operation."""
+        matches = self.pattern.findall(line)
+
+        # Register Words
+        for m in matches:
+            self.add_word(self.label, m)
+
+        # Return line without matches
+        return self.pattern.sub(self.subst, line)
 
 
 class TagCleaner(WordLogger):
     """A class helper for cleaning CHILDES tags."""
 
-    def __init__(self, *, clean_pattern: str, match_pattern: t.Pattern[str], label: str, clean: bool = True) -> None:
-        self.clean_pattern = clean_pattern
-        self.match_pattern = match_pattern
+    def __init__(self, *, tag: str, label: str, keep: bool = True) -> None:
+        self.clean_pattern = tag
+        self.match_pattern = re.compile(f"\\b[^ ]+{tag}\\b")
         self.label = label
-        self.clean = clean
+        self.keep = keep
 
     def __call__(self, line: str) -> str:
         """Run clean Operation."""
@@ -45,134 +90,211 @@ class TagCleaner(WordLogger):
 
         # Register Words
         for m in matches:
-            self.add_word(m.replace(self.clean_pattern, ""), self.label)
+            self.add_word(self.label, m.replace(self.clean_pattern, ""))
 
-        if self.clean:
-            # Return line cleanned of tagged words
-            return line.replace(self.clean_pattern, "")
-        # Remove matches
-        clean_line = line
-        for m in matches:
-            clean_line = line.replace(m, "")
-        return clean_line
+        if self.keep:
+            # Clean Matched items
+            clean_line = line
+            for m in matches:
+                clean_line = line.replace(m, "")
+            return clean_line
 
-
-def pattern_remover(*, patern: t.Pattern[str], replace_with: str = "") -> CLEANER_TYPE:
-    """Removes given pattern from given string."""
-
-    def _internal_fn(line: str, *, _pattern: t.Pattern[str], _replace_with: str = replace_with) -> tuple[str, int]:
-        return _pattern.sub(_replace_with, line), len(_pattern.findall(line))
-
-    # Return as a partial rule
-    return functools.partial(_internal_fn, _pattern=patern, _replace_with=replace_with)
+        # Return line cleanned of tagged words
+        return line.replace(self.clean_pattern, "")
 
 
-def substring_remover(*, seq: str, replace_with: str = "") -> CLEANER_TYPE:
-    """Replace sequence of characters from given string."""
+class CharSeqRemover(WordLogger):
+    """A class to help removing chars sequences from text."""
 
-    def _internal_fn(line: str, _seq: str, _replace_with: str = "") -> tuple[str, int]:
-        return line.replace(_seq, _replace_with), line.count(_seq)
+    def __init__(self, *chars: str, label: str, subst: str = "") -> None:
+        self.chars = chars
+        self.label = label
+        self.subst = subst
 
-    return functools.partial(_internal_fn, _seq=seq, _replace_with=replace_with)
+    def __call__(self, line: str) -> str:
+        """Clean given line from specific chars."""
+        clean = line
+        for c in self.chars:
+            clean = line.replace(c, self.subst)
+        return clean
 
 
-def word_remover(*, pattern: t.Pattern[str]) -> CLEANER_TYPE:
-    """Remove a word from the coprus."""
-    return pattern_remover(patern=pattern, replace_with=" ")
+# def pattern_remover(*, patern: t.Pattern[str], replace_with: str = "") -> CLEANER_TYPE:
+#     """Removes given pattern from given string."""
+
+#     def _internal_fn(line: str, *, _pattern: t.Pattern[str], _replace_with: str = replace_with) -> tuple[str, int]:
+#         return _pattern.sub(_replace_with, line), len(_pattern.findall(line))
+
+#     # Return as a partial rule
+#     return functools.partial(_internal_fn, _pattern=patern, _replace_with=replace_with)
 
 
-cleaning_adult_speech_rules: list[tuple[CLEANER_TYPE, str]] = [
+# def substring_remover(*, seq: str, replace_with: str = "") -> CLEANER_TYPE:
+#     """Replace sequence of characters from given string."""
+
+#     def _internal_fn(line: str, _seq: str, _replace_with: str = "") -> tuple[str, int]:
+#         return line.replace(_seq, _replace_with), line.count(_seq)
+
+#     return functools.partial(_internal_fn, _seq=seq, _replace_with=replace_with)
+
+
+# def word_remover(*, pattern: t.Pattern[str]) -> CLEANER_TYPE:
+#     """Remove a word from the coprus."""
+#     return pattern_remover(patern=pattern, replace_with=" ")
+
+_common_precleaning_rules: list[CleanerFN] = [
     # Remove Bracket  ([text]) Annotations
-    (pattern_remover(patern=re.compile(r"\[([^\]]+)\]")), "bracket-annotation"),
+    PatternRemover(match=re.compile(r"\[([^\]]+)\]"), label="bracket-annotation"),
     # Remove Paranthesis Annotations
-    (pattern_remover(patern=re.compile(r"\s\(([^()]*?)\)\s")), "parenthesis-annotation"),
-    # Onomatopoeia (@o): KEEP
-    (substring_remover(seq="@o"), "@o"),
-    # Phonological consistent forms (@p): KEEP
-    (substring_remover(seq="@p"), "@p"),
-    # Babbling (@b): Discard
-    (word_remover(pattern=re.compile(r"\s[^ ]*@b\s?")), "@b"),
-    # Word-Play (@wp): Discard
-    (word_remover(pattern=re.compile(r"\s[^ ]*@wp\s?")), "@wp"),
-    # Child Invented Form (@c): Discard
-    (word_remover(pattern=re.compile(r"\s[^ ]*@c\s?")), "@c"),
-    # Family Specific Form (@f): Discard
-    (word_remover(pattern=re.compile(r"\s[^ ]*@c\s?")), "@c"),
-    # Dialect Word (@d): KEEP
-    (substring_remover(seq="@d"), "@d"),
-    # TODO(@nhamilakis): handle Second (or other) Language (@s:...)
-    # Neologism (@n): KEEP
-    (substring_remover(seq="@n"), "@n"),
-    # Singing (@si): KEEP
-    (substring_remover(seq="@si"), "@si"),
-    # Interjection/interaction (@i): KEEP
-    (substring_remover(seq="@si"), "@si"),
-    # Remove Test Words (@t) annotation
-    (substring_remover(seq="@t"), "@t"),
-    # Meta-Linguistic Form (@q): KEEP (TODO(@nhamilakis):  maybe should not ?)
-    (substring_remover(seq="@q"), "@q"),
-    # Phonetic Transcription (@u): Discard (TODO(@nhamilakis):  maybe should not ?)
-    (word_remover(pattern=re.compile(r"\s[^ ]*@u\s?")), "@u"),
-    # Letters (@l): KEEP
-    (substring_remover(seq="@l"), "@l"),
-    # Multi-letter (@k)
-    (substring_remover(seq="@k"), "@k"),
-    # Remove custom code Braunwald
-    (substring_remover(seq="@z:sc"), "@z:sc"),
-    # Excluded words (@x)
-    (substring_remover(seq="@x"), "@x"),
-    # Remove general form (1 instance)
-    (substring_remover(seq="@g"), "@g"),
-    # Remove accidental tags
-    (substring_remover(seq="@m"), "@m"),
-    # Remove Non-Comprehensible Speech
-    (substring_remover(seq="xxx"), "xxx"),
-    # Punctuation (That is surrounded by space)
-    (substring_remover(seq=" . ", replace_with=" "), "."),
-    (substring_remover(seq=" ? ", replace_with=" "), "?"),
-    (substring_remover(seq=" ! ", replace_with=" "), "!"),
-    (substring_remover(seq=" : ", replace_with=" "), ":"),
-    (substring_remover(seq=" , ", replace_with=" "), ","),
-    # Useless Characters (replace with space)
-    (substring_remover(seq="↑", replace_with=" "), "↑"),
-    (substring_remover(seq="↓", replace_with=" "), "↓"),
-    (substring_remover(seq="≠", replace_with=" "), "≠"),
-    (substring_remover(seq="‡", replace_with=" "), "‡"),
-    (substring_remover(seq="+...", replace_with=" "), "+..."),
-    (substring_remover(seq="+..?", replace_with=" "), "+..?"),
-    (substring_remover(seq="+!?", replace_with=" "), "+!?"),
-    (substring_remover(seq="+/.", replace_with=" "), "+/."),
-    (substring_remover(seq="+/?", replace_with=" "), "+/?"),
-    (substring_remover(seq="+//.", replace_with=" "), "+//."),
-    (substring_remover(seq="+//?", replace_with=" "), "+//?"),
-    (substring_remover(seq="+.", replace_with=" "), "+."),
-    (substring_remover(seq="“", replace_with=" "), "“"),
-    (substring_remover(seq="”", replace_with=" "), "”"),
-    (substring_remover(seq='+"/.', replace_with=" "), '+"/.'),
-    (substring_remover(seq='+".', replace_with=" "), '+".'),
-    (substring_remover(seq='+"', replace_with=" "), '+"'),
-    (substring_remover(seq="+^", replace_with=" "), "+^"),
-    (substring_remover(seq="+,", replace_with=" "), "+,"),
-    (substring_remover(seq="++", replace_with=" "), "++"),
-    (substring_remover(seq="+<", replace_with=" "), "+<"),
-    # Handle Compounds & Linkages (Remove <text> the '<' and '>' symbols but keep the text)
-    (substring_remover(seq="<", replace_with=" "), "<"),
-    (substring_remover(seq=">", replace_with=" "), ">"),
-    # Phonological Fragments (&+): KEEP
-    (substring_remover(seq="&+", replace_with=" "), "&+"),
-    # Fillers (&-): KEEP
-    (substring_remover(seq="&-", replace_with=" "), "&-"),
-    # Actions (&=): Discard
-    (word_remover(pattern=re.compile(r"&=[^\s]*")), "ACTIONS"),
-    ## Inside word cleaning
-    # TODO(@nhamilakis): handle NonCompletion of a Word (text(text)text)
-    # TODO(@nhamilakis): handle Pause Between Syllables
-    # TODO(@nhamilakis): handle Accronyms (F_B_I)
-    # TODO(@nhamilakis): handle Word Stress ()
-    # TODO(@nhamilakis): Handle Compounds (word_word_word)
+    PatternRemover(match=re.compile(r"\s\(([^()]*?)\)\s"), label="parenthesis-annotation"),
+    CharSeqRemover("<", ">", label="<>"),
 ]
 
-cleaning_child_speech_rules: list[tuple[CLEANER_TYPE, str]] = []
+_punctuation_cleaner: CleanerFN = CharSeqRemover(
+    # Common Punctiation
+    ".",
+    "?",
+    "!",
+    ",",
+    # Useless Characters
+    "↑",
+    "↓",
+    "≠",
+    "‡",
+    "+...",
+    "+..?",
+    "+!?",
+    "+/.",
+    "+/?",
+    "+//.",
+    "+//?",
+    "+.",
+    "“",
+    "”",
+    '+"/.',
+    '+".',
+    '+"',
+    "+^",
+    "+,",
+    "++",
+    "+<",
+    label="common-punctuation",
+    subst=" ",
+)
+
+
+_adult_tag_removal: list[CleanerFN] = [
+    # Onomatopoeia (@o): KEEP
+    TagCleaner(tag="@o", label="Adult-Onomatopoia(@o)"),
+    TagCleaner(tag="@p", label="Adult-PhonologicalConsistentForm(@p)"),
+    # Babbling (@b): Discard
+    TagCleaner(tag="@b", label="Adult-Babling(@b)", keep=False),
+    # Word-Play (@wp): Discard
+    TagCleaner(tag="@wp", label="Adult-WordPlay(@wp)", keep=False),
+    # Child Invented Form (@c): Discard
+    TagCleaner(tag="@wp", label="Adult-ChildInventedForm(@c)", keep=False),
+    # Family Specific Form (@f): Discard
+    TagCleaner(tag="@f", label="Adult-FamilySpecificForm(@f)", keep=False),
+    # Dialect Word (@d): KEEP
+    TagCleaner(tag="@d", label="Adult-Dialect(@d)"),
+    # TODO(@nhamilakis): handle Second (or other) Language (@s:...) [Discard]
+    # Neologism (@n): KEEP
+    TagCleaner(tag="@n", label="Adult-Neologism(@n)"),
+    # Singing (@si): KEEP
+    TagCleaner(tag="@si", label="Adult-Singing(@si)"),
+    # Interjection/interaction (@i): KEEP
+    TagCleaner(tag="@i", label="Adult-Interjection(@i)"),
+    # Test Words (@t) annotation : KEEP
+    TagCleaner(tag="@t", label="Adult-TestWords(@t)"),
+    # Meta-Linguistic Form (@q): KEEP
+    TagCleaner(tag="@q", label="Adult-MetaLForm(@q)"),
+    # Phonetic Transcription (@u): KEEP
+    TagCleaner(tag="@u", label="Adult-Phonetic(@u)"),
+    # Letters (@l): KEEP
+    TagCleaner(tag="@l", label="Adult-Letters(@l)"),
+    # Multi-letter (@k)
+    TagCleaner(tag="@k", label="Adult-Letters(@k)"),
+    # Remove custom code Braunwald
+    TagCleaner(tag="@z:sc", label="Adult-BraunwaldCode(@z:sc)"),
+    # Excluded words (@x)
+    TagCleaner(tag="@x", label="Adult-ExcludedWords(@x)"),
+    # Remove general form (1 instance)
+    TagCleaner(tag="@g", label="Adult-GeneralForm(@g)"),
+    # Remove accidental tags
+    TagCleaner(tag="@m", label="Adult-ErrorTags(@m)"),
+]
+
+_child_tag_removal: list[CleanerFN] = [
+    # Onomatopoeia (@o): KEEP
+    TagCleaner(tag="@o", label="CHILD-Onomatopoia(@o)"),
+    TagCleaner(tag="@p", label="CHILD-PhonologicalConsistentForm(@p)"),
+    # Babbling (@b): Discard
+    TagCleaner(tag="@b", label="CHILD-Babling(@b)"),
+    # Word-Play (@wp): Discard
+    TagCleaner(tag="@wp", label="CHILD-WordPlay(@wp)"),
+    # Child Invented Form (@c): Discard
+    TagCleaner(tag="@wp", label="CHILD-ChildInventedForm(@c)"),
+    # Family Specific Form (@f): Discard
+    TagCleaner(tag="@f", label="CHILD-FamilySpecificForm(@f)"),
+    # Dialect Word (@d): KEEP
+    TagCleaner(tag="@d", label="CHILD-Dialect(@d)"),
+    # TODO(@nhamilakis): handle Second (or other) Language (@s:...) [Discard]
+    # Neologism (@n): KEEP
+    TagCleaner(tag="@n", label="CHILD-Neologism(@n)"),
+    # Singing (@si): KEEP
+    TagCleaner(tag="@si", label="CHILD-Singing(@si)"),
+    # Interjection/interaction (@i): KEEP
+    TagCleaner(tag="@i", label="CHILD-Interjection(@i)"),
+    # Test Words (@t) annotation : KEEP
+    TagCleaner(tag="@t", label="CHILD-TestWords(@t)"),
+    # Meta-Linguistic Form (@q): KEEP
+    TagCleaner(tag="@q", label="CHILD-MetaLForm(@q)"),
+    # Phonetic Transcription (@u): KEEP
+    TagCleaner(tag="@u", label="CHILD-Phonetic(@u)"),
+    # Letters (@l): KEEP
+    TagCleaner(tag="@l", label="CHILD-Letters(@l)"),
+    # Multi-letter (@k)
+    TagCleaner(tag="@k", label="CHILD-Letters(@k)"),
+    # Remove custom code Braunwald
+    TagCleaner(tag="@z:sc", label="CHILD-BraunwaldCode(@z:sc)"),
+    # Excluded words (@x)
+    TagCleaner(tag="@x", label="CHILD-ExcludedWords(@x)"),
+    # Remove general form (1 instance)
+    TagCleaner(tag="@g", label="CHILD-GeneralForm(@g)"),
+    # Remove accidental tags
+    TagCleaner(tag="@m", label="CHILD-ErrorTags(@m)"),
+]
+
+# cleaning_adult_speech_rules: list[CleanerFN] = [
+#     # Remove Non-Comprehensible Speech
+#     (substring_remover(seq="xxx"), "xxx"),
+#     # Phonological Fragments (&+): KEEP
+#     (substring_remover(seq="&+", replace_with=" "), "&+"),
+#     # Fillers (&-): KEEP
+#     (substring_remover(seq="&-", replace_with=" "), "&-"),
+#     # Actions (&=): Discard
+#     (word_remover(pattern=re.compile(r"&=[^\s]*")), "ACTIONS"),
+#     ## Inside word cleaning
+#     # TODO(@nhamilakis): handle NonCompletion of a Word (text(text)text)
+#     # TODO(@nhamilakis): handle Pause Between Syllables
+#     # TODO(@nhamilakis): handle Accronyms (F_B_I)
+#     # TODO(@nhamilakis): handle Word Stress ()
+#     # TODO(@nhamilakis): Handle Compounds (word_word_word)
+# ]
+
+cleaning_child_speech_rules: list[CleanerFN] = [
+    *_common_precleaning_rules,
+    _punctuation_cleaner,
+    *_child_tag_removal,
+    # TODO(@nhamilakis): Add post tag cleanup
+]
+
+cleaning_adult_speech_rules: list[CleanerFN] = [
+    *_common_precleaning_rules,
+    _punctuation_cleaner,
+    *_adult_tag_removal,
+    # TODO(@nhamilakis): Add post tag cleanup
+]
 
 
 class CleanerMeta:
