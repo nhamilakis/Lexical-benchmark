@@ -6,8 +6,7 @@ remote_notebook_path := "workspace/src/LexicalBenchmark2/notebooks/"
 remote_source_path := "workspace/src/LexicalBenchmark2/source/"
 
 _default:
-  # @just --choose
-  echo "{{current_dir}}/"
+  @just --choose
 
 [doc("Open SSH tunnel for remote notebook server.")]
 notebook-tunnel node=compute_node port=jupyter_port:
@@ -22,7 +21,7 @@ fetch-notebooks:
 [doc("Deploy source code to Oberon")]
 deploy:
     echo "Syncing current directory..."
-    rsync -azP --delete --exclude=".mypy_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{remote}}:{{remote_source_path}}"
+    rsync -azP --delete --exclude=".mypy_cache" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{remote}}:{{remote_source_path}}"
 
 [doc("Install module & dependencies")]
 install:
