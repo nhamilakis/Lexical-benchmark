@@ -43,11 +43,18 @@ class TagCleaner(WordLogger):
         """Run clean Operation."""
         matches = self.match_pattern.findall(line)
 
+        # Register Words
         for m in matches:
             self.add_word(m.replace(self.clean_pattern, ""), self.label)
 
-        # Return line cleanned of tagged words
-        return line.replace(self.clean_pattern, "")
+        if self.clean:
+            # Return line cleanned of tagged words
+            return line.replace(self.clean_pattern, "")
+        # Remove matches
+        clean_line = line
+        for m in matches:
+            clean_line = line.replace(m, "")
+        return clean_line
 
 
 def pattern_remover(*, patern: t.Pattern[str], replace_with: str = "") -> CLEANER_TYPE:

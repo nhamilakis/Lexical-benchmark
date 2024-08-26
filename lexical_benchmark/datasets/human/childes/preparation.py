@@ -69,7 +69,7 @@ class CHILDESPreparation:
 
         self.dataset[lang_code] = all_items
 
-    def export_to_dir(self, location: Path, *, show_progress: bool = False) -> None:
+    def export(self, location: Path, *, show_progress: bool = False) -> None:
         """Export dataset to directory."""
         for lang, filelist in self.dataset.items():
             lang_loc = location / lang
@@ -97,32 +97,37 @@ class CHILDESPreparation:
 class OrganizeByAge:
     """Organize child-speech by age."""
 
-    def __init__(self, root_dir: Path, lang_codes: list[str]) -> None:
+    def __init__(self, root_dir: Path) -> None:
         self.root_dir = root_dir
-        self.lang_codes = lang_codes
 
-    def make_age_splits(self) -> None:
+    def make_age_splits(self, lang_code: str) -> pd.DataFrame:
         """Create a split of metadata.csv into age groups."""
-        for lang in self.lang_codes:
-            data_dir = self.root_dir / lang
-            metadata_df = pd.read_csv(data_dir / "metadata.csv", sep=",")
-            metadata_df["child_age(float)"] = metadata_df["child_age"].apply(parse_childes_age)
+        data_dir = self.root_dir / lang_code
+        metadata_df = pd.read_csv(data_dir / "metadata.csv", sep=",")
+        metadata_df["child_age(float)"] = metadata_df["child_age"].apply(parse_childes_age)
 
-            for min_age, max_age in settings.CHILDES.AGE_RANGES:
-                metadata_df[
-                    (metadata_df["child_age(float)"] >= min_age) & (metadata_df["child_age(float)"] < max_age)
-                ].to_csv(data_dir / f"child_{min_age}_{max_age}.csv", index=False, sep=",")
+        # Group by age groups
+        metadata_df["age_group"] = pd.cut(
+            metadata_df["child_age(float)"],
+            bins=range(settings.CHILDES.MAX_AGE),
+            labels=[f"{m}_{n}" for m, n in settings.CHILDES.AGE_RANGES],
+        )
 
-    def build_splits(self) -> None:
+        # Remove ages outside of range
+        return metadata_df[~metadata_df["age_group"].isna()]
+
+    def build_splits(self, lang_code: str, metadata: pd.DataFrame) -> None:
         """Build folders separating children by age."""
-        for lang in self.lang_codes:
-            data_dir = self.root_dir / lang
-            target = data_dir / "child_by_age"
+        data_dir = self.root_dir / lang_code
+        target = data_dir / "child_by_age"
+        target.mkdir(exist_ok=True, parents=True)
 
-            # iterate over csv containing splits
-            for file in data_dir.glob("child_*.csv"):
-                df = pd.read_csv(file, sep=",")
-                age_range = target / file.stem.replace("child_", "")
-                age_range.mkdir(exist_ok=True, parents=True)
-                for row in df.itertuples():
-                    (age_range / f"{row.file_id}.txt").symlink_to(data_dir / "child" / f"{row.file_id}.txt")
+        for min_age, max_age in settings.CHILDES.AGE_RANGES:
+            curr_range = f"{min_age}_{max_age}"
+            files_list = list(metadata[metadata["age_group"] == curr_range]["file_id"])
+            # Make directory
+            (target / curr_range).mkdir(exist_ok=True, parents=True)
+
+            # Create symlink for all files
+            for file_id in files_list:
+                (target / curr_range / f"{file_id}.txt").symlink_to(data_dir / "child" / f"{file_id}.txt")

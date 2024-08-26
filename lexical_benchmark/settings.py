@@ -2,6 +2,7 @@ import dataclasses as _dataclasses
 import os as _os
 import platform as _platform
 import typing as t
+import warnings as _warnings
 from pathlib import Path as _Path
 
 # URL to the KAIKI extended english word dictionairy
@@ -46,10 +47,20 @@ def cache_dir() -> _Path:
     return cache_path
 
 
+def _assert_dir(dir_location: _Path) -> None:
+    """Check if directory exists & throw warning if it doesn't."""
+    if not dir_location.is_dir():
+        _warnings.warn(
+            f"Using non-existent directory: {dir_location}\nCheck your settings & env variables.",
+            stacklevel=1,
+        )
+
+
 @_dataclasses.dataclass
 class _MyPathSettings:
     DATA_DIR: _Path = _Path(_os.environ.get("DATA_DIR", "data/"))
     COML_SERVERS: tuple = tuple({"oberon", "oberon2", "habilis", *[f"puck{i}" for i in range(1, 7)]})
+    KNOWN_HOSTS: tuple[str, ...] = (*COML_SERVERS, "nicolass-mbp")
 
     def __post_init__(self) -> None:
         if _platform.node() in self.COML_SERVERS:
@@ -57,12 +68,22 @@ class _MyPathSettings:
         elif _platform.node() == "nicolass-mbp":
             self.DATA_DIR = _Path.home() / "workspace/coml/data/LBenchmark2/data"
 
+        if not self.DATA_DIR.is_dir():
+            _warnings.warn(
+                f"Provided DATA_DIR: {self.DATA_DIR} does not exist.\n"
+                "You either need to run the code in one of the predifined servers.\n"
+                "OR provide a valid DATA_DIR env variable.",
+                stacklevel=1,
+            )
+
     @property
     def dataset_root(self) -> _Path:
+        _assert_dir(self.DATA_DIR / "datasets")
         return self.DATA_DIR / "datasets"
 
     @property
     def source_datasets(self) -> _Path:
+        _assert_dir(self.dataset_root / "source")
         return self.dataset_root / "source"
 
     @property
@@ -86,6 +107,14 @@ class _MyPathSettings:
         return self.raw_datasets / "CHILDES"
 
     @property
+    def clean_datasets(self) -> _Path:
+        return self.dataset_root / "raw"
+
+    @property
+    def clean_childes(self) -> _Path:
+        return self.clean_datasets / "CHILDES"
+
+    @property
     def code_root(self) -> _Path:
         import lexical_benchmark
 
@@ -99,8 +128,9 @@ class _MyPathSettings:
 @_dataclasses.dataclass
 class _CHILDESMetadata:
     ACCENTS: tuple[str, ...] = ("Eng-NA", "Eng-UK")
+    MAX_AGE: int = 40  # In months
     AGE_RANGES: tuple[tuple[int, int], ...] = _dataclasses.field(
-        default_factory=lambda: tuple((x, x + 1) for x in range(40))
+        default_factory=lambda: tuple((x, x + 1) for x in range(39))
     )
 
 
