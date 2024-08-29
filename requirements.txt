@@ -12,3 +12,4 @@ spacy
 transformers # todo check version
 scipy
 statsmodels
+num2words

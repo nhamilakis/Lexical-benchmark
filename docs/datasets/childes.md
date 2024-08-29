@@ -19,6 +19,10 @@ For the cleanup of the CHILDES Datasets ....TBA
 We used the Syntax of CHILDES annotation and came up with a list of choice rules on how to process tagging/punctuation/metadata etc...
 You can find the url to the full documentation of the CHAT format [annotations here](https://talkbank.org/manuals/CHAT.html).
 
+
+> To clean-up foreing language tags we created a list of the languages using the following command :
+> `rg --no-filename  -i "(@s:\w+)" -or '$1' child/ adult/ | cut -d: -f1,2 > langs.txt`
+
 <details>
 <summary>Rules & Choices</summary>
 <table class="tg"><thead>

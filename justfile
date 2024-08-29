@@ -10,7 +10,7 @@ _default:
 
 [doc("Open SSH tunnel for remote notebook server.")]
 notebook-tunnel node=compute_node port=jupyter_port:
-    echo "Creating a tunnel to {{node}}:{{port}}"
+    @echo "Creating a tunnel to {{node}}:{{port}}"
     ssh -L "{{port}}:{{node}}:{{port}}" "{{node}}" -N -v -v
 
 [doc("Fetch notebooks from Oberon")]

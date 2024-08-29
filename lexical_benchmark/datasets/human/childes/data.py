@@ -1,3 +1,5 @@
+import collections
+import json
 import typing as t
 from pathlib import Path
 
@@ -93,6 +95,38 @@ class RawCHILDESFiles:
         """Iterate over all items."""
         for lang_accent in self.langs:
             yield from self.iter(lang_accent, speech_type=speech_type)
+
+    def iter_clean_meta(self, lang_accent: str, speech_type: SPEECH_TYPE) -> t.Iterable[Path]:
+        """Iterate over all post-cleanup metadata file."""
+        if lang_accent not in self.langs:
+            raise KeyError(f"{lang_accent}: Not found !!")
+
+        yield from (self.root_dir / lang_accent / speech_type).glob("*.meta.json")
+
+    def load_clean_meta(self, lang: str, speech_type: SPEECH_TYPE) -> dict[str, int | list[str]]:
+        """Function that allows to load all metadata from RAW Dataset."""
+        # Load all metadata
+        dict_list = [json.loads(f.read_bytes()) for f in self.iter_clean_meta(lang, speech_type)]
+
+        # Load all keys
+        keys = []
+        for d in dict_list:
+            keys.extend(list(d.keys()))
+        keys_set = set(keys)
+
+        # Load items of each key
+        data: dict[str, list[str]] = collections.defaultdict(list)
+        nb_data: dict[str, int] = collections.defaultdict(lambda: 0)
+
+        for key in keys_set:
+            for d in dict_list:
+                item = d.get(key, [])
+                if isinstance(item, int):
+                    nb_data[key] += item
+                else:
+                    data[key].extend(item)
+
+        return {**data, **nb_data}
 
 
 class CleanCHILDESFiles:

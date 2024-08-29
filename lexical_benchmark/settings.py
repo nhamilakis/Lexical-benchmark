@@ -132,6 +132,34 @@ class _CHILDESMetadata:
     AGE_RANGES: tuple[tuple[int, int], ...] = _dataclasses.field(
         default_factory=lambda: tuple((x, x + 1) for x in range(39))
     )
+    # Extracted directly from dataset
+    # Using the following command :
+    # `rg --no-filename  -i "(@s:\w+)" -or '$1' | cut -d: -f1,2 > langs.txt`
+    EXTRA_LANGS: tuple = (
+        "@s:afr",
+        "@s:ara",
+        "@s:deu",
+        "@s:ell",
+        "@s:eng",
+        "@s:fra",
+        "@s:haw",
+        "@s:heb",
+        "@s:hin",
+        "@s:hun",
+        "@s:ind",
+        "@s:ita",
+        "@s:jpn",
+        "@s:kik",
+        "@s:lat",
+        "@s:nld",
+        "@s:pan",
+        "@s:rus",
+        "@s:spa",
+        "@s:tgl",
+        "@s:und",
+        "@s:yid",
+        "@s:zho",
+    )
 
 
 @_dataclasses.dataclass
@@ -195,6 +223,21 @@ class _CDIMetadata:
             },
         }
         return index.get(lang, {}).get(form)
+
+
+def langs_from_childes() -> set[str]:
+    """Load list of foreign languages for cleanup."""
+    if PATH.raw_childes.is_dir():
+        raise NameError(f"RAW CHILDES not found @ {PATH.raw_childes} not exist: run childes_preparation module.")
+
+    eng_na_langs = PATH.raw_childes / "Eng-NA" / "langs.txt"
+    eng_uk_langs = PATH.raw_childes / "Eng-UK" / "langs.txt"
+
+    if eng_na_langs.is_file() and eng_uk_langs.is_file():
+        # Load content into a set
+        return {*eng_na_langs.read_text().splitlines(), *eng_uk_langs.read_text().splitlines()}
+
+    raise NameError("Langs file not found in CHILDES/RAW, run extraction to create them.")
 
 
 #######################################################
