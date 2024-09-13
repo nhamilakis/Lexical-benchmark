@@ -1,0 +1,37 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["ALL"] # Be brave use all rules
+fixable = ["ALL"]
+# remove the ones that make no sense
+ignore = [
+    "E402"     # Notebooks are allowed to import in all cells
+    "D100",    # allow top doc-string to be missing
+    "D401",    # imperative mood in docstring is ambiguous
+    "D203", "D213", # Conflicting rules about docstrings
+    "S603",    # allow subprocess to be called using literals
+    "PLR0913", # allow functions to have more tha 12 arguments
+    "TRY003",  # allow Exceptions to contain long messages
+    "EM101",   # allow Exceptions to contain literals
+    "ANN003",  # allow **kwargs to be without type-hints
+    "D107",    # allow __init__ without docstring
+    "ANN101", "ANN102",  # "self" & "cls" need no typing (rule is Deprecated)
+    "T201",    # allow 'print' statements
+    "TD003",   # not all todos require a issue
+    "D104",    # allow scripts not to have docstring on top
+    "EM102",   # allow exception to use f-strings
+    "FIX002",  # allow todos
+    "DTZ011",  # allow datetimes without timezone
+    "PLR2004", # Allow magic numbers (should be avoided, except some math contexts)
+    "S311",    # No cryptography done here random is safe enough
+    "PD901",   # Allow df variable name
+    "COM812",  # Allow trailing comma to be missing
+    "G004",    # Allow f-strings in logger (reasonable, but not here)
+]
+
+
+
+[tool.ruff.lint.flake8-import-conventions.aliases]
+typing = "t"
