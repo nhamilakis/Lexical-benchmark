@@ -1,58 +1,20 @@
-import re
-import string
-
 import pandas as pd
-
-from .spacy_utils import spacy_model
-
-# Translator Cleaner
-tr_cleaner = str.maketrans("", "", string.punctuation + string.digits)
-# Only lowercase regexp
-only_chars_r = re.compile(r"[^\w ]+")
-# Regex matching all text between brackets (non-greedily)
-# noinspection RegExpRedundantEscape
-BRACKET_TEXT = re.compile(r"\[.*?\]")
-# Match CHA &=XXXX annotations
-CHA_ANNOT = re.compile(r"[&=]+\s*\w+")
-# Match CHA filler descriptions
-CHA_NOISE = re.compile(r"(xxx)|(trn)|(sr)|(yyy)|(noise)")
-
-# PoS Infer Model
-pos_model = spacy_model("en_core_web_sm")
+import spacy
 
 
-def cha_phrase_cleaning(phrase: str) -> str:
-    """Cleaning for CHA phrases."""
+def spacy_model(model_name: str) -> spacy.Language:
+    """Safely load spacy Language Model."""
     try:
-        # Remove text between brackets
-        phrase = BRACKET_TEXT.sub("", phrase)
-        # Remove &=XXXX annotations
-        phrase = CHA_ANNOT.sub("", phrase)
-        # Remove any noise words
-        phrase = CHA_NOISE.sub("", phrase)
+        return spacy.load(model_name)
+    except OSError:
+        from spacy.cli.download import download
 
-        # Clean using word cleaning
-        return word_cleaning(phrase)
-    except (ValueError, KeyError):
-        return str(phrase)
+        download(model_name)
+
+        return spacy.load(model_name)
 
 
-def word_cleaning(word: str) -> str:
-    r"""Clean-up text by keeping only wordlike items.
-
-    Returns: a string containing only lower-cased letters and spaces.
-
-    - TODO: check previous version (r"\([a-z]+\)") if something was missed during refactor
-    - TODO: translation could be omitted ?
-    - TODO: remove annotations; problem: polysemies
-    - TODO: do we have expressions ? if yes we need to not eliminate spaces in the regexp
-    """
-    word = re.sub(r"\(.*?\)", "", word)
-    clean_string = word.translate(tr_cleaner).lower()
-    return only_chars_r.sub("", clean_string).strip()
-
-
-def word_to_pos(word: str) -> str | None:
+def word_to_pos(word: str, pos_model: spacy.Language) -> str | None:
     """Infer Part of Speech from a given word."""
     doc = pos_model(word)
     first_token = next(iter(doc), None)
@@ -83,3 +45,38 @@ def merge_word(df: pd.DataFrame, header: str) -> pd.DataFrame:
             else:
                 merged_df[col] = df.groupby(header)[col].sum().reset_index()[col]
     return merged_df
+
+
+def to_roman(value: int) -> str:
+    """Convert an int into a roman numeral."""
+    roman_map = {
+        1: "I",
+        4: "IV",
+        5: "V",
+        9: "IX",
+        10: "X",
+        40: "XL",
+        50: "L",
+        90: "XC",
+        100: "C",
+        400: "CD",
+        500: "D",
+        900: "CM",
+        1000: "M",
+    }
+    result = ""
+    remainder = value
+
+    if value > 3_999_999:
+        raise ValueError(f"Roman numerals cannot exceed 3,999,999, given {value} !!!")
+
+    for i in sorted(roman_map.keys(), reverse=True):
+        if remainder > 0:
+            multiplier = i
+            roman_digit = roman_map[i]
+
+            times = remainder // multiplier
+            remainder = remainder % multiplier
+            result += roman_digit * times
+
+    return result

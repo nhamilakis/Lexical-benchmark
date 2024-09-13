@@ -7,6 +7,7 @@ from pathlib import Path as _Path
 
 # URL to the KAIKI extended english word dictionairy
 KAIKI_ENGLISH_WORD_DICT_URL = "https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz"
+LEXICON_ITEMS = ("kaikki", "SCOWLv2", "yawl")
 # Placeholder string for empty rows
 PLACEHOLDER_MONTH = "placeholder"
 # Model list
@@ -82,6 +83,11 @@ class _MyPathSettings:
         return self.DATA_DIR / "datasets"
 
     @property
+    def lexicon_root(self) -> _Path:
+        _assert_dir(self.DATA_DIR / "datasets" / "lexicon")
+        return self.DATA_DIR / "datasets" / "lexicon"
+
+    @property
     def source_datasets(self) -> _Path:
         _assert_dir(self.dataset_root / "source")
         return self.dataset_root / "source"
@@ -95,8 +101,8 @@ class _MyPathSettings:
         return self.source_datasets / "wordbank-cdi"
 
     @property
-    def source_stella(self) -> _Path:
-        return self.source_datasets / "StellaDataset"
+    def source_stela(self) -> _Path:
+        return self.source_datasets / "StelaData"
 
     @property
     def raw_datasets(self) -> _Path:
@@ -107,12 +113,20 @@ class _MyPathSettings:
         return self.raw_datasets / "CHILDES"
 
     @property
+    def raw_stela(self) -> _Path:
+        return self.raw_datasets / "StelaTrainDataset"
+
+    @property
     def clean_datasets(self) -> _Path:
         return self.dataset_root / "clean"
 
     @property
     def clean_childes(self) -> _Path:
         return self.clean_datasets / "CHILDES"
+
+    @property
+    def clean_stela(self) -> _Path:
+        return self.clean_datasets / "StelaTrainDataset"
 
     @property
     def code_root(self) -> _Path:
@@ -240,8 +254,14 @@ def langs_from_childes() -> set[str]:
     raise NameError("Langs file not found in CHILDES/RAW, run extraction to create them.")
 
 
+@_dataclasses.dataclass
+class _STELAMetadata:
+    """Metadata linked to the STELA Dataset."""
+
+
 #######################################################
 # Instance of Settings
 PATH = _MyPathSettings()
 CHILDES = _CHILDESMetadata()
+STELA = _STELAMetadata()
 WORDBANK_CDI = _CDIMetadata()

@@ -1,9 +1,11 @@
 """Loader and extractor for Human CDI."""
 
 import enum
+import functools
 from pathlib import Path
 
 import pandas as pd
+import spacy
 
 from lexical_benchmark import settings
 from lexical_benchmark.datasets import utils
@@ -48,6 +50,11 @@ class CDIPreparation:
             - the cell values correspond to score based on knowledge of the word
 
     """
+
+    @property
+    def pos_model_load(self) -> spacy.Language:
+        """Load POS model from spacy."""
+        return utils.spacy_model("en_core_web_sm")
 
     def __init__(
         self,
@@ -103,8 +110,11 @@ class CDIPreparation:
         # Calculate Word length
         df["word_length"] = df["word"].apply(len)
 
-        # Build POS for the list of words
-        df["POS"] = df["word"].apply(utils.word_to_pos)
+        # Load POS inference model and inject it into the word_to_pos function
+        word_to_pos = functools.partial(utils.word_to_pos, pos_model=self.pos_model_load)
+
+        # Create a column POS using previous function
+        df["POS"] = df["word"].apply(word_to_pos)
 
         # Filter words by PoS
         if self.pos_filter_type == POSTypes.content:

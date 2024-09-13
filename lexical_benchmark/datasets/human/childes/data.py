@@ -193,3 +193,17 @@ class CleanCHILDESFiles:
         """Iterate over all files."""
         for lang_accent in self.langs:
             yield from self.iter(lang_accent=lang_accent, speech_type=speech_type)
+
+    def iter_test(self) -> t.Iterable[Path]:
+        """Iterate over the test files: Only used during dev."""
+        yield from (self.root_dir / "test").glob("*.txt")
+
+    def words(self, lang_accent: str, speech_type: SPEECH_TYPE) -> t.Iterable[str]:
+        """Iterate over the words in the dataset."""
+        for item in self.iter(lang_accent, speech_type):
+            for line in item.file.read_text().splitlines():
+                yield from line.split()
+
+    def word_count(self, lang_accent: str, speech_type: SPEECH_TYPE) -> collections.Counter:
+        """Return the Word Count for a specific subset."""
+        return collections.Counter(list(self.words(lang_accent, speech_type)))

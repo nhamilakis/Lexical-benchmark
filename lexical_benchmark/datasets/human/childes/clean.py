@@ -1,4 +1,3 @@
-import itertools
 import re
 import typing as t
 from pathlib import Path
@@ -119,9 +118,35 @@ class InterpositionRemover(txt.TextActionFN):
         return clean_line
 
 
+class WordCompletionRemover(txt.TextActionFN):
+    """Cleaner for artificial word completion in CHILDES.
+
+    Ex: (o)kay ==> the pronounced word was 'kay but the annotator added the (o) to signify the full word.
+
+        - This rule needs to be applied after parenthesis annotation cleaning as to not confuse pause (.)
+    for word completion.
+        - This rule needs to be before "'" & "-" filtering.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(label="word-completion")
+        self.match_pattern = re.compile(r"\w*\(\w+\)\w*")
+        self.clean_pattern = re.compile(r"\(\w+\)")
+
+    def __call__(self, line: str) -> str:
+        """Clean line from word completion."""
+        matches = self.match_pattern.findall(line)
+        if matches:
+            line = self.clean_pattern.sub("'", line)
+            for m in matches:
+                self.add_word(self.label, m)
+        return line
+
+
 # Remove Bracket  ([text]) Annotations
 BRACKET_REMOVER = txt.PatternRemover(match=re.compile(r"\[([^\]]+)\]"), subst=" ", label="bracket-annotation")
 # Remove Paranthesis Annotations
+# BUG: this left some '(.)' in the dataset, all in the beggining of the phrase
 PAREN_REMOVER = txt.PatternRemover(match=re.compile(r"\s\(([^()]*?)\)\s"), subst=" ", label="parenthesis-annotation")
 TEXT_NORMALISATION = txt.TextNormalization()
 
@@ -163,7 +188,7 @@ WWW_NOISE_REMOVER = txt.CharSeqRemover(seq="www", label="WWW", count=True)
 PHONOLOGICAL_FRAGMENT_REMOVER = AmpersandCleaner(tag=r"&\+", label="&+", keep=False)
 PHONOLOGICAL_FRAGMENT_CLEANER = AmpersandCleaner(tag=r"&\+", label="&+")
 
-# BUG(@nhamilakis): fails as there as some loose '&~' with no word, they are properly cleaned though so false reporting.
+# BUG(@nhamilakis): fails as there are some loose '&~' with no word, they are properly cleaned though so false reporting.
 NONWORD_REMOVER = AmpersandCleaner(tag=r"&~", label="&~", keep=False)
 NONWORD_CLEANER = AmpersandCleaner(tag=r"&~", label="&~")
 
@@ -191,9 +216,7 @@ LEFTOVERCHARS_CLEANER = txt.MultiCharSeqRemover(
 # BUG(@nhamilakis): Some numbers fail to match (end of line ???)
 NUMBER_CLEANER = txt.NumberFixer(keep_as_text=False)
 
-PAREN_EXTRA_FIXER = ...  # TODO(@nhamilakis): Implement the fix for wor(d)word(?)yes
-FIX_APOSTROPHY_WORDS = ...  # TODO(@nhamilakis): Implement this
-FIX_HYPHENATED_WORDS = ...  # TODO(@nhamilakis): Implement this
+WORD_COMPLETION_FIXER = WordCompletionRemover()
 
 # TAG Cleaning
 _adult_tag_removal: list[txt.CleanerFN] = [
@@ -303,6 +326,7 @@ cleaning_child_speech_rules: list[txt.CleanerFN] = [
     UNDESCORE_CLEANER,
     # Symbols & Numbers
     NUMBER_CLEANER,
+    WORD_COMPLETION_FIXER,
     LEFTOVERCHARS_CLEANER,
 ]
 
@@ -326,6 +350,7 @@ cleaning_adult_speech_rules: list[txt.CleanerFN] = [
     UNDESCORE_CLEANER,
     # Symbols & Numbers
     NUMBER_CLEANER,
+    WORD_COMPLETION_FIXER,
     LEFTOVERCHARS_CLEANER,
 ]
 
@@ -349,7 +374,7 @@ class CHILDESCleaner:
         self._progress: progress.Progress | None = None
         self._progress_users = 0
 
-    def progress(self, show_progress: bool = False) -> progress.Progress:
+    def progress(self, *, show_progress: bool = False) -> progress.Progress:
         """Load or fetch progress item."""
         self._progress_users += 1
 
@@ -394,7 +419,7 @@ class CHILDESCleaner:
             prg.update(file_task, description=f"Cleaning {file.stem}...")
 
             # Pass lines through cleaning pipeline
-            clean_lines = [txt.piped(line, *ruleset) for line in file.read_text().splitlines()]
+            clean_lines = [txt.piped(f" {line} ", *ruleset) for line in file.read_text().splitlines()]
             # Write results in clean dataset
             (target / file.with_suffix(".txt").name).write_text("\n".join(clean_lines))
             # Dump & reset logs
@@ -412,18 +437,18 @@ class CHILDESCleaner:
         prg.start()
 
         langs = self.file_nav.langs
+        speech_types = t.get_args(SPEECH_TYPE)
 
         for lang in prg.track(langs, description="Cleaning Childes languages..."):
-            for speech in prg.track(("child", "adult"), description=f"Cleaning targets in {lang}.."):
-                it = self.file_nav.iter(lang, str(speech))  # type: ignore[arg-type] # literal does not undestand str
+            for speech in prg.track(speech_types, description=f"Cleaning targets in {lang}.."):
                 location = target / lang / speech
                 location.mkdir(exist_ok=True, parents=True)
 
                 # Clean files in set
                 self.clean_files(
                     target=location,
-                    files_iter=itertools.islice(it, 10),
-                    ruleset=self.get_ruleset(speech),  # type: ignore[arg-type] # literal does not undestand str
+                    files_iter=self.file_nav.iter(lang, speech),
+                    ruleset=self.get_ruleset(speech),
                     show_progress=show_progress,
                 )
 

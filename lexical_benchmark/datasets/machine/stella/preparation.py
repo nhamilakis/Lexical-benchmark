@@ -1,28 +1,14 @@
-# ruff: noqa
-# type: ignore
 """Tools to collect and use transcriptions from the STELA model."""
 
-import collections
 import dataclasses
 import typing as t
 import warnings
 from pathlib import Path
 
+from lexical_benchmark import settings
+
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 import pandas as pd  # noqa: E402 (Deprecation avoid)
-
-
-def word_frequency(file_list: list[Path], *, as_df: bool = True) -> pd.DataFrame | collections.Counter:
-    """Build a word frequency mapping (Requires clean text)."""
-    words = []
-    for text_files in file_list:
-        content = text_files.read_text()
-        words.extend(content.split(" "))
-
-    # Return a count of all words in the dataset
-    if as_df:
-        return pd.DataFrame.from_records(list(collections.Counter(words).items()), columns=["word", "freq"])
-    return collections.Counter(words)
 
 
 @dataclasses.dataclass
@@ -154,33 +140,33 @@ class InfTrainStructure:
         return assoc.merge(matched, on="book")
 
     def __init__(self, root_dir: Path, lang: str = "en") -> None:
-        self.dataset_dir = root_dir / "dataset"
+        self.dataset_dir = root_dir
         self.metadata_dir = root_dir / "medatada"
         self.lang = lang.upper()
 
 
-class STELATranscripts:
+class STELAPrepTranscripts:
     """Class used to manipulate STELA transcripts."""
 
     @property
     def associations_file(self) -> Path:
         """The file storing Wav/Text Associations."""
-        return self.datasets_root / "data/machine/metadata" / "wav_text_associations.csv"
+        return self.target_dir / "metadata" / "wav_text_associations.csv"
 
     @property
     def train_dir(self) -> Path:
         """Location to store train dataset."""
-        return self.datasets_root / "data/machine/train"
+        return self.target_dir / "train"
 
     def __init__(
         self,
         lang: str,
-        root_dir: Path = Path("/scratch1/projects/lexical-benchmark/"),
-        inf_train_dir: Path = Path("/scratch1/projects/InfTrain"),
+        target_dir: Path = settings.PATH.raw_stela,
+        source_stela: Path = settings.PATH.source_stela,
     ) -> None:
-        self.datasets_root = root_dir / "datasets"
+        self.target_dir = target_dir
         self.lang = lang.upper()
-        self.inf_train = InfTrainStructure(root_dir=inf_train_dir, lang=lang)
+        self.inf_train = InfTrainStructure(root_dir=source_stela, lang=lang)
         # preset empty items
         self.books: dict[str, Path] = {}
 
@@ -188,6 +174,9 @@ class STELATranscripts:
         """Load asscociations as a DataFrame."""
         if self.associations_file.is_file():
             return pd.read_csv(str(self.associations_file), sep=";")
+
+        if not self.associations_file.parent.is_dir():
+            self.associations_file.parent.mkdir(parents=True)
 
         # If asscociations were not build make them from infTrain dataset
         associations = self.inf_train.wav_text_associations()
@@ -221,6 +210,7 @@ class STELATranscripts:
                 if text_path is None:
                     raise ValueError(f"Not found {book}")
 
+                # TODO(@nhamilakis): check if precleaning needed
                 fh.write(text_path.read_text())
                 fh.write(" ")
 
@@ -237,10 +227,10 @@ class STELATranscripts:
             booklist = list(set(str(row.book).split(",")))
             yield f"{row.hour}", f"{row.split:02}", booklist
 
-    def mk_train(self, root_dir: Path | None = None) -> None:
+    def build_transcript(self, root_dir: Path | None = None) -> None:
         """Make train folder architecture."""
         if root_dir is None:
-            root_dir = self.train_dir
+            root_dir = self.target_dir / "txt"
 
         root_dir = root_dir / self.lang
         for hour, split, booklist in self.iter_transcriptions_by_split():
@@ -248,7 +238,5 @@ class STELATranscripts:
             (root_dir / hour / split).mkdir(exist_ok=True, parents=True)
             # Write transcriptions into file
             self.merge_transcriptions(booklist, root_dir / hour / split / "transcription.txt")
-            # TODO(@nhamilakis): add tokenized transcriptions
-            # TODO(@nhamilakis): add word_frequency
             # Write list of books used for transcription
             (root_dir / hour / split / "books.txt").write_text("\n".join(booklist))
