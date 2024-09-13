@@ -45,7 +45,8 @@ format:
     ruff format lexical_benchmark
 
 [doc("Commit and push all changes")]
-add-commit-push m:
-    git add .
-    git commit -m "{{m}}"
-    git push
+add-commit-push m="":
+    # git add .
+    @[[ ! -z "{{m}}" ]] &&  echo "commiting:: {{m}}" # git commit -m "{{m}}"
+    @[[ -z "{{m}}" ]] &&  echo "commiting:: empty" # git commit -m "{{m}}"
+    # git push
