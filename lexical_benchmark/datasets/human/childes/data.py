@@ -4,6 +4,7 @@ import typing as t
 from pathlib import Path
 
 from lexical_benchmark import settings
+from lexical_benchmark.datasets import utils
 
 SPEECH_TYPE = t.Literal["adult", "child"]
 
@@ -142,19 +143,25 @@ class CleanCHILDESFiles:
         """List of languages (Accents) in the dataset."""
         return settings.CHILDES.ACCENTS
 
+    def meta_location(self, lang: str, speech_type: SPEECH_TYPE) -> Path:
+        """Return location for metadata."""
+        mdir = self.root_dir / lang / "meta"
+        mdir.mkdir(exist_ok=True, parents=True)
+        return mdir
+
     def __init__(self, root_dir: Path = settings.PATH.clean_childes) -> None:
         self.root_dir = root_dir
 
         if not root_dir.is_dir():
             raise ValueError(f"Cannot load non-existent directory: {root_dir}")
 
-    def get_child(self, file_id: str) -> Path:
+    def get_child(self, lang: str, file_id: str) -> Path:
         """Get specific child speech file."""
-        return self.root_dir / "child" / f"{file_id}.txt"
+        return self.root_dir / lang / "child" / f"{file_id}.txt"
 
-    def get_adult(self, file_id: str) -> Path:
+    def get_adult(self, lang: str, file_id: str) -> Path:
         """Get specific adult speech file."""
-        return self.root_dir / "adult" / f"{file_id}.txt"
+        return self.root_dir / lang / "adult" / f"{file_id}.txt"
 
     def iter_by_age(self, lang_accent: str) -> t.Iterable[tuple[str, TXTItem]]:
         """Iterate over files by age groups."""
@@ -198,12 +205,55 @@ class CleanCHILDESFiles:
         """Iterate over the test files: Only used during dev."""
         yield from (self.root_dir / "test").glob("*.txt")
 
-    def words(self, lang_accent: str, speech_type: SPEECH_TYPE) -> t.Iterable[str]:
-        """Iterate over the words in the dataset."""
-        for item in self.iter(lang_accent, speech_type):
-            for line in item.file.read_text().splitlines():
-                yield from line.split()
+    def filter_words(self, speech_type: SPEECH_TYPE, cleaner: utils.DictionairyCleaner) -> None:
+        """Filter words in dataset using a dictionairy."""
+        for item in self.iter_all(speech_type):
+            meta_dir = self.meta_location(item.lang_accent, item.speech_type)
+            (meta_dir / "rejected").mkdir(exist_ok=True, parents=True)
+            (meta_dir / "source").mkdir(exist_ok=True, parents=True)
+            accepted_lines = []
+            rejected_lines = []
 
-    def word_count(self, lang_accent: str, speech_type: SPEECH_TYPE) -> collections.Counter:
-        """Return the Word Count for a specific subset."""
-        return collections.Counter(list(self.words(lang_accent, speech_type)))
+            source_text = item.file.read_text().splitlines()
+            for line in source_text:
+                accepted, rejected = cleaner(line)
+                accepted_lines.append(accepted)
+                rejected_lines.append(rejected)
+
+            # Write clean text back into file
+            item.file.write_text("\n".join(accepted_lines))
+
+            # Save Rejected
+            (meta_dir / "rejected" / f"{item.file_id}").write_text("\n".join(rejected_lines))
+            # Save source
+            (meta_dir / "source" / f"{item.file_id}").write_text("\n".join(rejected_lines))
+
+    def raw_word_frequency(self, lang: str, speech_type: SPEECH_TYPE):
+        """Load or Compute raw word frequency for give speech type and language."""
+        # TODO(@nhamilakis): implement
+        pass
+
+    def clean_word_frequency(self, lang: str, speech_type: SPEECH_TYPE):
+        """Load or Compute clean word frequency for give speech type and language."""
+        # TODO(@nhamilakis): implement
+        pass
+
+    def rejected_word_frequency(self, lang: str, speech_type: SPEECH_TYPE):
+        """Load or Compute rejected word frequency for give speech type and language."""
+        # TODO(@nhamilakis): implement
+        pass
+
+    def word_stats(self, lang: str, speech_type: SPEECH_TYPE):
+        """Compute stats on word retention."""
+        # TODO(@nhamilakis): implement
+        all_count = ...  # All words
+        good_count = ...  # clean word count
+        bad_count = ...  # Rejected word count
+
+        return {
+            "all": all_count,
+            "good": good_count,
+            "bad": bad_count,
+            "bad_percent": (bad_count / all_count) * 100,
+            "good_percent": (good_count / all_count) * 100,
+        }
