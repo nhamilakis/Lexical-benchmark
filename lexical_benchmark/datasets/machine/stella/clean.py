@@ -25,10 +25,13 @@ class StelaCleaner:
         return [
             txt.IllustrationRemoval(),  # Removes Illustration Tagging
             txt.URLRemover(),  # Remove URLs
+            txt.SpecialCharacterTranscriptions(lang="EN", keep=True),
+            txt.QuotationCleaner(),  # Clean quotes
             txt.TextNormalization(),  # Fix accents
             txt.NumberFixer(keep_as_text=True),  # Convert Numbers into text
             txt.RomanNumerals(),  # Remove Roman Numerals
             txt.AZFilter(),  # Removes any special character & punctuation
+            # TODO(@nhamilakis): maybe add a word normalizer here ?
         ]
 
     def progress(self, *, show_progress: bool = False) -> progress.Progress:

@@ -93,3 +93,7 @@ dmypy.json
 data/
 bin/
 test-run.py
+
+
+# Test notebook
+testing-local.ipynb

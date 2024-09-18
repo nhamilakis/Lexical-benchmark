@@ -38,6 +38,9 @@ class Lexicon:
         for src in sources:
             self.words.update(w.lower() for w in self.load_lexicon(root_dir / lang / src))
 
+        # Manually removed words
+        self.words.difference_update(settings.REMOVED_WORDS)
+
     def __call__(self, word: str) -> bool:
         """Checks if a word is valid according to lexicon."""
         return word.lower() in self.words

@@ -56,21 +56,40 @@ class _AbstractStellaDataset:
 
     def set_meta(self, meta: dict, language: str, hour_split: str, section: str) -> None:
         """Writes the clean-up metadata for given section."""
-        meta_file = self.root_dir / "txt" / language / hour_split / section / "meta.logs.json"
-        # Create parent folder
-        meta_file.parent.mkdir(exist_ok=True, parents=True)
+        meta_file = self.meta_dir(language, hour_split, section) / "meta.logs.json"
         # Dump as json
         meta_file.write_text(json.dumps(meta, indent=4))
 
     def get_meta(self, language: str, hour_split: str, section: str) -> dict:
         """Load meta logs from section."""
-        meta_file = self.root_dir / "txt" / language / hour_split / section / "meta.logs.json"
+        meta_file = self.meta_dir(language, hour_split, section) / "meta.logs.json"
         return json.loads(meta_file.read_bytes())
 
     def get_books(self, language: str, hour_split: str, section: str) -> list[str]:
         """Load booknames from section."""
         book_file = self.root_dir / "txt" / language / hour_split / section / "books.txt"
         return book_file.read_text().splitlines()
+
+    def meta_dir(self, language: str, hour_split: str, section: str) -> Path:
+        """Return the meta directory for a specific section."""
+        meta_dir = self.root_dir / "txt" / language / hour_split / section / ".meta"
+        meta_dir.mkdir(exist_ok=True, parents=True)
+        return meta_dir
+
+
+class MetaHandler:
+    """Handler for metadata."""
+
+    def __init__(self) -> None:
+        self._meta: dict[str, list[str] | int] = {}
+
+    def update(self, data: dict[str, list[str] | int]) -> None:
+        """Update meta with values from data."""
+        for k, v in data.items():
+            if k in self._meta and isinstance(self._meta[k], type(v)):
+                self._meta[k] += v  # type: ignore[operator] # v and meta[k] are of the same type
+            else:
+                self._meta[k] = v
 
 
 class STELLADatasetRaw(_AbstractStellaDataset):
@@ -99,7 +118,7 @@ class STELLADatasetRaw(_AbstractStellaDataset):
     """
 
     def __init__(self, root_dir: Path = settings.PATH.raw_stela) -> None:
-        self.root_dir = root_dir
+        super().__init__(root_dir=root_dir)
 
 
 class STELLADatasetClean(_AbstractStellaDataset):
@@ -127,11 +146,11 @@ class STELLADatasetClean(_AbstractStellaDataset):
     """
 
     def __init__(self, root_dir: Path = settings.PATH.clean_stela) -> None:
-        self.root_dir = root_dir
+        super().__init__(root_dir=root_dir)
 
     def all_words_freq(self, language: str, hour_split: str, section: str) -> pd.DataFrame:
         """Load or compute all word frequency table for specific section."""
-        word_freq_mapping = self.root_dir / "txt" / language / hour_split / section / "word_freq.all.csv"
+        word_freq_mapping = self.meta_dir(language, hour_split, section) / "word_freq.all.csv"
         source_file = self.root_dir / "txt" / language / hour_split / section / "transcription.txt"
         if not source_file.is_file():
             raise ValueError(f"{source_file} does not exist, create it first")
@@ -141,8 +160,8 @@ class STELLADatasetClean(_AbstractStellaDataset):
 
     def clean_words_freq(self, language: str, hour_split: str, section: str) -> pd.DataFrame:
         """Load or compute clean word frequency table for specific section."""
-        word_freq_mapping = self.root_dir / "txt" / language / hour_split / section / "word_freq.clean.csv"
-        source_file = self.root_dir / "txt" / language / hour_split / section / "clean.transcription.txt"
+        word_freq_mapping = self.meta_dir(language, hour_split, section) / "word_freq.clean.csv"
+        source_file = self.root_dir / "txt" / language / hour_split / section / "transcription.txt"
         if not source_file.is_file():
             raise ValueError(f"{source_file} does not exist, create it first")
 
@@ -151,8 +170,8 @@ class STELLADatasetClean(_AbstractStellaDataset):
 
     def rejected_words_freq(self, language: str, hour_split: str, section: str) -> pd.DataFrame:
         """Load or compute rejected word frequency table for specific section."""
-        word_freq_mapping = self.root_dir / "txt" / language / hour_split / section / "word_freq.bad.csv"
-        source_file = self.root_dir / "txt" / language / hour_split / section / "bad.transcription.txt"
+        word_freq_mapping = self.meta_dir(language, hour_split, section) / "word_freq.bad.csv"
+        source_file = self.meta_dir(language, hour_split, section) / "bad.transcription.txt"
         if not source_file.is_file():
             raise ValueError(f"{source_file} does not exist, create it first")
 
@@ -162,8 +181,8 @@ class STELLADatasetClean(_AbstractStellaDataset):
     def filter_words(self, language: str, hour_split: str, section: str, cleaner: utils.DictionairyCleaner) -> None:
         """Filter words of transcription."""
         source_text = self.get_transcription(language, hour_split, section)
-        clean_text = self.root_dir / "txt" / language / hour_split / section / "clean.transcription.txt"
-        bad_transcription = self.root_dir / "txt" / language / hour_split / section / "bad.transcription.txt"
+        raw_text = self.meta_dir(language, hour_split, section) / "raw.transcription.txt"
+        bad_transcription = self.meta_dir(language, hour_split, section) / "bad.transcription.txt"
 
         accepted_lines = []
         rejected_lines = []
@@ -172,16 +191,18 @@ class STELLADatasetClean(_AbstractStellaDataset):
             accepted_lines.append(accepted)
             rejected_lines.append(rejected)
 
-        # Write accepted lines
-        clean_text.write_text("\n".join(accepted_lines))
+        # Write clean text into transcription
+        self.set_transcription(accepted_lines, language=language, hour_split=hour_split, section=section)
+        # Backup uncleaned text
+        raw_text.write_text("\n".join(source_text))
         # Write rejected lines
         bad_transcription.write_text("\n".join(rejected_lines))
 
     def word_cleaning_stats(self, language: str, hour_split: str, section: str) -> dict:
         """Return the percentage of words not passing dict filtering."""
-        all_freq_mapping = self.root_dir / "txt" / language / hour_split / section / "word_freq.all.csv"
-        bad_word_freq_mapping = self.root_dir / "txt" / language / hour_split / section / "word_freq.bad.csv"
-        good_word_freq_mapping = self.root_dir / "txt" / language / hour_split / section / "word_freq.clean.csv"
+        all_freq_mapping = self.meta_dir(language, hour_split, section) / "word_freq.all.csv"
+        bad_word_freq_mapping = self.meta_dir(language, hour_split, section) / "word_freq.bad.csv"
+        good_word_freq_mapping = self.meta_dir(language, hour_split, section) / "word_freq.clean.csv"
 
         all_count = sum(1 for _ in all_freq_mapping.open()) - 1
         bad_count = sum(1 for _ in bad_word_freq_mapping.open()) - 1
@@ -194,3 +215,41 @@ class STELLADatasetClean(_AbstractStellaDataset):
             "bad_percent": (bad_count / all_count) * 100,
             "good_percent": (good_count / all_count) * 100,
         }
+
+    def global_word_cleaning_stats(self) -> pd.DataFrame:
+        """Aggregate word cleaning statis into a single DataFrame."""
+        all_stats = {}
+        for _, (lang, hour_split, section) in enumerate(self.iter_all()):
+            all_stats[f"{lang}_{hour_split}_{section}"] = self.word_cleaning_stats(lang, hour_split, section)
+
+        return pd.DataFrame.from_dict(all_stats, orient="index")
+
+    def global_all_word_freq(self) -> pd.DataFrame:
+        """Load word global word frequency mapping."""
+        stat_list = []
+        for _, (lang, hour_split, section) in enumerate(self.iter_all()):
+            stats = self.all_words_freq(lang, hour_split, section)
+            stat_list.append(stats)
+
+        combined_df = pd.concat(stat_list)
+        return combined_df.groupby("word", as_index=False)["freq"].sum()  # type: ignore[return-value] # pandas being pandas
+
+    def global_clean_word_freq(self) -> pd.DataFrame:
+        """Load global word frequency mapping of validated (cleaned) words only."""
+        stat_list = []
+        for _, (lang, hour_split, section) in enumerate(self.iter_all()):
+            stats = self.clean_words_freq(lang, hour_split, section)
+            stat_list.append(stats)
+
+        combined_df = pd.concat(stat_list)
+        return combined_df.groupby("word", as_index=False)["freq"].sum()  # type: ignore[return-value] # pandas being pandas
+
+    def global_bad_word_freq(self) -> pd.DataFrame:
+        """Load global word frequency mapping of rejected (bad) words only."""
+        stat_list = []
+        for _, (lang, hour_split, section) in enumerate(self.iter_all()):
+            stats = self.rejected_words_freq(lang, hour_split, section)
+            stat_list.append(stats)
+
+        combined_df = pd.concat(stat_list)
+        return combined_df.groupby("word", as_index=False)["freq"].sum()  # type: ignore[return-value] # pandas being pandas

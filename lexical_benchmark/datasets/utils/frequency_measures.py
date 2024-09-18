@@ -28,7 +28,7 @@ def load_word_frequency_file(source_file: Path, target_file: Path) -> pd.DataFra
         df: pd.DataFrame = word_frequency_df([source_file])
         df.to_csv(target_file, index=False)
         return df
-    return pd.read_csv(target_file)
+    return pd.read_csv(target_file, names=["word", "freq"], header=0)
 
 
 def plot_word_frequency(word_counts: collections.Counter | dict[str, int], top: int = -1, bottom: int = -1) -> None:

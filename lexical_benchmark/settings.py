@@ -38,6 +38,7 @@ CATEGORY = {
 }
 WORD = {"now", "dont", "hi"}
 #######################################################
+REMOVED_WORDS = {"'"}
 
 
 def cache_dir() -> _Path:

@@ -127,6 +127,57 @@ class TextNormalization(TextActionFN):
         return "".join(filter(lambda x: x in string.printable, line_normalised))
 
 
+class QuotationCleaner(TextActionFN):
+    """Clean single Quotted words."""
+
+    def __init__(self) -> None:
+        super().__init__(label="Normalise Quotations")
+        self.pattern = re.compile(r"'\b([^']+)\b'")
+
+    def __call__(self, line: str) -> str:
+        """Clean quoted text that uses single lines."""
+        # Remove weird consecutive double quotes
+        line = line.replace("''", "")
+
+        matches = self.pattern.findall(line)
+        for m in matches:
+            line = line.replace(f"'{m}'", f"{m}")
+
+        return line
+
+
+class SpecialCharacterTranscriptions(TextActionFN):
+    """Replaces special characters with their transcribed mode."""
+
+    def __init__(self, lang: str, *, keep: bool = True) -> None:
+        super().__init__(label="SpecialCharacterTranscription")
+        self.keep = keep
+        self.lang = lang
+
+    def transcribe_form(self, c: str) -> str:
+        """Get transcribe form of character."""
+        res: str | None = {
+            "EN": {
+                "$": "dollar",
+                "€": "euro",
+                "&": "and",
+            }
+        }.get(self.lang, {}).get(c)
+
+        if self.keep and res is not None:
+            return res
+        return " "
+
+    def __call__(self, line: str) -> str:
+        """Replace all special characters with their transcribed mode."""
+        line = line.replace("$", f" {self.transcribe_form('$')} ")
+        line = line.replace("@", f" {self.transcribe_form('@')} ")
+        line = line.replace("€", f" {self.transcribe_form('€')} ")
+        line = line.replace("&", f" {self.transcribe_form('&')} ")
+
+        return line  # noqa: RET504
+
+
 class IllustrationRemoval(TextActionFN):
     """Removes the [illustation] tag from text."""
 
