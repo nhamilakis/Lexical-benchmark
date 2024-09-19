@@ -97,3 +97,6 @@ test-run.py
 
 # Test notebook
 testing-local.ipynb
+
+# Notebook Data
+notebooks/**/*.csv

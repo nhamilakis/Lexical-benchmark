@@ -21,7 +21,7 @@ fetch-notebooks:
 [doc("Deploy source code to Oberon")]
 deploy:
     echo "Syncing current directory..."
-    rsync -azP --delete --exclude=".mypy_cache" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{remote}}:{{remote_source_path}}"
+    rsync -azP --delete --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{remote}}:{{remote_source_path}}"
 
 [doc("Install module & dependencies")]
 install:

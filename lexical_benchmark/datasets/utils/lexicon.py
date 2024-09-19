@@ -11,9 +11,11 @@ yawl_file = lexicon_root / "yawl/words.list" # ~264k
 """
 
 import typing as t
+import warnings
 from pathlib import Path
 
 from lexical_benchmark import settings
+from lexical_benchmark.datasets.human import childes
 
 
 class Lexicon:
@@ -51,7 +53,11 @@ class DictionairyCleaner:
 
     def word_checker(self) -> t.Callable[[str], bool]:
         """Load the word_checker function."""
-        return Lexicon(lang=self.lang, root_dir=self.lexicon_root, sources=self.lexicons)
+        lexicon = Lexicon(lang=self.lang, root_dir=self.lexicon_root, sources=self.lexicons)
+        # Append Childes extras to lexicon
+        if self.childes_lexique:
+            lexicon.words.update(self.childes_lexique.words)
+        return lexicon
 
     def __init__(
         self,
@@ -59,10 +65,21 @@ class DictionairyCleaner:
         lang: str,
         lexicons: tuple[str, ...] = settings.LEXICON_ITEMS,
         lexicon_root: Path = settings.PATH.lexicon_root,
+        childes_extra_id: str | None = None,
     ) -> None:
         self.lexicons = lexicons
         self.lexicon_root = lexicon_root
         self.lang = lang
+        if childes_extra_id:
+            try:
+                self.childes_lexique: childes.CHILDESExtrasLexicon | None = childes.CHILDESExtrasLexicon.from_cache(
+                    hash_id=childes_extra_id
+                )
+            except ValueError:
+                warnings.warn("Failed to load childes lexicon !!", stacklevel=1)
+                self.childes_lexique = None
+        else:
+            self.childes_lexique = None
 
         # Load check function
         self.check = self.word_checker()

@@ -61,6 +61,8 @@ ignore = [
     "D100",    # allow top doc-string to be missing
     "D401",    # imperative mood in docstring is ambiguous
     "D203", "D213", # Conflicting rules about docstrings
+    "S324",    # allow md5, as this is a non critical usage
+    "DTZ005",  # no need for timezones in datetimes
     "S603",    # allow subprocess to be called using literals
     "PLR0913", # allow functions to have more tha 12 arguments
     "TRY003",  # allow Exceptions to contain long messages

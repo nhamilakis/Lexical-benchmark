@@ -1,7 +1,11 @@
 import collections
+import hashlib
 import json
+import string
 import typing as t
 from pathlib import Path
+
+import pandas as pd
 
 from lexical_benchmark import settings
 from lexical_benchmark.datasets import utils
@@ -145,7 +149,7 @@ class CleanCHILDESFiles:
 
     def meta_location(self, lang: str, speech_type: SPEECH_TYPE) -> Path:
         """Return location for metadata."""
-        mdir = self.root_dir / lang / "meta"
+        mdir = self.root_dir / lang / "meta" / speech_type
         mdir.mkdir(exist_ok=True, parents=True)
         return mdir
 
@@ -205,9 +209,9 @@ class CleanCHILDESFiles:
         """Iterate over the test files: Only used during dev."""
         yield from (self.root_dir / "test").glob("*.txt")
 
-    def filter_words(self, speech_type: SPEECH_TYPE, cleaner: utils.DictionairyCleaner) -> None:
+    def filter_words(self, lang_accent: str, speech_type: SPEECH_TYPE, cleaner: utils.DictionairyCleaner) -> None:
         """Filter words in dataset using a dictionairy."""
-        for item in self.iter_all(speech_type):
+        for item in self.iter(lang_accent, speech_type):
             meta_dir = self.meta_location(item.lang_accent, item.speech_type)
             (meta_dir / "rejected").mkdir(exist_ok=True, parents=True)
             (meta_dir / "source").mkdir(exist_ok=True, parents=True)
@@ -224,36 +228,173 @@ class CleanCHILDESFiles:
             item.file.write_text("\n".join(accepted_lines))
 
             # Save Rejected
-            (meta_dir / "rejected" / f"{item.file_id}").write_text("\n".join(rejected_lines))
+            (meta_dir / "rejected" / f"{item.file_id}.txt").write_text("\n".join(rejected_lines))
             # Save source
-            (meta_dir / "source" / f"{item.file_id}").write_text("\n".join(rejected_lines))
+            (meta_dir / "source" / f"{item.file_id}.txt").write_text("\n".join(source_text))
 
-    def raw_word_frequency(self, lang: str, speech_type: SPEECH_TYPE):
+    def restore_raw(self, lang_accent: str, speech_type: SPEECH_TYPE) -> None:
+        """Restore word filtering."""
+        for item in self.iter(lang_accent, speech_type):
+            meta_dir = self.meta_location(item.lang_accent, item.speech_type)
+            raw_backup_file = meta_dir / "source" / f"{item.file_id}.txt"
+            if raw_backup_file.is_file():
+                raw_text = raw_backup_file.read_text()
+                item.file.write_text(raw_text)
+                # Remove source
+                raw_backup_file.unlink()
+
+    def raw_word_frequency(self, lang_accent: str, speech_type: SPEECH_TYPE) -> pd.DataFrame:
         """Load or Compute raw word frequency for give speech type and language."""
-        # TODO(@nhamilakis): implement
-        pass
+        meta_dir = self.meta_location(lang_accent, speech_type)
+        wf_file = meta_dir / "raw_word_frequency.csv"
+        if wf_file.is_file():
+            return pd.read_csv(wf_file, names=["word", "freq"], header=0)
 
-    def clean_word_frequency(self, lang: str, speech_type: SPEECH_TYPE):
+        raw_files_list = []
+        for item in self.iter(lang_accent, speech_type):
+            raw_file = meta_dir / "source" / f"{item.file_id}.txt"
+            if raw_file.is_file():
+                raw_files_list.append(raw_file)
+
+        df = utils.word_frequency_df(raw_files_list)
+        df.to_csv(wf_file, index=False)
+        return df
+
+    def clean_word_frequency(self, lang_accent: str, speech_type: SPEECH_TYPE) -> pd.DataFrame:
         """Load or Compute clean word frequency for give speech type and language."""
-        # TODO(@nhamilakis): implement
-        pass
+        meta_dir = self.meta_location(lang_accent, speech_type)
+        wf_file = meta_dir / "clean_word_frequency.csv"
+        if wf_file.is_file():
+            return pd.read_csv(wf_file, names=["word", "freq"], header=0)
 
-    def rejected_word_frequency(self, lang: str, speech_type: SPEECH_TYPE):
+        # Raw files
+        files_list = [item.file for item in self.iter(lang_accent, speech_type)]
+
+        df = utils.word_frequency_df(files_list)
+        df.to_csv(wf_file, index=False)
+        return df
+
+    def rejected_word_frequency(self, lang_accent: str, speech_type: SPEECH_TYPE) -> pd.DataFrame:
         """Load or Compute rejected word frequency for give speech type and language."""
-        # TODO(@nhamilakis): implement
-        pass
+        meta_dir = self.meta_location(lang_accent, speech_type)
+        wf_file = meta_dir / "rejected_word_frequency.csv"
+        if wf_file.is_file():
+            return pd.read_csv(wf_file, names=["word", "freq"], header=0)
 
-    def word_stats(self, lang: str, speech_type: SPEECH_TYPE):
+        files_list = []
+        for item in self.iter(lang_accent, speech_type):
+            rejected_file = meta_dir / "rejected" / f"{item.file_id}.txt"
+            if rejected_file.is_file():
+                files_list.append(rejected_file)
+
+        df = utils.word_frequency_df(files_list)
+        df.to_csv(wf_file, index=False)
+        return df
+
+    def word_stats(self, lang_accent: str, speech_type: SPEECH_TYPE) -> dict[str, float]:
         """Compute stats on word retention."""
-        # TODO(@nhamilakis): implement
-        all_count = ...  # All words
-        good_count = ...  # clean word count
-        bad_count = ...  # Rejected word count
+        # All words count
+        all_count = self.raw_word_frequency(lang_accent, speech_type)["freq"].sum()
+        # Validated words count
+        good_count = self.clean_word_frequency(lang_accent, speech_type)["freq"].sum()
+        # Rejected words count
+        bad_count = self.rejected_word_frequency(lang_accent, speech_type)["freq"].sum()
 
         return {
             "all": all_count,
             "good": good_count,
             "bad": bad_count,
-            "bad_percent": (bad_count / all_count) * 100,
-            "good_percent": (good_count / all_count) * 100,
         }
+
+
+class CHILDESExtrasLexicon:
+    """Loader for lexicon of extra words in childes tags."""
+
+    EXTRAS_LABELS: t.ClassVar[tuple[str, ...]] = (
+        "@o",  # Onomatopoeia
+        "@p",  # Phonological Form
+        "@b",  # Babbling
+        "@wp",  # Word-play
+        "@c",  # Child-Invented Form
+        "@f",  # Family Form
+        "@d",  # Dialect Words
+        "@n",  # Neologisms
+        "@i",  # Interjections
+        "&-",  # Fillers
+        "&~",  # Fillers
+        "&+",  # Fragments
+    )
+
+    def __init__(self, raw_root_dir: Path = settings.PATH.raw_childes) -> None:
+        self.raw_childes = RawCHILDESFiles(root_dir=raw_root_dir)
+        self.words: set[str] = set()
+        self.langs_speech: list[tuple[str, SPEECH_TYPE]] = []
+
+    def add_words(self, word_list: list[str]) -> None:
+        """Add words to dictionairy."""
+
+        def clean(word: str) -> str:
+            """Clean a word."""
+            allowed_chars = string.ascii_lowercase + "' "
+            word = word.replace("_", " ")
+            return "".join(c.lower() for c in word if c.lower() in allowed_chars)
+
+        clean_words = [clean(w) for w in word_list]
+        self.words.update(clean_words)
+
+    def add_lang(self, lang: str, speech_type: SPEECH_TYPE) -> None:
+        """Add items from a language to the current dict."""
+        # Add lang & speech_type to index
+        self.langs_speech.append((lang, speech_type))
+
+        # Iterate & extend word list from labels
+        for file in self.raw_childes.iter_clean_meta(lang, speech_type):
+            meta_dict = json.loads(file.read_bytes())
+            words = []
+            for label in self.EXTRAS_LABELS:
+                words.extend(meta_dict.get(label, []))
+            # Update global dict
+            self.add_words(words)
+
+    def current_fname(self) -> str:
+        """Build a hash of wordlist specs to distinguish characteristics."""
+        langs = "-".join(f"{a}_{b}" for a, b in self.langs_speech)
+        source = f"{'-'.join(self.EXTRAS_LABELS)}||{langs}"
+        return hashlib.md5(source.encode()).hexdigest()
+
+    def cache_current(self) -> str:
+        """Save current wordlist to cache."""
+        location = settings.cache_dir()
+        location = location / "childes_lexicon"
+        location.mkdir(exist_ok=True, parents=True)
+        fname = self.current_fname()
+
+        as_dict = {
+            "hash_id": fname,
+            "languages": self.langs_speech,
+            "childes_meta_tags": self.EXTRAS_LABELS,
+            "word_count": len(self.words),
+            "words": list(self.words),
+        }
+        as_json = json.dumps(as_dict, indent=4)
+        (location / f"childes_extra_{fname}.json").write_text(as_json)
+        return fname
+
+    @classmethod
+    def from_cache(cls, hash_id: str, raw_root_dir: Path = settings.PATH.raw_childes) -> "CHILDESExtrasLexicon":
+        """Load dictionairy from cached file."""
+        location = settings.cache_dir()
+        cached_file = location / "childes_lexicon" / f"childes_extra_{hash_id}.json"
+        if not cached_file.is_file():
+            raise ValueError("Cached dict does not exist !!")
+
+        as_dict = json.loads(cached_file.read_bytes())
+
+        word_dict = cls(raw_root_dir=raw_root_dir)
+        word_dict.words = set(as_dict.get("words", []))
+        word_dict.langs_speech = as_dict.get("languages", [])
+
+        if word_dict.current_fname() != hash_id:
+            raise ValueError("Given hash does not match given dictionairy")
+
+        return word_dict

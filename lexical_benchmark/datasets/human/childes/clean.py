@@ -228,7 +228,7 @@ _adult_tag_removal: list[txt.CleanerFN] = [
     # Word-Play (@wp): Discard
     TagCleaner(tag="@wp", label="@wp)", keep=False),
     # Child Invented Form (@c): Discard
-    TagCleaner(tag="@wp", label="@c", keep=False),
+    TagCleaner(tag="@c", label="@c", keep=False),
     # Family Specific Form (@f): Discard
     TagCleaner(tag="@f", label="@f", keep=False),
     # Dialect Word (@d): KEEP

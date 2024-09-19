@@ -1,5 +1,5 @@
 from .clean import CHILDESCleaner
-from .data import CleanCHILDESFiles, RawCHILDESFiles, SourceCHILDESFiles
+from .data import CHILDESExtrasLexicon, CleanCHILDESFiles, RawCHILDESFiles, SourceCHILDESFiles
 from .preparation import CHILDESPreparation, OrganizeByAge
 
 __all__ = [
@@ -9,4 +9,5 @@ __all__ = [
     "CleanCHILDESFiles",
     "RawCHILDESFiles",
     "SourceCHILDESFiles",
+    "CHILDESExtrasLexicon",
 ]
