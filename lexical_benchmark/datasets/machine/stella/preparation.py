@@ -237,6 +237,6 @@ class STELAPrepTranscripts:
             # Create folder
             (root_dir / hour / split).mkdir(exist_ok=True, parents=True)
             # Write transcriptions into file
-            self.merge_transcriptions(booklist, root_dir / hour / split / "transcription.txt")
+            self.merge_transcriptions(booklist, root_dir / hour / split / "raw.transcription.txt")
             # Write list of books used for transcription
             (root_dir / hour / split / "books.txt").write_text("\n".join(booklist))

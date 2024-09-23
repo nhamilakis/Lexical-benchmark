@@ -4,6 +4,7 @@ from pathlib import Path
 from rich import progress
 
 from lexical_benchmark import settings
+from lexical_benchmark.datasets.utils import lexicon
 from lexical_benchmark.datasets.utils import text_cleaning as txt
 
 from .data import STELLADatasetClean, STELLADatasetRaw
@@ -31,7 +32,7 @@ class StelaCleaner:
             txt.NumberFixer(keep_as_text=True),  # Convert Numbers into text
             txt.RomanNumerals(),  # Remove Roman Numerals
             txt.AZFilter(),  # Removes any special character & punctuation
-            # TODO(@nhamilakis): maybe add a word normalizer here ?
+            txt.PrefixSuffixFixer(stem="'"),  # Remove prefix or suffix char(')
         ]
 
     def progress(self, *, show_progress: bool = False) -> progress.Progress:
@@ -64,7 +65,7 @@ class StelaCleaner:
         """Clean a the content of a txt file with the given ruleset."""
         return [txt.piped(f" {line} ", *ruleset) for line in txt_dirty]
 
-    def mk_clean(self, *, show_progress: bool = False) -> None:
+    def cleanup_raw(self, *, show_progress: bool = False, compute_word_freqs: bool = False) -> None:
         """Clean transcriptions of Stela Dataset."""
         prg = self.progress(show_progress=show_progress)
         prg.start()
@@ -75,20 +76,23 @@ class StelaCleaner:
             prg.update(clean_task, total=idx)
             prg.update(clean_task, description=f"Cleaning {lang}/{hour_split}/{section}...")
 
-            _txt = self.navigate.get_transcription(lang, hour_split, section)
+            # Load source text
+            _txt = self.navigate.transcription(lang, hour_split, section).read_text().splitlines()
             clean_txt = self.clean_txt(_txt, ruleset=rules)
             prg.update(clean_task, advance=0.5)
 
-            self.target.set_transcription(clean_txt, lang, hour_split, section)
+            # Write cleaned text
+            self.navigate.clean_transcription(lang, hour_split, section).write_text("\n".join(clean_txt))
 
             # Save section logs
             logs = txt.WordLogger.dumps_logs()
-            self.target.set_meta(logs, lang, hour_split, section)
+            self.navigate.set_meta(logs, lang, hour_split, section)
 
             prg.update(clean_task, advance=0.25)
 
-            # Compute all words frequencies
-            _ = self.target.all_words_freq(lang, hour_split, section)
+            # Compute words frequencies
+            if compute_word_freqs:
+                _ = self.navigate.words_freq(lang, hour_split, section)
 
             # progress update
             prg.update(clean_task, advance=0.25)
@@ -96,6 +100,54 @@ class StelaCleaner:
         # Finalize progres
         prg.update(clean_task, total=idx + 1, refresh=True)
         self.progress_stop()
+
+    def _filter_words(self, language: str, hour_split: str, section: str, cleaner: lexicon.DictionairyCleaner) -> None:
+        """Filter words of transcription."""
+        bad_transcription_file = self.target.meta_dir(language, hour_split, section) / "bad.transcription.txt"
+        transcription_file = self.target.transcription(language=language, hour_split=hour_split, section=section)
+        source_text_file = self.navigate.clean_transcription(language=language, hour_split=hour_split, section=section)
+
+        accepted_lines = []
+        rejected_lines = []
+        for line in source_text_file.read_text():
+            accepted, rejected = cleaner(line)
+            accepted_lines.append(accepted)
+            rejected_lines.append(rejected)
+
+        # Write clean text into transcription
+        transcription_file.parent.mkdir(exist_ok=True, parents=True)
+        self.target.transcription(language=language, hour_split=hour_split, section=section).write_text(
+            "\n".join(accepted_lines)
+        )
+
+        # Write rejected lines
+        bad_transcription_file.write_text("\n".join(rejected_lines))
+
+    def mk_clean(
+        self,
+        word_cleaners: dict[str, lexicon.DictionairyCleaner],
+        *,
+        target: Path | None = None,
+        compute_word_freqs: bool = False,
+    ) -> None:
+        """Make clean Stela dataset."""
+        # Modify clean target dir
+        if target:
+            self.target.root_dir = target
+
+        for _, (lang, hour_split, section) in enumerate(self.navigate.iter_all()):
+            cleaner = word_cleaners.get(lang)
+            if cleaner is None:
+                print(f"No cleaner for {lang}, skipping")
+                continue
+
+            # Create clean, unclean subsets of transcriptions
+            self._filter_words(lang, hour_split, section, cleaner=cleaner)
+
+        # Compute word frequencies
+        if compute_word_freqs:
+            _ = self.target.clean_words_freq(lang, hour_split, section)
+            _ = self.target.rejected_words_freq(lang, hour_split, section)
 
     def __enter__(self) -> t.Self:
         """Entering context."""

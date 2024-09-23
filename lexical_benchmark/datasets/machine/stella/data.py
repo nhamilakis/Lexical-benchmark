@@ -1,5 +1,6 @@
 import json
 import typing as t
+from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
@@ -40,18 +41,9 @@ class _AbstractStellaDataset:
         for _, hour_split in self.iter_hour_splits(lang):
             yield from self.iter_sections(lang, hour_split)
 
-    def get_transcription(self, language: str, hour_split: str, section: str) -> list[str]:
-        """Load transcriptions from section."""
-        transcription_file = self.root_dir / "txt" / language / hour_split / section / "transcription.txt"
-        return transcription_file.read_text().splitlines()
-
-    def set_transcription(self, text: list[str], language: str, hour_split: str, section: str) -> None:
-        """Write into a transcription file."""
-        transcription_file = self.root_dir / "txt" / language / hour_split / section / "transcription.txt"
-        # Create parent folder
-        transcription_file.parent.mkdir(exist_ok=True, parents=True)
-        # Write in file
-        transcription_file.write_text("\n".join(text))
+    def transcription(self, language: str, hour_split: str, section: str) -> Path:
+        """Get transcription file."""
+        return self.root_dir / "txt" / language / hour_split / section / "raw.transcription.txt"
 
     def set_meta(self, meta: dict, language: str, hour_split: str, section: str) -> None:
         """Writes the clean-up metadata for given section."""
@@ -91,6 +83,15 @@ class MetaHandler:
                 self._meta[k] = v
 
 
+@dataclass
+class WordStats:
+    """Struct for word-statistics."""
+
+    token_nb: int
+    type_nb: int
+    freq_map: pd.DataFrame
+
+
 class STELLADatasetRaw(_AbstractStellaDataset):
     """Navigation into the uncleaned STELA dataset.
 
@@ -119,6 +120,35 @@ class STELLADatasetRaw(_AbstractStellaDataset):
     def __init__(self, root_dir: Path = settings.PATH.raw_stela) -> None:
         super().__init__(root_dir=root_dir)
 
+    def clean_transcription(self, language: str, hour_split: str, section: str) -> Path:
+        """Get Cleaned Transcription."""
+        return self.root_dir / "txt" / language / hour_split / section / "clean.transcription.txt"
+
+    def words_freq(self, language: str, hour_split: str, section: str) -> pd.DataFrame:
+        """Load or compute all word frequency table for specific section."""
+        word_freq_mapping = self.meta_dir(language, hour_split, section) / "word_freq.all.csv"
+        source_file = self.clean_transcription(language, hour_split, section)
+        if not source_file.is_file():
+            raise ValueError(f"{source_file} does not exist, create it first")
+
+        # Load frequency mapping, if it doesn't exist create it before
+        return utils.load_word_frequency_file(source_file=source_file, target_file=word_freq_mapping)
+
+    def word_freq_by_split(self, language: str, hour_split: str) -> pd.DataFrame:
+        """Load word global word frequency mapping."""
+        stat_list = []
+        for _, (_, _, section) in enumerate(self.iter_sections(language, hour_split)):
+            stats = self.words_freq(language, hour_split, section)
+            stat_list.append(stats)
+
+        combined_df = pd.concat(stat_list)
+        return combined_df.groupby("word", as_index=False)["freq"].sum()  # type: ignore[return-value] # pandas being pandas
+
+    def word_stats_by_split(self, language: str, hour_split: str) -> WordStats:
+        """Get Raw Word Stats."""
+        all_stats = self.word_freq_by_split(language, hour_split)
+        return WordStats(token_nb=all_stats["freq"].sum(), type_nb=len(all_stats["word"]), freq_map=all_stats)
+
 
 class STELLADatasetClean(_AbstractStellaDataset):
     """Navigation into the cleaned STELA dataset.
@@ -144,18 +174,14 @@ class STELLADatasetClean(_AbstractStellaDataset):
     transcript.txt: the agregated transcripts of the audiobooks in the list.
     """
 
+    @property
+    def wf_meta_dir(self) -> Path:
+        """Return word frequency metadata directory."""
+        (self.root_dir / "meta/word_frequencies").mkdir(exist_ok=True, parents=True)
+        return self.root_dir / "meta/word_frequencies"
+
     def __init__(self, root_dir: Path = settings.PATH.clean_stela) -> None:
         super().__init__(root_dir=root_dir)
-
-    def all_words_freq(self, language: str, hour_split: str, section: str) -> pd.DataFrame:
-        """Load or compute all word frequency table for specific section."""
-        word_freq_mapping = self.meta_dir(language, hour_split, section) / "word_freq.all.csv"
-        source_file = self.root_dir / "txt" / language / hour_split / section / "transcription.txt"
-        if not source_file.is_file():
-            raise ValueError(f"{source_file} does not exist, create it first")
-
-        # Load frequency mapping, if it doesn't exist create it before
-        return utils.load_word_frequency_file(source_file=source_file, target_file=word_freq_mapping)
 
     def clean_words_freq(self, language: str, hour_split: str, section: str) -> pd.DataFrame:
         """Load or compute clean word frequency table for specific section."""
@@ -177,78 +203,32 @@ class STELLADatasetClean(_AbstractStellaDataset):
         # Load frequency mapping, if it doesn't exist create it before
         return utils.load_word_frequency_file(source_file=source_file, target_file=word_freq_mapping)
 
-    def filter_words(self, language: str, hour_split: str, section: str, cleaner: utils.DictionairyCleaner) -> None:
-        """Filter words of transcription."""
-        source_text = self.get_transcription(language, hour_split, section)
-        raw_text = self.meta_dir(language, hour_split, section) / "raw.transcription.txt"
-        bad_transcription = self.meta_dir(language, hour_split, section) / "bad.transcription.txt"
-
-        accepted_lines = []
-        rejected_lines = []
-        for line in source_text:
-            accepted, rejected = cleaner(line)
-            accepted_lines.append(accepted)
-            rejected_lines.append(rejected)
-
-        # Write clean text into transcription
-        self.set_transcription(accepted_lines, language=language, hour_split=hour_split, section=section)
-        # Backup uncleaned text
-        raw_text.write_text("\n".join(source_text))
-        # Write rejected lines
-        bad_transcription.write_text("\n".join(rejected_lines))
-
-    def word_cleaning_stats(self, language: str, hour_split: str, section: str) -> dict:
-        """Return the percentage of words not passing dict filtering."""
-        all_freq_mapping = self.meta_dir(language, hour_split, section) / "word_freq.all.csv"
-        bad_word_freq_mapping = self.meta_dir(language, hour_split, section) / "word_freq.bad.csv"
-        good_word_freq_mapping = self.meta_dir(language, hour_split, section) / "word_freq.clean.csv"
-
-        all_count = sum(1 for _ in all_freq_mapping.open()) - 1
-        bad_count = sum(1 for _ in bad_word_freq_mapping.open()) - 1
-        good_count = sum(1 for _ in good_word_freq_mapping.open()) - 1
-
-        return {
-            "all": all_count,
-            "good": good_count,
-            "bad": bad_count,
-            "bad_percent": (bad_count / all_count) * 100,
-            "good_percent": (good_count / all_count) * 100,
-        }
-
-    def global_word_cleaning_stats(self) -> pd.DataFrame:
-        """Aggregate word cleaning statis into a single DataFrame."""
-        all_stats = {}
-        for _, (lang, hour_split, section) in enumerate(self.iter_all()):
-            all_stats[f"{lang}_{hour_split}_{section}"] = self.word_cleaning_stats(lang, hour_split, section)
-
-        return pd.DataFrame.from_dict(all_stats, orient="index")
-
-    def global_all_word_freq(self) -> pd.DataFrame:
-        """Load word global word frequency mapping."""
-        stat_list = []
-        for _, (lang, hour_split, section) in enumerate(self.iter_all()):
-            stats = self.all_words_freq(lang, hour_split, section)
-            stat_list.append(stats)
-
-        combined_df = pd.concat(stat_list)
-        return combined_df.groupby("word", as_index=False)["freq"].sum()  # type: ignore[return-value] # pandas being pandas
-
-    def global_clean_word_freq(self) -> pd.DataFrame:
+    def clean_word_freq_by_split(self, language: str, hour_split: str) -> pd.DataFrame:
         """Load global word frequency mapping of validated (cleaned) words only."""
         stat_list = []
-        for _, (lang, hour_split, section) in enumerate(self.iter_all()):
-            stats = self.clean_words_freq(lang, hour_split, section)
+        for _, (_, _, section) in enumerate(self.iter_sections(language, hour_split)):
+            stats = self.clean_words_freq(language, hour_split, section)
             stat_list.append(stats)
 
         combined_df = pd.concat(stat_list)
         return combined_df.groupby("word", as_index=False)["freq"].sum()  # type: ignore[return-value] # pandas being pandas
 
-    def global_bad_word_freq(self) -> pd.DataFrame:
+    def bad_word_freq_by_split(self, language: str, hour_split: str) -> pd.DataFrame:
         """Load global word frequency mapping of rejected (bad) words only."""
         stat_list = []
-        for _, (lang, hour_split, section) in enumerate(self.iter_all()):
-            stats = self.rejected_words_freq(lang, hour_split, section)
+        for _, (_, _, section) in enumerate(self.iter_sections(language, hour_split)):
+            stats = self.rejected_words_freq(language, hour_split, section)
             stat_list.append(stats)
 
         combined_df = pd.concat(stat_list)
         return combined_df.groupby("word", as_index=False)["freq"].sum()  # type: ignore[return-value] # pandas being pandas
+
+    def word_stats_by_split(self, language: str, hour_split: str) -> dict[str, WordStats]:
+        """Aggregate word cleaning statis into a single DataFrame."""
+        good_stats = self.clean_word_freq_by_split(language, hour_split)
+        bad_stats = self.bad_word_freq_by_split(language, hour_split)
+
+        return {
+            "good": WordStats(token_nb=good_stats["freq"].sum(), type_nb=len(good_stats["word"]), freq_map=good_stats),
+            "bad": WordStats(token_nb=bad_stats["freq"].sum(), type_nb=len(bad_stats["word"]), freq_map=bad_stats),
+        }

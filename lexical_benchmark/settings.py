@@ -90,8 +90,8 @@ class _MyPathSettings:
 
     @property
     def source_datasets(self) -> _Path:
-        _assert_dir(self.dataset_root / "source")
-        return self.dataset_root / "source"
+        _assert_dir(self.dataset_root / "workdir/source")
+        return self.dataset_root / "workdir/source"
 
     @property
     def source_childes(self) -> _Path:
@@ -107,7 +107,7 @@ class _MyPathSettings:
 
     @property
     def raw_datasets(self) -> _Path:
-        return self.dataset_root / "raw"
+        return self.dataset_root / "workdir/raw"
 
     @property
     def raw_childes(self) -> _Path:
@@ -119,7 +119,7 @@ class _MyPathSettings:
 
     @property
     def clean_datasets(self) -> _Path:
-        return self.dataset_root / "clean"
+        return self.dataset_root
 
     @property
     def clean_childes(self) -> _Path:

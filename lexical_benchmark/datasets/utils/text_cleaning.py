@@ -211,13 +211,32 @@ class NumberFixer(TextActionFN):
             for m in matches:
                 as_lang = num2words(m.replace(",", ""))
                 self.add_word(self.label, f"{m}::{as_lang}")
-                clean_line = clean_line.replace(m, as_lang)
+                clean_line = clean_line.replace(m, f" {as_lang} ")
         else:
             for m in matches:
                 self.add_word(self.label, m)
                 clean_line = clean_line.replace(m, "")
 
         return clean_line
+
+
+class PrefixSuffixFixer(TextActionFN):
+    """Remove prefix and or suffix from words."""
+
+    def __init__(self, stem: str, *, keep_words: bool = True) -> None:
+        super().__init__(label=f"ps-sf-fixer-{stem}")
+        self.stem = stem
+        self.keep_words = keep_words
+
+    def __call__(self, line: str) -> str:
+        """Clean text from given prefix or suffix."""
+
+        def clean(word: str) -> str:
+            """Remove prefix/suffix."""
+            word = word.removeprefix(self.stem)
+            return word.removesuffix(self.stem)
+
+        return " ".join(clean(w) for w in line.split())
 
 
 class PatternRemover(TextActionFN):

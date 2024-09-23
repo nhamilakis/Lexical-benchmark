@@ -5,6 +5,9 @@ import string
 import typing as t
 from pathlib import Path
 
+if t.TYPE_CHECKING:
+    from lexical_benchmark.datasets.utils import DictionairyCleaner
+
 import pandas as pd
 
 from lexical_benchmark import settings
@@ -209,7 +212,7 @@ class CleanCHILDESFiles:
         """Iterate over the test files: Only used during dev."""
         yield from (self.root_dir / "test").glob("*.txt")
 
-    def filter_words(self, lang_accent: str, speech_type: SPEECH_TYPE, cleaner: utils.DictionairyCleaner) -> None:
+    def filter_words(self, lang_accent: str, speech_type: SPEECH_TYPE, cleaner: "DictionairyCleaner") -> None:
         """Filter words in dataset using a dictionairy."""
         for item in self.iter(lang_accent, speech_type):
             meta_dir = self.meta_location(item.lang_accent, item.speech_type)
