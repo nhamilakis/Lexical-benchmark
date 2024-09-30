@@ -294,19 +294,30 @@ class CleanCHILDESFiles:
         df.to_csv(wf_file, index=False)
         return df
 
-    def word_stats(self, lang_accent: str, speech_type: SPEECH_TYPE) -> dict[str, float]:
+    def word_stats(self, lang_accent: str, speech_type: SPEECH_TYPE) -> dict[str, dict[str, float]]:
         """Compute stats on word retention."""
-        # All words count
-        all_count = self.raw_word_frequency(lang_accent, speech_type)["freq"].sum()
+        # Raw words count
+        raw_stats = self.raw_word_frequency(lang_accent, speech_type)
+
         # Validated words count
-        good_count = self.clean_word_frequency(lang_accent, speech_type)["freq"].sum()
+        clean_stats = self.clean_word_frequency(lang_accent, speech_type)
+
         # Rejected words count
-        bad_count = self.rejected_word_frequency(lang_accent, speech_type)["freq"].sum()
+        rejected_stats = self.rejected_word_frequency(lang_accent, speech_type)
 
         return {
-            "all": all_count,
-            "good": good_count,
-            "bad": bad_count,
+            "raw": {
+                "token_nb": raw_stats["freq"].sum(),
+                "type_nb": len(raw_stats["word"]) - 1,
+            },
+            "clean": {
+                "token_nb": clean_stats["freq"].sum(),
+                "type_nb": len(clean_stats["word"]) - 1,
+            },
+            "bad": {
+                "token_nb": rejected_stats["freq"].sum(),
+                "type_nb": len(rejected_stats["word"]) - 1,
+            },
         }
 
 

@@ -43,7 +43,7 @@ class _AbstractStellaDataset:
 
     def transcription(self, language: str, hour_split: str, section: str) -> Path:
         """Get transcription file."""
-        return self.root_dir / "txt" / language / hour_split / section / "raw.transcription.txt"
+        return self.root_dir / "txt" / language / hour_split / section / "transcription.txt"
 
     def set_meta(self, meta: dict, language: str, hour_split: str, section: str) -> None:
         """Writes the clean-up metadata for given section."""
@@ -124,6 +124,10 @@ class STELLADatasetRaw(_AbstractStellaDataset):
         """Get Cleaned Transcription."""
         return self.root_dir / "txt" / language / hour_split / section / "clean.transcription.txt"
 
+    def raw_transcription(self, language: str, hour_split: str, section: str) -> Path:
+        """Get Cleaned Transcription."""
+        return self.root_dir / "txt" / language / hour_split / section / "raw.transcription.txt"
+
     def words_freq(self, language: str, hour_split: str, section: str) -> pd.DataFrame:
         """Load or compute all word frequency table for specific section."""
         word_freq_mapping = self.meta_dir(language, hour_split, section) / "word_freq.all.csv"
@@ -186,7 +190,7 @@ class STELLADatasetClean(_AbstractStellaDataset):
     def clean_words_freq(self, language: str, hour_split: str, section: str) -> pd.DataFrame:
         """Load or compute clean word frequency table for specific section."""
         word_freq_mapping = self.meta_dir(language, hour_split, section) / "word_freq.clean.csv"
-        source_file = self.root_dir / "txt" / language / hour_split / section / "transcription.txt"
+        source_file = self.transcription(language, hour_split, section)
         if not source_file.is_file():
             raise ValueError(f"{source_file} does not exist, create it first")
 

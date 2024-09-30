@@ -77,7 +77,7 @@ class StelaCleaner:
             prg.update(clean_task, description=f"Cleaning {lang}/{hour_split}/{section}...")
 
             # Load source text
-            _txt = self.navigate.transcription(lang, hour_split, section).read_text().splitlines()
+            _txt = self.navigate.raw_transcription(lang, hour_split, section).read_text().splitlines()
             clean_txt = self.clean_txt(_txt, ruleset=rules)
             prg.update(clean_task, advance=0.5)
 
@@ -104,21 +104,19 @@ class StelaCleaner:
     def _filter_words(self, language: str, hour_split: str, section: str, cleaner: lexicon.DictionairyCleaner) -> None:
         """Filter words of transcription."""
         bad_transcription_file = self.target.meta_dir(language, hour_split, section) / "bad.transcription.txt"
-        transcription_file = self.target.transcription(language=language, hour_split=hour_split, section=section)
+        target_transcription_file = self.target.transcription(language=language, hour_split=hour_split, section=section)
         source_text_file = self.navigate.clean_transcription(language=language, hour_split=hour_split, section=section)
 
         accepted_lines = []
         rejected_lines = []
-        for line in source_text_file.read_text():
+        for line in source_text_file.read_text().splitlines():
             accepted, rejected = cleaner(line)
             accepted_lines.append(accepted)
             rejected_lines.append(rejected)
 
         # Write clean text into transcription
-        transcription_file.parent.mkdir(exist_ok=True, parents=True)
-        self.target.transcription(language=language, hour_split=hour_split, section=section).write_text(
-            "\n".join(accepted_lines)
-        )
+        target_transcription_file.parent.mkdir(exist_ok=True, parents=True)
+        target_transcription_file.write_text("\n".join(accepted_lines))
 
         # Write rejected lines
         bad_transcription_file.write_text("\n".join(rejected_lines))
