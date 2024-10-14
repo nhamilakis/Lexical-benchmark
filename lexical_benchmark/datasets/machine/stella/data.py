@@ -121,12 +121,27 @@ class STELLADatasetRaw(_AbstractStellaDataset):
         super().__init__(root_dir=root_dir)
 
     def clean_transcription(self, language: str, hour_split: str, section: str) -> Path:
-        """Get Cleaned Transcription."""
+        """Get Cleaned Transcription Contains all words, after the preprocessing pass.
+
+        Its a step before the dictionairy validation.
+        """
         return self.root_dir / "txt" / language / hour_split / section / "clean.transcription.txt"
 
     def raw_transcription(self, language: str, hour_split: str, section: str) -> Path:
-        """Get Cleaned Transcription."""
+        """Raw Transcription (contains everything in the found in the source file)."""
         return self.root_dir / "txt" / language / hour_split / section / "raw.transcription.txt"
+
+    def get_all_raw_words_from_split(self, language: str, hour_split: str) -> list[str]:
+        """Merges all transcriptions as word-list from a given split."""
+        folder = self.root_dir / "txt" / language / hour_split
+        words_list = []
+        for file in folder.rglob("raw.transcription.txt"):
+            txt = file.read_text().splitlines()
+            words = []
+            for line in txt:
+                words.extend(line.split())
+            words_list.extend(words)
+        return words_list
 
     def words_freq(self, language: str, hour_split: str, section: str) -> pd.DataFrame:
         """Load or compute all word frequency table for specific section."""
