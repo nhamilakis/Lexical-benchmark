@@ -1,10 +1,11 @@
+import json
 import re
 import typing as t
 from pathlib import Path
 
 from rich import progress
 
-from lexical_benchmark import settings
+from lexical_benchmark import settings, utils
 from lexical_benchmark.datasets.utils import text_cleaning as txt
 
 from .data import SPEECH_TYPE, RawCHILDESFiles, TXTItem
@@ -433,6 +434,35 @@ class CHILDESCleaner:
         prg.update(file_task, total=idx + 1, refresh=True)
         self.progress_stop()
 
+    def clean_txt_files(
+        self,
+        target: Path,
+        files_iter: t.Iterable[TXTItem | Path],
+        child_ruleset: list[txt.CleanerFN],
+        adult_ruleset: list[txt.CleanerFN],
+    ) -> None:
+        """Clean a list of json files containing CHILDES speech."""
+
+        def _clean_line(label: str, line: str) -> tuple[str, str]:
+            """Internal cleans line function."""
+            if "CHI" in label:
+                return label, txt.piped(f" {line} ", *child_ruleset)
+            return label, txt.piped(f" {line} ", *adult_ruleset)
+
+        for _, item in enumerate(files_iter):
+            file = item.file if isinstance(item, TXTItem) else item
+
+            # Parse & clean file
+            as_json = json.loads(file.read_bytes())
+            clean_lines = [_clean_line(label, line) for label, line in as_json]
+
+            # Dump clean text
+            as_txt = json.dumps(clean_lines, indent=4, default=utils.default_json_encoder)
+            (target / file.with_suffix(".json").name).write_text(as_txt)
+
+            # Dump & reset logs
+            txt.WordLogger.dump_logs(file=file.with_suffix(".meta.json"))
+
     def mk_clean(self, target: Path = settings.PATH.clean_childes, *, show_progress: bool = False) -> None:
         """Clean all of CHILDES Dataset, and create clean-version."""
         prg = self.progress(show_progress=show_progress)
@@ -455,3 +485,16 @@ class CHILDESCleaner:
                 )
 
         self.progress_stop()
+
+    def mk_clean_txt(self, target: Path = settings.PATH.clean_childes) -> None:
+        """Clean the txt section of the dataset."""
+        for lang in self.file_nav.langs:
+            location = target / lang / "txt"
+            location.mkdir(exist_ok=True, parents=True)
+
+            self.clean_txt_files(
+                target=location,
+                files_iter=(self.file_nav.root_dir / lang / "txt").glob("*.json"),
+                child_ruleset=self.get_ruleset("child"),
+                adult_ruleset=self.get_ruleset("adult"),
+            )

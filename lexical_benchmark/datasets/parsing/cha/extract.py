@@ -34,6 +34,26 @@ class CHAData:
         )
 
 
+@dataclasses.dataclass
+class CHADataTurnTaking:
+    """Dataclass for mapping data from .cha files (used while parsing)."""
+
+    file_id: str
+    child_gender: str | None
+    language_code: str | None
+    child_age: str | None
+    speech: list[tuple[str, str]]
+
+    def csv_entry(self) -> tuple[str, ...]:
+        """Return as metadata.csv row."""
+        return (
+            self.file_id,
+            str_or_none(self.language_code),
+            str_or_none(self.child_gender),
+            str_or_none(self.child_age),
+        )
+
+
 def extract_from_cha(file: Path) -> CHAData:
     """Data extraction from CHA files."""
     # TODO(@nhamilakis): fix proper parsing
@@ -111,5 +131,31 @@ def extract_from_cha_dirty(file: Path, file_id: str) -> CHAData:
     )
 
 
+def cha_extract_with_tags_dirty(file: Path, file_id: str) -> CHADataTurnTaking:
+    """Quick & dirty parsing for CHA files to extract turn-taking data."""
+
+    def remove_speaker(s: str) -> str:
+        """Remove speaker information."""
+        # partition splits using first instance (from the left).
+        _, _, content = s.partition(":")
+        return content
+
+    def get_speaker(s: str) -> str:
+        """Extract speaker information."""
+        speaker, _, _ = s.partition(":")
+        return speaker.replace("*", "")
+
+    speech = [
+        (get_speaker(line), remove_speaker(line)) for line in file.read_text().splitlines() if line.startswith("*")
+    ]
+
+    return CHADataTurnTaking(
+        **extract_cha_header(file),
+        file_id=file_id,
+        speech=speech,
+    )
+
+
 # Temp replacement of parsing
 extract: t.Callable[[Path, str], CHAData] = extract_from_cha_dirty  # type: ignore[no-redef]
+extract_with_tags: t.Callable[[Path, str], CHADataTurnTaking] = cha_extract_with_tags_dirty  # type: ignore[no-redef]

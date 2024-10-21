@@ -13,6 +13,17 @@ import requests
 from rich.console import Console
 
 
+def default_json_encoder(obj: t.Any) -> t.Any:
+    """An encoder to convert known items for json serialization.
+
+    Safe conversions:
+    tuple -> list
+    """
+    if isinstance(obj, tuple):
+        return list(obj)
+    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+
 def download_file(url: str, target: Path) -> None:
     """Download a file from URL into the given target.
 

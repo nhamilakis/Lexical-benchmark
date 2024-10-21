@@ -1,3 +1,3 @@
-from .extract import extract
+from .extract import extract, extract_with_tags
 
-__all__ = ["extract"]
+__all__ = ["extract", "extract_with_tags"]

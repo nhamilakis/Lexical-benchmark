@@ -50,3 +50,12 @@ add-commit-push m="":
     @[[ ! -z "{{m}}" ]] &&  echo "commiting:: {{m}}" # git commit -m "{{m}}"
     @[[ -z "{{m}}" ]] &&  echo "commiting:: empty" # git commit -m "{{m}}"
     # git push
+
+check-todo:
+    @rg \
+    --glob !notebooks/ \
+    --glob !justfile \
+    --glob !pyproject.toml \
+    --ignore-case \
+    'fixme|todo|feat' \
+    .

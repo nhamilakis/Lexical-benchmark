@@ -10,8 +10,8 @@ if t.TYPE_CHECKING:
 
 import pandas as pd
 
-from lexical_benchmark import settings
-from lexical_benchmark.datasets import utils
+from lexical_benchmark import settings, utils
+from lexical_benchmark.datasets import utils as dataset_utils
 
 SPEECH_TYPE = t.Literal["adult", "child"]
 
@@ -235,6 +235,23 @@ class CleanCHILDESFiles:
             # Save source
             (meta_dir / "source" / f"{item.file_id}.txt").write_text("\n".join(source_text))
 
+    def filter_words_txt(self, lang_accent: str, cleaner: "DictionairyCleaner") -> None:
+        """Filter words in txt files."""
+
+        def _line_clean(line: str) -> str:
+            """Intern line clean."""
+            clean, _ = cleaner(line)
+            return clean
+
+        for file in (self.root_dir / lang_accent / "txt").glob("*.json"):
+            # Read & Clean
+            as_obj = json.loads(file.read_bytes())
+            clean_lines = [(label, _line_clean(line)) for label, line in as_obj]
+
+            # Dump data back into dataset
+            as_txt = json.dumps(clean_lines, indent=4, default=utils.default_json_encoder)
+            file.with_suffix(".clean.json").write_text(as_txt)
+
     def restore_raw(self, lang_accent: str, speech_type: SPEECH_TYPE) -> None:
         """Restore word filtering."""
         for item in self.iter(lang_accent, speech_type):
@@ -259,7 +276,7 @@ class CleanCHILDESFiles:
             if raw_file.is_file():
                 raw_files_list.append(raw_file)
 
-        df = utils.word_frequency_df(raw_files_list)
+        df = dataset_utils.word_frequency_df(raw_files_list)
         df.to_csv(wf_file, index=False)
         return df
 
@@ -273,7 +290,7 @@ class CleanCHILDESFiles:
         # Raw files
         files_list = [item.file for item in self.iter(lang_accent, speech_type)]
 
-        df = utils.word_frequency_df(files_list)
+        df = dataset_utils.word_frequency_df(files_list)
         df.to_csv(wf_file, index=False)
         return df
 
@@ -290,7 +307,7 @@ class CleanCHILDESFiles:
             if rejected_file.is_file():
                 files_list.append(rejected_file)
 
-        df = utils.word_frequency_df(files_list)
+        df = dataset_utils.word_frequency_df(files_list)
         df.to_csv(wf_file, index=False)
         return df
 

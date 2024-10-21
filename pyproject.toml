@@ -58,6 +58,7 @@ select = ["ALL"] # Be brave use all rules
 fixable = ["ALL"]
 # remove the ones that make no sense
 ignore = [
+    "ANN401",  # allow the t.Any type to be used
     "D100",    # allow top doc-string to be missing
     "D401",    # imperative mood in docstring is ambiguous
     "D203", "D213", # Conflicting rules about docstrings
