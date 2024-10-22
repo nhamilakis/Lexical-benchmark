@@ -143,6 +143,18 @@ class STELLADatasetRaw(_AbstractStellaDataset):
             words_list.extend(words)
         return words_list
 
+    def get_all_raw_words_from_section(self, language: str, hour_split: str, section: str) -> list[str]:
+        """Merges all transcriptions as word-list from a given split."""
+        file = self.root_dir / "txt" / language / hour_split / section / "raw.transcription.txt"
+        if not file.is_file():
+            raise ValueError(f"File not found : {file}")
+
+        txt = file.read_text().splitlines()
+        words = []
+        for line in txt:
+            words.extend(line.split())
+        return words
+
     def words_freq(self, language: str, hour_split: str, section: str) -> pd.DataFrame:
         """Load or compute all word frequency table for specific section."""
         word_freq_mapping = self.meta_dir(language, hour_split, section) / "word_freq.all.csv"

@@ -88,5 +88,4 @@ ignore = [
 [tool.ruff.lint.flake8-import-conventions.aliases]
 typing = "t"
 
-
 [tool.setuptools_scm]
