@@ -1,8 +1,18 @@
 import collections
+import typing as t
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pandas as pd
+
+
+def merge_word_frequencies(df_list: t.Sequence[pd.DataFrame]) -> pd.DataFrame:
+    """Merge multiple dataframes containing word frequencies."""
+    # Concatenate all dataframes
+    combined = pd.concat(df_list, ignore_index=True)
+
+    # Group by word and sum frequencies
+    return combined.groupby("word", as_index=False)["freq"].sum()  # type: ignore[return-value] # as usual pandas
 
 
 def word_frequency(file_list: list[Path]) -> collections.Counter:

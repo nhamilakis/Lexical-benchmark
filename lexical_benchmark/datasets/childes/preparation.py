@@ -7,7 +7,7 @@ import pandas as pd
 from rich.progress import track
 
 from lexical_benchmark import settings, utils
-from lexical_benchmark.datasets import parsing
+from lexical_benchmark.datasets.utils import parsing
 
 
 def parse_childes_age(age: str) -> float:

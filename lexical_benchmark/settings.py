@@ -259,6 +259,9 @@ def langs_from_childes() -> set[str]:
 class _STELAMetadata:
     """Metadata linked to the STELA Dataset."""
 
+    langs: tuple[str, ...] = ("EN",)
+    hour_splits: tuple[str, ...] = "50h", "100h", "200h", "400h", "800h", "1600h", "3200h"
+
 
 #######################################################
 # Instance of Settings

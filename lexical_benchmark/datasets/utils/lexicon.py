@@ -15,7 +15,7 @@ import warnings
 from pathlib import Path
 
 from lexical_benchmark import settings
-from lexical_benchmark.datasets.human import childes
+from lexical_benchmark.datasets import childes
 
 
 class Lexicon:
