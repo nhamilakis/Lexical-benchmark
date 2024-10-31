@@ -1,4 +1,3 @@
-import json
 import typing as t
 from dataclasses import dataclass
 from pathlib import Path
@@ -6,70 +5,15 @@ from pathlib import Path
 import pandas as pd
 
 from lexical_benchmark import settings
-from lexical_benchmark.datasets import utils
+from lexical_benchmark.datasets import utils as dataset_utils
+from lexical_benchmark.datasets.utils import text_cleaning
+
+TXT_TYPES = t.Literal["clean", "rejected", "unvalidated", "raw"]
+WORD_TYPES = t.Literal["clean", "rejected", "raw"]
 
 
-class _AbstractStellaDataset:
-    """Abstract items for navigation into Stela dataset."""
-
-    def __init__(self, root_dir: Path) -> None:
-        self.root_dir = root_dir
-
-    def get_languages(self) -> tuple[str, ...]:
-        """Extract languages."""
-        location = self.root_dir / "txt"
-        return tuple(d.name for d in location.iterdir() if d.is_dir())
-
-    def iter_hour_splits(self, language: str) -> t.Iterator[tuple[str, str]]:
-        """Iterator returning hour splits for dataset."""
-        location = self.root_dir / "txt" / language
-        yield from [(language, d.name) for d in location.iterdir() if "h" in d.name and d.is_dir()]
-
-    def iter_sections(self, language: str, hour_split: str) -> t.Iterable[tuple[str, str, str]]:
-        """Iterator returning sections inside each hour set."""
-        location = self.root_dir / "txt" / language / hour_split
-        yield from [(language, hour_split, d.name) for d in location.iterdir() if d.is_dir()]
-
-    def iter_all(self) -> t.Iterable[tuple[str, str, str]]:
-        """Iterate over all sections."""
-        for lang in self.get_languages():
-            for _, hour_split in self.iter_hour_splits(lang):
-                yield from self.iter_sections(lang, hour_split)
-
-    def iter_all_lang(self, lang: str) -> t.Iterable[tuple[str, str, str]]:
-        """Iterate over all sections in a language."""
-        for _, hour_split in self.iter_hour_splits(lang):
-            yield from self.iter_sections(lang, hour_split)
-
-    def transcription(self, language: str, hour_split: str, section: str) -> Path:
-        """Get transcription file."""
-        return self.root_dir / "txt" / language / hour_split / section / "transcription.txt"
-
-    def set_meta(self, meta: dict, language: str, hour_split: str, section: str) -> None:
-        """Writes the clean-up metadata for given section."""
-        meta_file = self.meta_dir(language, hour_split, section) / "meta.logs.json"
-        # Dump as json
-        meta_file.write_text(json.dumps(meta, indent=4))
-
-    def get_meta(self, language: str, hour_split: str, section: str) -> dict:
-        """Load meta logs from section."""
-        meta_file = self.meta_dir(language, hour_split, section) / "meta.logs.json"
-        return json.loads(meta_file.read_bytes())
-
-    def get_books(self, language: str, hour_split: str, section: str) -> list[str]:
-        """Load booknames from section."""
-        book_file = self.root_dir / "txt" / language / hour_split / section / "books.txt"
-        return book_file.read_text().splitlines()
-
-    def meta_dir(self, language: str, hour_split: str, section: str) -> Path:
-        """Return the meta directory for a specific section."""
-        meta_dir = self.root_dir / "txt" / language / hour_split / section / ".meta"
-        meta_dir.mkdir(exist_ok=True, parents=True)
-        return meta_dir
-
-
-class MetaHandler:
-    """Handler for metadata."""
+class MetaLogHandler:
+    """Handler for clean-up metadata."""
 
     def __init__(self) -> None:
         self._meta: dict[str, list[str] | int] = {}
@@ -92,174 +36,368 @@ class WordStats:
     freq_map: pd.DataFrame
 
 
-class STELLADatasetRaw(_AbstractStellaDataset):
-    """Navigation into the uncleaned STELA dataset.
+@dataclass
+class MetaDir:
+    """Item Object for clean STELA."""
 
-    Stela Dataset is separated into subsets following the following schema:
+    lang: str
+    hour_split: str
+    section: str
+    root: Path
+    parent: "TranscriptionItem"
 
-    txt
-    ├── LANG
-    │   ├── HOUR_SPLIT
-    │   │   ├── SECTION_SPLIT
-    │   │   │   ├── books.txt
-    │   │   │   ├── meta.json
-    │   │   │   └── transcription.txt
-    │   │   ├── ...
-    │   ├── ...
-    │   ...
+    @property
+    def meta_dir(self) -> Path:
+        """Path to meta directory."""
+        return self.root / "txt" / self.lang / self.hour_split / self.section / ".meta"
 
-    txt : folder containing transcriptions    LANG: corresponds to the given language
-    HOUR_SPLIR: corresponds to the size of the section splits in number of hours of speech,
-                formatted as (50h, 100h, ..., 3200h)
-    SECTION_SPLIT: separation of content into sections with equal amount of speech content.
-    books.txt: the list of books used for this split
-    meta.json: metadata generated during clean-up used to measure effectiveness of cleaning.
-    transcript.txt: the agregated transcripts of the audiobooks in the list.
-    """
+    @property
+    def cleaning_logs(self) -> Path:
+        """Path to cleaning logs."""
+        return self.meta_dir / "meta.logs.json"
+
+    @property
+    def bad_words_file(self) -> Path:
+        """Path to bad words file."""
+        return self.meta_dir / "bad.transcription.txt"
+
+    def rejected_word_frequencies(self) -> pd.DataFrame:
+        """Computation of discarted word frequencies."""
+        source_file = self.bad_words_file
+        wf_file = self.meta_dir / "word_freq.bad.csv"
+
+        return dataset_utils.load_word_frequency_file(
+            source_file=source_file,
+            target_file=wf_file,
+        )
+
+    def clean_word_frequencies(self) -> pd.DataFrame:
+        """Computation of validated word frequencies."""
+        source_file = self.parent.transcription
+        wf_file = self.meta_dir / "word_freq.clean.csv"
+
+        return dataset_utils.load_word_frequency_file(
+            source_file=source_file,
+            target_file=wf_file,
+        )
+
+    def raw_word_frequencies(self) -> pd.DataFrame:
+        """Computation of raw word frequencies."""
+        source_file = self.parent.processed_raw_transcription
+        wf_file = self.meta_dir / "word_freq.raw.csv"
+
+        return dataset_utils.load_word_frequency_file(
+            source_file=source_file,
+            target_file=wf_file,
+        )
+
+
+class STELATranscriptionBookIndex:
+    """Book/Wav association index wrapper."""
 
     def __init__(self, root_dir: Path = settings.PATH.raw_stela) -> None:
-        super().__init__(root_dir=root_dir)
+        self.root_dir = root_dir
+        self.meta_dir = root_dir / "meta"
+        self.index_path = self.meta_dir / "wav_text_associations.csv"
+        self._index: pd.DataFrame | None = None
 
-    def clean_transcription(self, language: str, hour_split: str, section: str) -> Path:
-        """Get Cleaned Transcription Contains all words, after the preprocessing pass.
+    @property
+    def index(self) -> pd.DataFrame:
+        """Load index file."""
+        if self._index is None:
+            self._index = pd.read_csv(self.index_path, header=0, sep=";")
+        return self._index
 
-        Its a step before the dictionairy validation.
-        """
-        return self.root_dir / "txt" / language / hour_split / section / "clean.transcription.txt"
+    def book2text(self, book: str) -> str:
+        """Get text file of a book."""
+        df = self.index
+        try:
+            return df.loc[df["book_id"] == book, "text_path"].values[0]  # noqa: PD011
+        except IndexError as e:
+            raise KeyError(f"{book} does not exist !") from e
 
-    def raw_transcription(self, language: str, hour_split: str, section: str) -> Path:
-        """Raw Transcription (contains everything in the found in the source file)."""
-        return self.root_dir / "txt" / language / hour_split / section / "raw.transcription.txt"
 
-    def get_all_raw_words_from_split(self, language: str, hour_split: str) -> list[str]:
-        """Merges all transcriptions as word-list from a given split."""
-        folder = self.root_dir / "txt" / language / hour_split
-        words_list = []
-        for file in folder.rglob("raw.transcription.txt"):
-            txt = file.read_text().splitlines()
-            words = []
-            for line in txt:
-                words.extend(line.split())
-            words_list.extend(words)
-        return words_list
+@dataclass
+class TranscriptionItem:
+    """Item representing STELA transcriptions across the dataset.
 
-    def get_all_raw_words_from_section(self, language: str, hour_split: str, section: str) -> list[str]:
-        """Merges all transcriptions as word-list from a given split."""
-        file = self.root_dir / "txt" / language / hour_split / section / "raw.transcription.txt"
-        if not file.is_file():
-            raise ValueError(f"File not found : {file}")
+    CLEAN TXT:
+    └── EN
+        ├── 100h
+        │   ├── 00
+        │   │   ├── .meta
+        │   │   │   ├── bad.transcription.txt
+        │   │   │   ├── word_freq.bad.csv
+        │   │   │   └── word_freq.clean.csv
+        │   │   └── transcription.txt
+        │   ├── 01
+            ...
+    RAW_TXT:
+    └── EN
+        ├── 100h
+        │   ├── 00
+        │   │   ├── books.txt
+        │   │   ├── clean.transcription.txt
+        │   │   ├── .meta
+        │   │   │   ├── meta.logs.json
+        │   │   │   └── word_freq.all.csv
+        │   │   └── raw.transcription.txt
+        │   ├── 01
+            ...
+    """
 
-        txt = file.read_text().splitlines()
+    lang: str
+    hour_split: str
+    section: str
+    clean_path: Path = settings.PATH.clean_stela
+    raw_path: Path = settings.PATH.raw_stela
+    source: Path = settings.PATH.source_stela
+
+    @property
+    def section_id(self) -> str:
+        """Build the section unique id."""
+        return f"{self.lang}_{self.hour_split}_{self.section}"
+
+    @property
+    def clean_txt_dir(self) -> Path:
+        """Path to directory with clean items."""
+        return self.clean_path / "txt" / self.lang / self.hour_split / self.section
+
+    @property
+    def raw_txt_dir(self) -> Path:
+        """Path to directory with raw items."""
+        return self.raw_path / "txt" / self.lang / self.hour_split / self.section
+
+    @property
+    def transcription(self) -> Path:
+        """Path to the clean & validated transcription."""
+        return self.clean_txt_dir / "transcription.txt"
+
+    @property
+    def processed_raw_transcription(self) -> Path:
+        """Path to the cleanned but unvalidated transcription."""
+        return self.raw_txt_dir / "clean.transcription.txt"
+
+    @property
+    def unprocessed_raw_transcription(self) -> Path:
+        """Path to the raw unprocessed transcription."""
+        return self.raw_txt_dir / "raw.transcription.txt"
+
+    @property
+    def raw_meta(self) -> MetaDir:
+        """Load MetaDataHandler."""
+        return MetaDir(
+            lang=self.lang, hour_split=self.hour_split, section=self.section, root=self.raw_path, parent=self
+        )
+
+    @property
+    def clean_meta(self) -> MetaDir:
+        """Load MetaDataHandler."""
+        return MetaDir(
+            lang=self.lang, hour_split=self.hour_split, section=self.section, root=self.clean_path, parent=self
+        )
+
+    @property
+    def book_names(self) -> list[str]:
+        """Book list used."""
+        book_list_txt = self.raw_txt_dir / "books.txt"
+        if book_list_txt.is_file():
+            return book_list_txt.read_text().splitlines()
+
+        raise FileNotFoundError(f"No booklist for {self.section_id}")
+
+    @property
+    def book_sources_files(self) -> list[Path]:
+        """Path of source book files."""
+        book_files = []
+        source_book_location = self.source / "text" / self.lang
+        book_index = STELATranscriptionBookIndex(root_dir=self.raw_path)
+
+        for book in self.book_names:
+            try:
+                book_name = book_index.book2text(book)
+                book_path = next(source_book_location.rglob(book_name), None)
+                if book_path:
+                    book_files.append(book_path)
+            except KeyError:
+                pass
+
+        return book_files
+
+    def all_words(self, source_type: TXT_TYPES = "clean") -> list[str]:
+        """Load all words from section type."""
+        if source_type == "clean":
+            txt = self.transcription
+        elif source_type == "rejected":
+            txt = self.clean_meta.bad_words_file
+        elif source_type == "unvalidated":
+            txt = self.processed_raw_transcription
+        elif source_type == "raw":
+            txt = self.unprocessed_raw_transcription
+        else:
+            raise ValueError("Type does not respect")
+
         words = []
-        for line in txt:
+        for line in txt.read_text().splitlines():
             words.extend(line.split())
         return words
 
-    def words_freq(self, language: str, hour_split: str, section: str) -> pd.DataFrame:
-        """Load or compute all word frequency table for specific section."""
-        word_freq_mapping = self.meta_dir(language, hour_split, section) / "word_freq.all.csv"
-        source_file = self.clean_transcription(language, hour_split, section)
-        if not source_file.is_file():
-            raise ValueError(f"{source_file} does not exist, create it first")
 
-        # Load frequency mapping, if it doesn't exist create it before
-        return utils.load_word_frequency_file(source_file=source_file, target_file=word_freq_mapping)
+class STELATranscriptDataset:
+    """Accessor class for the STELA Dataset."""
 
-    def word_freq_by_split(self, language: str, hour_split: str) -> pd.DataFrame:
-        """Load word global word frequency mapping."""
-        stat_list = []
-        for _, (_, _, section) in enumerate(self.iter_sections(language, hour_split)):
-            stats = self.words_freq(language, hour_split, section)
-            stat_list.append(stats)
-
-        combined_df = pd.concat(stat_list)
-        return combined_df.groupby("word", as_index=False)["freq"].sum()  # type: ignore[return-value] # pandas being pandas
-
-    def word_stats_by_split(self, language: str, hour_split: str) -> WordStats:
-        """Get Raw Word Stats."""
-        all_stats = self.word_freq_by_split(language, hour_split)
-        return WordStats(token_nb=all_stats["freq"].sum(), type_nb=len(all_stats["word"]), freq_map=all_stats)
-
-
-class STELLADatasetClean(_AbstractStellaDataset):
-    """Navigation into the cleaned STELA dataset.
-
-    Stela Dataset is separated into subsets following the following schema:
-
-    txt
-    ├── LANG
-    │   ├── HOUR_SPLIT
-    │   │   ├── SECTION_SPLIT
-    │   │   │   ├── books.txt
-    │   │   │   └── transcription.txt
-    │   │   ├── ...
-    │   ├── ...
-    │   ...
-
-
-    txt : folder containing transcriptions    LANG: corresponds to the given language
-    HOUR_SPLIR: corresponds to the size of the section splits in number of hours of speech,
-                formatted as (50h, 100h, ..., 3200h)
-    SECTION_SPLIT: separation of content into sections with equal amount of speech content.
-    books.txt: the list of books used for this split
-    transcript.txt: the agregated transcripts of the audiobooks in the list.
-    """
+    def __init__(
+        self,
+        source_dir: Path = settings.PATH.source_stela,
+        raw_dir: Path = settings.PATH.raw_stela,
+        clean_dir: Path = settings.PATH.clean_stela,
+    ) -> None:
+        self.source_dir = source_dir
+        self.raw_dir = raw_dir
+        self.clean_dir = clean_dir
 
     @property
-    def wf_meta_dir(self) -> Path:
-        """Return word frequency metadata directory."""
-        (self.root_dir / "meta/word_frequencies").mkdir(exist_ok=True, parents=True)
-        return self.root_dir / "meta/word_frequencies"
+    def languages(self) -> tuple[str, ...]:
+        """Extract languages."""
+        return settings.STELA.langs
 
-    def __init__(self, root_dir: Path = settings.PATH.clean_stela) -> None:
-        super().__init__(root_dir=root_dir)
+    @property
+    def hour_splits(self) -> tuple[str, ...]:
+        """Per hour split list for STELA configuration."""
+        return settings.STELA.hour_splits
 
-    def clean_words_freq(self, language: str, hour_split: str, section: str) -> pd.DataFrame:
-        """Load or compute clean word frequency table for specific section."""
-        word_freq_mapping = self.meta_dir(language, hour_split, section) / "word_freq.clean.csv"
-        source_file = self.transcription(language, hour_split, section)
-        if not source_file.is_file():
-            raise ValueError(f"{source_file} does not exist, create it first")
+    def iter_all(self) -> t.Iterable[TranscriptionItem]:
+        """Iterator for STELA dataset."""
+        for lang in self.languages:
+            for hour in self.hour_splits:
+                for section in self.sections(lang, hour):
+                    yield TranscriptionItem(
+                        lang=lang,
+                        hour_split=hour,
+                        section=section,
+                        clean_path=self.clean_dir,
+                        raw_path=self.raw_dir,
+                        source=self.raw_dir,
+                    )
 
-        # Load frequency mapping, if it doesn't exist create it before
-        return utils.load_word_frequency_file(source_file=source_file, target_file=word_freq_mapping)
+    def iter_lang(self, lang: str) -> t.Iterable[TranscriptionItem]:
+        """Iterator for STELA dataset by language."""
+        for hour in self.hour_splits:
+            for section in self.sections(lang, hour):
+                yield TranscriptionItem(
+                    lang=lang,
+                    hour_split=hour,
+                    section=section,
+                    clean_path=self.clean_dir,
+                    raw_path=self.raw_dir,
+                    source=self.raw_dir,
+                )
 
-    def rejected_words_freq(self, language: str, hour_split: str, section: str) -> pd.DataFrame:
-        """Load or compute rejected word frequency table for specific section."""
-        word_freq_mapping = self.meta_dir(language, hour_split, section) / "word_freq.bad.csv"
-        source_file = self.meta_dir(language, hour_split, section) / "bad.transcription.txt"
-        if not source_file.is_file():
-            raise ValueError(f"{source_file} does not exist, create it first")
+    def iter_split(self, lang: str, hour: str) -> t.Iterable[TranscriptionItem]:
+        """Iter on a specific hour split."""
+        for section in self.sections(lang, hour):
+            yield TranscriptionItem(
+                lang=lang,
+                hour_split=hour,
+                section=section,
+                clean_path=self.clean_dir,
+                raw_path=self.raw_dir,
+                source=self.raw_dir,
+            )
 
-        # Load frequency mapping, if it doesn't exist create it before
-        return utils.load_word_frequency_file(source_file=source_file, target_file=word_freq_mapping)
+    def sections(self, lang: str, hour_split: str) -> tuple[str, ...]:
+        """List of sections per split."""
+        section_dir = self.source_dir / "symlinks" / lang / hour_split
+        # If source is not present
+        if not section_dir.is_dir():
+            # use raw
+            section_dir = self.raw_dir / "txt" / lang / hour_split
+            # If raw is not present
+            if not section_dir.is_dir():
+                # use clean
+                section_dir = self.clean_dir / "txt" / lang / hour_split
+                # if clean is not present
+                if not section_dir.is_dir():
+                    # Fail
+                    raise FileNotFoundError("STELA dataset not found on disk")
 
-    def clean_word_freq_by_split(self, language: str, hour_split: str) -> pd.DataFrame:
-        """Load global word frequency mapping of validated (cleaned) words only."""
-        stat_list = []
-        for _, (_, _, section) in enumerate(self.iter_sections(language, hour_split)):
-            stats = self.clean_words_freq(language, hour_split, section)
-            stat_list.append(stats)
+        return tuple([d.name for d in section_dir.iterdir()])
 
-        combined_df = pd.concat(stat_list)
-        return combined_df.groupby("word", as_index=False)["freq"].sum()  # type: ignore[return-value] # pandas being pandas
+    def raw2clean_filesmap(self, lang: str) -> t.Iterable[tuple[Path, Path, Path]]:
+        """Build FilesMapping that allows to create the clean txt version."""
+        for item in self.iter_lang(lang):
+            yield (item.unprocessed_raw_transcription, item.processed_raw_transcription, item.clean_meta.cleaning_logs)
 
-    def bad_word_freq_by_split(self, language: str, hour_split: str) -> pd.DataFrame:
-        """Load global word frequency mapping of rejected (bad) words only."""
-        stat_list = []
-        for _, (_, _, section) in enumerate(self.iter_sections(language, hour_split)):
-            stats = self.rejected_words_freq(language, hour_split, section)
-            stat_list.append(stats)
+    def word_validation_filesmap(self, lang: str) -> t.Iterable[tuple[Path, Path, Path]]:
+        """Build word validation step filesmap."""
+        for item in self.iter_lang(lang):
+            yield (item.processed_raw_transcription, item.transcription, item.clean_meta.bad_words_file)
 
-        combined_df = pd.concat(stat_list)
-        return combined_df.groupby("word", as_index=False)["freq"].sum()  # type: ignore[return-value] # pandas being pandas
+    @staticmethod
+    def clean_up_rules(lang: str = "EN") -> list[text_cleaning.CleanerFN]:
+        """Rules for cleaning Text."""
+        return [
+            text_cleaning.IllustrationRemoval(),  # Removes Illustration Tagging
+            text_cleaning.URLRemover(),  # Remove URLs
+            text_cleaning.SpecialCharacterTranscriptions(lang=lang, keep=True),
+            text_cleaning.QuotationCleaner(),  # Clean quotes
+            text_cleaning.TextNormalization(),  # Fix accents
+            text_cleaning.NumberFixer(keep_as_text=True),  # Convert Numbers into text
+            text_cleaning.RomanNumerals(),  # Remove Roman Numerals
+            text_cleaning.AZFilter(),  # Removes any special character & punctuation
+            text_cleaning.PrefixSuffixFixer(stem="'"),  # Remove prefix or suffix char(')
+        ]
 
-    def word_stats_by_split(self, language: str, hour_split: str) -> dict[str, WordStats]:
-        """Aggregate word cleaning statis into a single DataFrame."""
-        good_stats = self.clean_word_freq_by_split(language, hour_split)
-        bad_stats = self.bad_word_freq_by_split(language, hour_split)
 
-        return {
-            "good": WordStats(token_nb=good_stats["freq"].sum(), type_nb=len(good_stats["word"]), freq_map=good_stats),
-            "bad": WordStats(token_nb=bad_stats["freq"].sum(), type_nb=len(bad_stats["word"]), freq_map=bad_stats),
-        }
+class STELAWordFrequencies:
+    """Global Word Frequency calculator."""
+
+    def __init__(
+        self,
+        source_dir: Path = settings.PATH.source_stela,
+        raw_dir: Path = settings.PATH.raw_stela,
+        clean_dir: Path = settings.PATH.clean_stela,
+    ) -> None:
+        self.nav = STELATranscriptDataset(source_dir, raw_dir, clean_dir)
+
+    def word_frequencies_by_split(self, lang: str, hour_split: str, word_type: WORD_TYPES) -> dict[str, pd.DataFrame]:
+        """Load word frequencies by section for given lang/hour_split."""
+        if word_type == "clean":
+            return {
+                f"{item.section_id}": item.clean_meta.clean_word_frequencies()
+                for item in self.nav.iter_split(lang, hour_split)
+            }
+
+        if word_type == "rejected":
+            return {
+                f"{item.section_id}": item.clean_meta.rejected_word_frequencies()
+                for item in self.nav.iter_split(lang, hour_split)
+            }
+
+        if word_type == "raw":
+            return {
+                f"{item.section_id}": item.clean_meta.raw_word_frequencies()
+                for item in self.nav.iter_split(lang, hour_split)
+            }
+
+        raise KeyError(f"WordType({word_type}) is not a valid word type.")
+
+    def word_frequencies_by_lang(self, lang: str, word_type: WORD_TYPES) -> dict[str, pd.DataFrame]:
+        """Build aggregate word frequencies by hour split for given lang."""
+
+        def get_stats(hour_split: str) -> pd.DataFrame:
+            """Load & merge stats for given hour split."""
+            wf = self.word_frequencies_by_split(lang, hour_split, word_type)
+            return dataset_utils.merge_word_frequencies(list(wf.values()))
+
+        return {f"{lang}/{hour_split}": get_stats(hour_split) for hour_split in self.nav.hour_splits}
+
+    def word_frequencies(self, word_type: WORD_TYPES) -> dict[str, pd.DataFrame]:
+        """Load all word frequencies."""
+
+        def get_stats(lang: str) -> pd.DataFrame:
+            """Load & merge stats for given hour split."""
+            wf = self.word_frequencies_by_lang(lang, word_type)
+            return dataset_utils.merge_word_frequencies(list(wf.values()))
+
+        return {f"{lang}": get_stats(lang) for lang in self.nav.languages}

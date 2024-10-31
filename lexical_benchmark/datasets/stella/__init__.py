@@ -1,4 +1,4 @@
-from .data2 import STELATranscriptDataset, STELATranscriptionBookIndex, STELAWordFrequencies, TranscriptionItem
+from .data import STELATranscriptDataset, STELATranscriptionBookIndex, STELAWordFrequencies, TranscriptionItem
 from .preparation import STELAPrepTranscripts
 
 __all__ = [
