@@ -18,7 +18,8 @@ def df_write_xlsx(df_items: dict[str, pd.DataFrame], target: Path, sheet_name: s
         ws.merge_cells(start_row=row_counter + 1, start_column=1, end_row=row_counter + 1, end_column=df.shape[1])
         row_counter += 1
         # Write column names
-        ws.append(df.columns)
+        ws.append(list(df.columns))
+        # this is a changed line
         row_counter += 1
         # Append rows of dataframe
         for row in df.itertuples(index=False, name=None):

@@ -95,10 +95,11 @@ class MetaDir:
 class STELATranscriptionBookIndex:
     """Book/Wav association index wrapper."""
 
-    def __init__(self, root_dir: Path = settings.PATH.raw_stela) -> None:
-        self.root_dir = root_dir
-        self.meta_dir = root_dir / "meta"
-        self.index_path = self.meta_dir / "wav_text_associations.csv"
+    def __init__(
+        self, raw_stela_dir: Path = settings.PATH.raw_stela, source_stela_dir: Path = settings.PATH.source_stela
+    ) -> None:
+        self.book_dir = source_stela_dir / "text"
+        self.index_path = raw_stela_dir / "metadata" / "wav_text_associations.csv"
         self._index: pd.DataFrame | None = None
 
     @property
@@ -112,9 +113,17 @@ class STELATranscriptionBookIndex:
         """Get text file of a book."""
         df = self.index
         try:
-            return df.loc[df["book_id"] == book, "text_path"].values[0]  # noqa: PD011
+            return df.loc[df["book"] == book, "text_path"].values[0]  # noqa: PD011
         except IndexError as e:
             raise KeyError(f"{book} does not exist !") from e
+
+    def book2path(self, lang: str, book: str) -> Path:
+        """Convert a book id to the path of the book."""
+        filename = self.book2text(book)
+        file = next((self.book_dir / lang).rglob(filename), None)
+        if file:
+            return file
+        raise FileNotFoundError(f"No book named : {filename} found in {self.book_dir / lang}")
 
 
 @dataclass
@@ -211,7 +220,7 @@ class TranscriptionItem:
         """Path of source book files."""
         book_files = []
         source_book_location = self.source / "text" / self.lang
-        book_index = STELATranscriptionBookIndex(root_dir=self.raw_path)
+        book_index = STELATranscriptionBookIndex(raw_stela_dir=self.raw_path, source_stela_dir=self.source)
 
         for book in self.book_names:
             try:
