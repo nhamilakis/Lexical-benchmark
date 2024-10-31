@@ -196,6 +196,19 @@ class RejectionRateResult:
                 "Type Rejection": self.type_average_rejection_rate,
                 "Type Acceptance": self.type_average_acceptance_rate,
             }
+        if view_type == "table_median_with_sums":
+            return {
+                "Tokens Raw": self.raw_token_sum,
+                "Tokens Rejected": self.rejected_token_sum,
+                "Token Rejection": self.token_average_rejection_rate,
+                "Tokens Accepted": self.clean_token_sum,
+                "Token Acceptance": self.token_average_acceptance_rate,
+                "Types": self.raw_type_sum,
+                "Types Rejected": self.rejected_type_sum,
+                "Type Rejection": self.type_average_rejection_rate,
+                "Types Accepted": self.clean_type_sum,
+                "Type Acceptance": self.type_average_acceptance_rate,
+            }
 
         raise ValueError(f"{view_type} is not a valid view type")
 

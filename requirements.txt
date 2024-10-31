@@ -1,3 +1,4 @@
+typing_extensions
 matplotlib
 pandas
 numpy
