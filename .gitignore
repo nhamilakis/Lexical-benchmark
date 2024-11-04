@@ -100,3 +100,6 @@ testing-local.ipynb
 
 # Notebook Data
 notebooks/**/*.csv
+notebooks/tmp
+notebooks/img
+notebooks/**/*.xlsx
