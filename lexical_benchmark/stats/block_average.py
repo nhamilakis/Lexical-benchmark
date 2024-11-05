@@ -6,6 +6,7 @@ import numpy as np
 from lexical_benchmark.datasets.utils import lexicon
 
 VIEW_TYPES = t.Literal["results", "json", "table_sums", "table_avg", "table_median"]
+AVG_TYPES = t.Literal["average", "median"]
 
 
 @dataclass
@@ -61,153 +62,140 @@ class RejectionRateResult:
     """Struct to store rejection rate result."""
 
     chunk_list: list[ChunkRejectionRate]
+    avg_type: AVG_TYPES = "median"
 
     @property
-    def raw_token_sum(self) -> int:
+    def raw_tokens(self) -> int:
         """Raw token sum."""
         return np.sum([chk.token.raw_count for chk in self.chunk_list])
 
     @property
-    def clean_token_sum(self) -> int:
+    def accepted_tokens(self) -> int:
         """Raw token sum."""
         return np.sum([chk.token.clean_count for chk in self.chunk_list])
 
     @property
-    def rejected_token_sum(self) -> int:
+    def rejected_tokens(self) -> int:
         """Raw token sum."""
         return np.sum([chk.token.rejected_count for chk in self.chunk_list])
 
     @property
-    def raw_type_sum(self) -> int:
+    def raw_types(self) -> int:
         """Raw token sum."""
         return np.sum([chk.type_.raw_count for chk in self.chunk_list])
 
     @property
-    def clean_type_sum(self) -> int:
+    def accepted_types(self) -> int:
         """Raw token sum."""
         return np.sum([chk.type_.clean_count for chk in self.chunk_list])
 
     @property
-    def rejected_type_sum(self) -> int:
+    def rejected_types(self) -> int:
         """Raw token sum."""
         return np.sum([chk.type_.rejected_count for chk in self.chunk_list])
 
     @property
-    def token_average_rejection_rate(self) -> float:
+    def token_rejection_rate(self) -> float:
         """Compute average token rejection rate."""
-        return float(np.average([c.token.rejection_rate for c in self.chunk_list]))
+        if self.avg_type == "average":
+            return float(np.average([c.token.rejection_rate for c in self.chunk_list]))
+
+        if self.avg_type == "median":
+            return float(np.median([c.token.rejection_rate for c in self.chunk_list]))
+        raise ValueError("No specified average type")
 
     @property
-    def token_median_rejection_rate(self) -> float:
-        """Compute median token rejection rate."""
-        return float(np.median([c.token.rejection_rate for c in self.chunk_list]))
-
-    @property
-    def token_average_acceptance_rate(self) -> float:
+    def token_acceptance_rate(self) -> float:
         """Compute average token rejection rate."""
-        return float(np.average([c.token.acceptance_rate for c in self.chunk_list]))
+        if self.avg_type == "average":
+            return float(np.average([c.token.acceptance_rate for c in self.chunk_list]))
+
+        if self.avg_type == "median":
+            return float(np.median([c.token.acceptance_rate for c in self.chunk_list]))
+        raise ValueError("No specified average type")
 
     @property
-    def token_median_acceptance_rate(self) -> float:
-        """Compute median token acceptance rate."""
-        return float(np.median([c.token.acceptance_rate for c in self.chunk_list]))
-
-    @property
-    def type_average_rejection_rate(self) -> float:
+    def type_rejection_rate(self) -> float:
         """Compute average type rejection rate."""
-        return float(np.average([c.type_.rejection_rate for c in self.chunk_list]))
+        if self.avg_type == "average":
+            return float(np.average([c.type_.rejection_rate for c in self.chunk_list]))
+
+        if self.avg_type == "median":
+            return float(np.median([c.type_.rejection_rate for c in self.chunk_list]))
+        raise ValueError("No specified average type")
 
     @property
-    def type_median_rejection_rate(self) -> float:
-        """Compute median type rejection rate."""
-        return float(np.median([c.type_.rejection_rate for c in self.chunk_list]))
-
-    @property
-    def type_average_acceptance_rate(self) -> float:
+    def type_acceptance_rate(self) -> float:
         """Compute average type rejection rate."""
-        return float(np.average([c.type_.acceptance_rate for c in self.chunk_list]))
+        if self.avg_type == "average":
+            return float(np.average([c.type_.acceptance_rate for c in self.chunk_list]))
+        if self.avg_type == "median":
+            return float(np.median([c.type_.acceptance_rate for c in self.chunk_list]))
+        raise ValueError("No specified average type")
 
-    @property
-    def type_median_acceptance_rate(self) -> float:
-        """Compute median type acceptance rate."""
-        return float(np.median([c.type_.acceptance_rate for c in self.chunk_list]))
-
-    def view(self, view_type: VIEW_TYPES) -> dict[str, t.Any]:
+    def view(self, *, view_type: VIEW_TYPES, avg_type: AVG_TYPES = "median") -> dict[str, t.Any]:
         """Convert item to dict."""
+        self.avg_type = avg_type
+
         if view_type == "results":
             return {
                 "token": {
-                    "average_rejection_rate": self.token_average_rejection_rate,
-                    "average_acceptance_rate": self.token_average_acceptance_rate,
-                    "median_rejection_rate": self.token_median_rejection_rate,
-                    "median_acceptance_rate": self.token_median_acceptance_rate,
+                    "rejection_rate": self.token_rejection_rate,
+                    "acceptance_rate": self.token_acceptance_rate,
                 },
                 "type": {
-                    "average_rejection_rate": self.type_average_rejection_rate,
-                    "average_acceptance_rate": self.type_average_acceptance_rate,
-                    "median_rejection_rate": self.type_median_rejection_rate,
-                    "median_acceptance_rate": self.type_median_acceptance_rate,
+                    "rejection_rate": self.type_rejection_rate,
+                    "acceptance_rate": self.type_acceptance_rate,
                 },
             }
         if view_type == "json":
             return {
                 "chunk_list": [chk.as_dict() for chk in self.chunk_list],
-                "token": {
-                    "average_rejection_rate": self.token_average_rejection_rate,
-                    "average_acceptance_rate": self.token_average_acceptance_rate,
-                    "median_rejection_rate": self.token_median_rejection_rate,
-                    "median_acceptance_rate": self.token_median_acceptance_rate,
-                },
-                "type": {
-                    "average_rejection_rate": self.type_average_rejection_rate,
-                    "average_acceptance_rate": self.type_average_acceptance_rate,
-                    "median_rejection_rate": self.type_median_rejection_rate,
-                    "median_acceptance_rate": self.type_median_acceptance_rate,
+                "totals": {
+                    "token": {
+                        "rejection_rate": self.token_rejection_rate,
+                        "acceptance_rate": self.token_acceptance_rate,
+                    },
+                    "type": {
+                        "rejection_rate": self.type_rejection_rate,
+                        "acceptance_rate": self.type_acceptance_rate,
+                    },
                 },
             }
         if view_type == "table_sums":
             return {
                 "token": {
-                    "raw_sum": self.raw_token_sum,
-                    "clean_sum": self.clean_token_sum,
-                    "rejected_sum": self.rejected_token_sum,
+                    "raw_sum": self.raw_tokens,
+                    "clean_sum": self.accepted_tokens,
+                    "rejected_sum": self.rejected_tokens,
                 },
                 "type": {
-                    "raw_sum": self.raw_token_sum,
-                    "clean_sum": self.clean_token_sum,
-                    "rejected_sum": self.rejected_token_sum,
+                    "raw_sum": self.raw_tokens,
+                    "clean_sum": self.accepted_tokens,
+                    "rejected_sum": self.rejected_tokens,
                 },
             }
-        if view_type == "table_avg":
+        if view_type == "table":
             return {
-                "Tokens": self.raw_token_sum,
-                "Token Rejection": self.token_average_rejection_rate,
-                "Token Acceptance": self.token_average_acceptance_rate,
-                "Types": self.raw_type_sum,
-                "Type Rejection": self.type_average_rejection_rate,
-                "Type Acceptance": self.type_average_acceptance_rate,
+                "Tokens": self.raw_tokens,
+                "Token Rejection": self.token_rejection_rate,
+                "Token Acceptance": self.token_acceptance_rate,
+                "Types": self.raw_types,
+                "Type Rejection": self.type_rejection_rate,
+                "Type Acceptance": self.type_acceptance_rate,
             }
-        if view_type == "table_median":
+        if view_type == "table_extras":
             return {
-                "Tokens": self.raw_token_sum,
-                "Token Rejection": self.token_average_rejection_rate,
-                "Token Acceptance": self.token_average_acceptance_rate,
-                "Types": self.raw_type_sum,
-                "Type Rejection": self.type_average_rejection_rate,
-                "Type Acceptance": self.type_average_acceptance_rate,
-            }
-        if view_type == "table_median_with_sums":
-            return {
-                "Tokens Raw": self.raw_token_sum,
-                "Tokens Rejected": self.rejected_token_sum,
-                "Token Rejection": self.token_average_rejection_rate,
-                "Tokens Accepted": self.clean_token_sum,
-                "Token Acceptance": self.token_average_acceptance_rate,
-                "Types": self.raw_type_sum,
-                "Types Rejected": self.rejected_type_sum,
-                "Type Rejection": self.type_average_rejection_rate,
-                "Types Accepted": self.clean_type_sum,
-                "Type Acceptance": self.type_average_acceptance_rate,
+                "Tokens": self.raw_tokens,
+                "Tokens Rejected": self.rejected_tokens,
+                "Token Rejection": self.token_rejection_rate,
+                "Tokens Accepted": self.accepted_tokens,
+                "Token Acceptance": self.token_acceptance_rate,
+                "Types": self.raw_types,
+                "Types Rejected": self.rejected_types,
+                "Type Rejection": self.type_rejection_rate,
+                "Types Accepted": self.accepted_types,
+                "Type Acceptance": self.type_acceptance_rate,
             }
 
         raise ValueError(f"{view_type} is not a valid view type")
@@ -224,7 +212,9 @@ def split_and_fill_chunks(word_list: list[str], chunk_size: int = 16_000) -> lis
     return [c0 for c0 in chunks if len(c0) == chunk_size]
 
 
-def calculate_block_word_filtering_rates(chunk_list: list[list[str]], lexicon: lexicon.Lexicon) -> RejectionRateResult:
+def calculate_block_word_filtering_rates(
+    chunk_list: list[list[str]], dictionairy: lexicon.DictionairyCleaner
+) -> RejectionRateResult:
     """Performs a dictionairy clean-up of each chunk & records stats on number of accepted & rejected words."""
     rejection_rates = []
 
@@ -237,7 +227,7 @@ def calculate_block_word_filtering_rates(chunk_list: list[list[str]], lexicon: l
         valid_tokens = []
 
         for token in chunk:
-            if lexicon(token):
+            if dictionairy.check(token):
                 valid_tokens.append(token)
             else:
                 invalid_tokens.append(token)

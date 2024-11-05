@@ -1,3 +1,5 @@
+# ruff: noqa
+# type: ignore
 """Loader and extractor for Human CDI."""
 
 import enum

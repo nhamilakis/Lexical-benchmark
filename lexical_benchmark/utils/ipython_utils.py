@@ -70,7 +70,7 @@ def display_df_with_delimiter(df_style: Styler, **kwargs: Unpack[StylingOptions]
 def display_dataframes(df_dict: dict[str, pd.DataFrame], **kwargs: Unpack[StylingOptions]) -> None:
     """Display a set of dataframes from a dictionary in a Jupyter Notebook."""
     for title, df in df_dict.items():
-        print(f"### {title}")
+        display_html(HTML(f"<h3> {title} </h3>"))
         st_df = df.style
         if "custom_format" in kwargs:
             st_df = st_df.format(kwargs["custom_format"])

@@ -229,14 +229,13 @@ class STELAPrepTranscripts:
 
     def build_transcript(self, root_dir: Path | None = None) -> None:
         """Make train folder architecture."""
-        if root_dir is None:
-            root_dir = self.target_dir / "txt"
+        c_root_dir = root_dir if root_dir is not None else self.target_dir / "txt"
 
-        root_dir = root_dir / self.lang
+        c_root_dir = c_root_dir / self.lang
         for hour, split, booklist in self.iter_transcriptions_by_split():
             # Create folder
-            (root_dir / hour / split).mkdir(exist_ok=True, parents=True)
+            (c_root_dir / hour / split).mkdir(exist_ok=True, parents=True)
             # Write transcriptions into file
-            self.merge_transcriptions(booklist, root_dir / hour / split / "raw.transcription.txt")
+            self.merge_transcriptions(booklist, c_root_dir / hour / split / "raw.transcription.txt")
             # Write list of books used for transcription
-            (root_dir / hour / split / "books.txt").write_text("\n".join(booklist))
+            (c_root_dir / hour / split / "books.txt").write_text("\n".join(booklist))

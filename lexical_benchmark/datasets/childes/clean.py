@@ -42,7 +42,7 @@ class AmpersandCleaner(txt.TextActionFN):
     def __init__(self, *, tag: str, label: str, keep: bool = True) -> None:
         super().__init__(label=label)
         self.clean_pattern = tag
-        # TODO check if this works with all &=
+        # TODO: check if this works with all &=
         self.match_pattern = re.compile(f"({tag}[^ ]+)")
         self.keep = keep
 
@@ -53,7 +53,8 @@ class AmpersandCleaner(txt.TextActionFN):
         if line.count(self.clean_pattern) != len(matches):
             self.add_error(
                 self.label,
-                msg=f"{matches=}, counting ({self.clean_pattern=}) found: {line.count(self.clean_pattern)=} in ({line})",
+                msg=f"{matches=}, counting ({self.clean_pattern=}) found: "
+                "{line.count(self.clean_pattern)=} in ({line})",
             )
 
         # Register Words
@@ -185,16 +186,16 @@ YYY_NOISE_REMOVER = txt.CharSeqRemover(seq="yyy", label="YYY", count=True)
 WWW_NOISE_REMOVER = txt.CharSeqRemover(seq="www", label="WWW", count=True)
 
 
-# BUG(@nhamilakis): match works but, counting fails as it looks for '&\\\\+' for some reason
+# BUG: match works but, counting fails as it looks for '&\\\\+' for some reason
 PHONOLOGICAL_FRAGMENT_REMOVER = AmpersandCleaner(tag=r"&\+", label="&+", keep=False)
 PHONOLOGICAL_FRAGMENT_CLEANER = AmpersandCleaner(tag=r"&\+", label="&+")
 
-# BUG(@nhamilakis): fails as there are some loose '&~' with no word, they are properly cleaned though so false reporting.
+# BUG: fails as there are some loose '&~' with no word, they are properly cleaned though so false reporting.
 NONWORD_REMOVER = AmpersandCleaner(tag=r"&~", label="&~", keep=False)
 NONWORD_CLEANER = AmpersandCleaner(tag=r"&~", label="&~")
 
 # Fillers (&-)
-# BUG(@nhamilakis): match works ok, fails to count correctly the double &-uhh&-uh (39 instances):: no need to fix (probably)
+# BUG: match works ok, fails to count correctly the double &-uhh&-uh (39 instances):: no need to fix (probably)
 FILLER_REMOVER = AmpersandCleaner(tag=r"&-", label="&-", keep=False)
 FILLER_CLEANER = AmpersandCleaner(tag=r"&-", label="&-")
 

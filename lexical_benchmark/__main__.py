@@ -1,12 +1,13 @@
-from importlib.metadata import metadata
+from importlib.metadata import PackageNotFoundError, metadata
 
 from rich.console import Console
 from rich.markdown import Markdown
 
-md = metadata("lexical-benchmark")
+try:
+    desc = metadata("lexical-benchmark")["Description"]
+except (KeyError, PackageNotFoundError):
+    desc = "**Package Not Installed !!!**"
 
-
-desc = md.get("Description")
 console = Console()
 with console.pager():
     console.print(Markdown(desc))

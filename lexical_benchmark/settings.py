@@ -147,6 +147,7 @@ class _CHILDESMetadata:
     AGE_RANGES: tuple[tuple[int, int], ...] = _dataclasses.field(
         default_factory=lambda: tuple((x, x + 1) for x in range(39))
     )
+    SPEECH_TYPES: tuple[str, ...] = ("adult", "child")
     # Extracted directly from dataset
     # Using the following command :
     # `rg --no-filename  -i "(@s:\w+)" -or '$1' | cut -d: -f1,2 > langs.txt`
