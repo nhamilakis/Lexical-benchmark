@@ -50,7 +50,7 @@ exclude = [
 [tool.ruff]
 target-version = "py311"
 line-length = 120
-exclude = ["parser.py"] # Exclude parser.py -> sly does not lint proper
+exclude = ["parser.py", "*.pyi"] # Exclude parser.py -> sly does not lint proper
 
 
 [tool.ruff.lint]
@@ -58,6 +58,7 @@ select = ["ALL"] # Be brave use all rules
 fixable = ["ALL"]
 # remove the ones that make no sense
 ignore = [
+    "S107",    # falsely detects hardcoded passwords in code
     "ANN401",  # allow the t.Any type to be used
     "D100",    # allow top doc-string to be missing
     "D401",    # imperative mood in docstring is ambiguous
@@ -72,10 +73,11 @@ ignore = [
     "D107",    # allow __init__ without docstring
     "ANN101", "ANN102",  # "self" & "cls" need no typing (rule is Deprecated)
     "T201",    # allow 'print' statements
+    "FIX002",  # allow todos
     "TD003",   # not all todos require a issue
+    "TD002",   # allow todos without author
     "D104",    # allow scripts not to have docstring on top
     "EM102",   # allow exception to use f-strings
-    "FIX002",  # allow todos
     "DTZ011",  # allow datetimes without timezone
     "PLR2004", # Allow magic numbers (should be avoided, except some math contexts)
     "S311",    # No cryptography done here random is safe enough

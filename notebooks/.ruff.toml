@@ -1,13 +1,12 @@
-[tool.ruff]
 target-version = "py311"
 line-length = 120
 
-[tool.ruff.lint]
+[lint]
 select = ["ALL"] # Be brave use all rules
 fixable = ["ALL"]
 # remove the ones that make no sense
 ignore = [
-    "E402"     # Notebooks are allowed to import in all cells
+    "E402",    # Notebooks are allowed to import in all cells
     "D100",    # allow top doc-string to be missing
     "D401",    # imperative mood in docstring is ambiguous
     "D203", "D213", # Conflicting rules about docstrings
@@ -33,5 +32,5 @@ ignore = [
 
 
 
-[tool.ruff.lint.flake8-import-conventions.aliases]
+[lint.flake8-import-conventions.aliases]
 typing = "t"
