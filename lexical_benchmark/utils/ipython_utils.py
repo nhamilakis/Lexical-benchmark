@@ -11,37 +11,24 @@ import pandas as pd
 from IPython.display import HTML, display, display_html
 from pandas.io.formats.style import Styler
 
+_HTML_SIDE_BY_SIDE_OUTPUT = """
+<style>
+.df-container {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
 
-def display_side_by_side(dfs: list[pd.DataFrame], captions: list[str] | None = None) -> None:
-    """Display multiple DataFrames side by side in a Jupyter notebook.
+.df-container > div {
+    flex: 1;
+    margin-right: 10px;
+}
 
-    Parameters
-    ----------
-    dfs : list of pandas.DataFrame
-        List of DataFrames to display
-    captions : list of str, optional
-        List of captions for each DataFrame
-
-    Returns
-    -------
-    None
-        Displays the DataFrames in the notebook
-
-    """
-    if captions is None:
-        captions = [""] * len(dfs)
-
-    output = ""
-    for df, caption in zip(dfs, captions, strict=True):
-        output += '<div style="float: left; margin: 10px;">'
-        if caption:
-            output += f"<h3>{caption}</h3>"
-        output += df.to_html()
-        output += "</div>"
-
-    # Wrap the output in a container div for proper spacing
-    output = f'<div style="display: flex; overflow-x: auto; white-space: nowrap;">{output}</div>'
-    display_html(HTML(output))
+.df-container > div:last-child {
+    margin-right: 0;
+}
+</style>
+"""
 
 
 class StylingOptions(t.TypedDict, total=False):
@@ -80,3 +67,33 @@ def display_dataframes(df_dict: dict[str, pd.DataFrame], **kwargs: Unpack[Stylin
 
         display(st_df)
         print()
+
+
+def display_side_by_side(
+    dataframes: dict[str, tuple[tuple[str, pd.DataFrame], tuple[str, pd.DataFrame]]], **kwargs: Unpack[StylingOptions]
+) -> None:
+    """Display multiple DataFrames side by side in a Jupyter notebook."""
+    output = _HTML_SIDE_BY_SIDE_OUTPUT
+    for key, ((caption1, df1), (caption2, df2)) in dataframes.items():
+        st_df1 = df1.style
+        st_df2 = df2.style
+
+        if "custom_format" in kwargs:
+            st_df1 = st_df1.format(kwargs["custom_format"])
+            st_df2 = st_df2.format(kwargs["custom_format"])
+
+        if kwargs.get("delimiter"):
+            st_df1 = display_df_with_delimiter(st_df1, **kwargs)
+            st_df2 = display_df_with_delimiter(st_df2, **kwargs)
+
+        output += f"<h3>{key}</h3>"
+        output += "<div class='df-container'>"
+        # Table 1
+        output += f"<div><h5>{caption1}</h5>"
+        output += f"{st_df1.to_html(index=False)}</div>"
+        # Table 2
+        output += f"<div><h5>{caption2}</h5>"
+        output += f"{st_df2.to_html(index=False)}</div>"
+        output += "</div>"
+
+    display_html(HTML(output))

@@ -5,7 +5,7 @@ import numpy as np
 
 from lexical_benchmark.datasets.utils import lexicon
 
-VIEW_TYPES = t.Literal["results", "json", "table_sums", "table_avg", "table_median"]
+VIEW_TYPES = t.Literal["result_tokens", "result_types", "json", "table_sums", "table", "table_extras"]
 AVG_TYPES = t.Literal["average", "median"]
 
 
@@ -137,16 +137,22 @@ class RejectionRateResult:
         """Convert item to dict."""
         self.avg_type = avg_type
 
-        if view_type == "results":
+        if view_type == "result_tokens":
             return {
-                "token": {
-                    "rejection_rate": self.token_rejection_rate,
-                    "acceptance_rate": self.token_acceptance_rate,
-                },
-                "type": {
-                    "rejection_rate": self.type_rejection_rate,
-                    "acceptance_rate": self.type_acceptance_rate,
-                },
+                "Tokens": self.raw_tokens,
+                "Tokens Rejected": self.rejected_tokens,
+                "Token Rejection": self.token_rejection_rate,
+                "Tokens Accepted": self.accepted_tokens,
+                "Token Acceptance": self.token_acceptance_rate,
+            }
+
+        if view_type == "result_types":
+            return {
+                "Types": self.raw_types,
+                "Types Rejected": self.rejected_types,
+                "Type Rejection": self.type_rejection_rate,
+                "Types Accepted": self.accepted_types,
+                "Type Acceptance": self.type_acceptance_rate,
             }
         if view_type == "json":
             return {
