@@ -1,4 +1,5 @@
 import typing as t
+import warnings
 from pathlib import Path
 
 from . import lexicon, text_cleaning
@@ -21,7 +22,13 @@ class DatasetCleaner:
             Two lists containing accepted & rejected lines
 
         """
-        return zip(*[cleaner(line) for line in txt], strict=True)  # type: ignore[return-value]
+        accepted_lines = []
+        rejected_lines = []
+        for line in txt:
+            accepted, rejected = cleaner(line)
+            accepted_lines.append(accepted)
+            rejected_lines.append(rejected)
+        return accepted_lines, rejected_lines
 
     @classmethod
     def cleanup_files(
@@ -44,16 +51,19 @@ class DatasetCleaner:
         for _, (source_file, target_file, logfile) in enumerate(filemap):
             # Load source text
 
-            _txt = source_file.read_text().splitlines()
+            _txt = source_file.safe_readlines()
+            if _txt is None:
+                warnings.warn(f"File {source_file} does not exist !!", category=UserWarning, stacklevel=1)
+                continue
             clean_txt = cls.clean_txt(_txt, ruleset=ruleset)
 
             # Write cleaned text
-            target_file.safe_write_text("\n".join(clean_txt))  # type: ignore[attr-defined] # ducktyping
+            target_file.safe_write_text("\n".join(clean_txt))
 
             # Save section logs
             logs = text_cleaning.WordLogger.dumps_logs()
             if save_logs:
-                logfile.dump_json(logs)  # type: ignore[attr-defined] # ducktyping
+                logfile.dump_json(logs)
 
     @classmethod
     def word_validate_files(
@@ -71,7 +81,10 @@ class DatasetCleaner:
         for _, (source_file, clean_target, reject_target) in enumerate(filemap):
             # Load source text
 
-            _txt = source_file.read_text().splitlines()
+            _txt = source_file.safe_readlines()
+            if _txt is None:
+                warnings.warn(f"File {source_file} does not exist !!", category=UserWarning, stacklevel=1)
+                continue
             accepted_text, rejected_text = cls.word_validator(_txt, cleaner=cleaner)
 
             # Write cleaned @ rejected text into corresponding files

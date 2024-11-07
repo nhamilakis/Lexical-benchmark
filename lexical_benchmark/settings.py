@@ -89,45 +89,16 @@ class _MyPathSettings:
         return self.DATA_DIR / "datasets" / "lexicon"
 
     @property
-    def source_datasets(self) -> _Path:
-        _assert_dir(self.dataset_root / "workdir/source")
-        return self.dataset_root / "workdir/source"
+    def childes(self) -> _Path:
+        return self.dataset_root / "CHILDES"
 
     @property
-    def source_childes(self) -> _Path:
-        return self.source_datasets / "CHILDES"
+    def wordbank_cdi(self) -> _Path:
+        return self.dataset_root / "wordbank-cdi"
 
     @property
-    def source_wordbank_cdi(self) -> _Path:
-        return self.source_datasets / "wordbank-cdi"
-
-    @property
-    def source_stela(self) -> _Path:
-        return self.source_datasets / "StelaData"
-
-    @property
-    def raw_datasets(self) -> _Path:
-        return self.dataset_root / "workdir/raw"
-
-    @property
-    def raw_childes(self) -> _Path:
-        return self.raw_datasets / "CHILDES"
-
-    @property
-    def raw_stela(self) -> _Path:
-        return self.raw_datasets / "StelaTrainDataset"
-
-    @property
-    def clean_datasets(self) -> _Path:
-        return self.dataset_root
-
-    @property
-    def clean_childes(self) -> _Path:
-        return self.clean_datasets / "CHILDES"
-
-    @property
-    def clean_stela(self) -> _Path:
-        return self.clean_datasets / "StelaTrainDataset"
+    def stela(self) -> _Path:
+        return self.dataset_root / "StelaData"
 
     @property
     def code_root(self) -> _Path:

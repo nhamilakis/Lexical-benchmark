@@ -73,7 +73,8 @@ class DictionairyCleaner:
         if childes_extra_id:
             try:
                 self.childes_lexique: childes.CHILDESExtrasLexicon | None = childes.CHILDESExtrasLexicon.from_cache(
-                    hash_id=childes_extra_id
+                    hash_id=childes_extra_id,
+                    childes_dataset=None,
                 )
             except ValueError:
                 warnings.warn("Failed to load childes lexicon !!", stacklevel=1)

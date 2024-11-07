@@ -37,7 +37,7 @@ class TurnTakingBuilder:
 
         yield from root.glob("*.clean.json")
 
-    def __init__(self, root_dir: Path = settings.PATH.clean_childes) -> None:
+    def __init__(self, root_dir: Path) -> None:
         self.root_dir = root_dir
 
     @staticmethod

@@ -1,5 +1,8 @@
+import hashlib
 import json
+import string
 import sys
+import typing as t
 from pathlib import Path
 
 import numpy as np
@@ -8,6 +11,8 @@ from rich.progress import track
 
 from lexical_benchmark import settings, utils
 from lexical_benchmark.datasets.utils import parsing
+
+from .data2 import SPEECH_TYPES, CHILDESDataset
 
 
 def parse_childes_age(age: str) -> float:
@@ -69,8 +74,9 @@ class CHILDESPreparation:
             all_items.append((file_id, item))
         self.dataset[lang_code] = all_items
 
-    def export(self, location: Path, *, show_progress: bool = False) -> None:
+    def export(self, location: Path, *, meta_dir: Path | None = None, show_progress: bool = False) -> None:
         """Export dataset to directory."""
+        meta_dir = meta_dir if meta_dir else location
         for lang, filelist in self.dataset.items():
             lang_loc = location / lang
             lang_loc.mkdir(parents=True, exist_ok=True)
@@ -81,17 +87,15 @@ class CHILDESPreparation:
             ):
                 try:
                     data = parsing.cha.extract(file, name)  # type: ignore[call-arg]
-                    (lang_loc / "child").mkdir(parents=True, exist_ok=True)
-                    (lang_loc / "adult").mkdir(parents=True, exist_ok=True)
-
-                    (lang_loc / "child" / f"{name}.raw").write_text("\n".join(data.child_speech))
-                    (lang_loc / "adult" / f"{name}.raw").write_text("\n".join(data.adult_speech))
+                    (lang_loc / "child" / f"{name}.raw").safe_write_text("\n".join(data.child_speech))
+                    (lang_loc / "adult" / f"{name}.raw").safe_write_text("\n".join(data.adult_speech))
                     metadata.append(data.csv_entry())
                 except UnicodeDecodeError:
                     print(f"Failed to process {file}...", file=sys.stderr)
                     raise
             df = pd.DataFrame(metadata, columns=["file_id", "lang", "child_gender", "child_age"])
-            df.to_csv(lang_loc / "metadata.csv", index=False)
+            meta_dir.mkdir(exist_ok=True, parents=True)
+            df.to_csv(meta_dir / f"metadata_{lang}.csv", index=False)
 
     def export_turn_taking(self, location: Path) -> None:
         """Export dataset in the turntaking format to given directory."""
@@ -101,10 +105,8 @@ class CHILDESPreparation:
             for name, file in filelist:
                 try:
                     data = parsing.cha.extract_with_tags(file, name)  # type: ignore[call-arg]
-                    (lang_loc / "txt").mkdir(parents=True, exist_ok=True)
-
                     as_json = json.dumps(data.speech, indent=4, default=utils.default_json_encoder)
-                    (lang_loc / "txt" / f"{name}.json").write_text(as_json)
+                    (lang_loc / "txt" / f"{name}.json").safe_write_text(as_json)
 
                 except UnicodeDecodeError:
                     print(f"Failed to process {file}...", file=sys.stderr)
@@ -148,3 +150,100 @@ class OrganizeByAge:
             # Create symlink for all files
             for file_id in files_list:
                 (target / curr_range / f"{file_id}.txt").symlink_to(data_dir / "child" / f"{file_id}.txt")
+
+
+class CHILDESExtrasLexicon:
+    """Loader for lexicon of extra words in childes tags."""
+
+    EXTRAS_LABELS: t.ClassVar[tuple[str, ...]] = (
+        "@o",  # Onomatopoeia
+        "@p",  # Phonological Form
+        "@b",  # Babbling
+        "@wp",  # Word-play
+        "@c",  # Child-Invented Form
+        "@f",  # Family Form
+        "@d",  # Dialect Words
+        "@n",  # Neologisms
+        "@i",  # Interjections
+        "&-",  # Fillers
+        "&~",  # Fillers
+        "&+",  # Fragments
+    )
+
+    def __init__(self, childes_dataset: CHILDESDataset | None) -> None:
+        if childes_dataset is None:
+            self.childes_dataset = CHILDESDataset()
+        else:
+            self.childes = childes_dataset
+        self.words: set[str] = set()
+        self.langs_speech: list[tuple[str, "SPEECH_TYPES"]] = []
+
+    def add_words(self, word_list: list[str]) -> None:
+        """Add words to dictionairy."""
+
+        def clean(word: str) -> str:
+            """Clean a word."""
+            allowed_chars = string.ascii_lowercase + "' "
+            word = word.replace("_", " ")
+            return "".join(c.lower() for c in word if c.lower() in allowed_chars)
+
+        clean_words = [clean(w) for w in word_list]
+        self.words.update(clean_words)
+
+    def add_lang(self, lang_accent: str, speech_type: "SPEECH_TYPES") -> None:
+        """Add items from a language to the current dict."""
+        # Add lang & speech_type to index
+        self.langs_speech.append((lang_accent, speech_type))
+
+        # Iterate & extend word list from labels
+        for item in self.childes.iter_accent(accent=lang_accent):
+            src_item = item.preprocess_item(speech_type)
+            meta_dict = json.loads(src_item.meta.read_bytes())
+            words = []
+            for label in self.EXTRAS_LABELS:
+                words.extend(meta_dict.get(label, []))
+            # Update global dict
+            self.add_words(words)
+
+    def current_fname(self) -> str:
+        """Build a hash of wordlist specs to distinguish characteristics."""
+        langs = "-".join(f"{a}_{b}" for a, b in self.langs_speech)
+        source = f"{'-'.join(self.EXTRAS_LABELS)}||{langs}"
+        return hashlib.md5(source.encode()).hexdigest()
+
+    def cache_current(self) -> str:
+        """Save current wordlist to cache."""
+        location = settings.cache_dir()
+        location = location / "childes_lexicon"
+        location.mkdir(exist_ok=True, parents=True)
+        fname = self.current_fname()
+
+        as_dict = {
+            "hash_id": fname,
+            "languages": self.langs_speech,
+            "childes_meta_tags": self.EXTRAS_LABELS,
+            "word_count": len(self.words),
+            "words": list(self.words),
+        }
+        as_json = json.dumps(as_dict, indent=4)
+        (location / f"childes_extra_{fname}.json").write_text(as_json)
+        return fname
+
+    @classmethod
+    def from_cache(cls, hash_id: str, childes_dataset: CHILDESDataset | None) -> "CHILDESExtrasLexicon":
+        """Load dictionairy from cached file."""
+        location = settings.cache_dir()
+        cached_file = location / "childes_lexicon" / f"childes_extra_{hash_id}.json"
+        if not cached_file.is_file():
+            raise ValueError("Cached dict does not exist !!")
+
+        as_dict = json.loads(cached_file.read_bytes())
+
+        word_dict = cls(childes_dataset=childes_dataset)
+        word_dict.words = set(as_dict.get("words", []))
+        word_dict.langs_speech = as_dict.get("languages", [])
+
+        if word_dict.current_fname() != hash_id:
+            raise ValueError("Given hash does not match given dictionairy")
+
+        return word_dict
