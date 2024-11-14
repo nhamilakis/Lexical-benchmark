@@ -31,12 +31,12 @@ def safe_write_text(self: pathlib.Path, text: str) -> None:
     self.write_text(text)
 
 
-def safe_readlines(self: pathlib.Path) -> list[str] | None:
+def safe_readlines(self: pathlib.Path) -> list[str]:
     """Read file safely."""
     try:
         return self.read_text().splitlines()
     except FileNotFoundError:
-        return None
+        return []
 
 
 def read_tokenized(self: pathlib.Path, sep: str | None = None) -> list[str]:

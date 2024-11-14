@@ -18,9 +18,9 @@ def merge_word_frequencies(df_list: t.Sequence[pd.DataFrame]) -> pd.DataFrame:
 def word_frequency(file_list: list[Path]) -> collections.Counter:
     """Build a word frequency mapping (Requires clean text)."""
     words = []
-    for text_files in file_list:
-        content = text_files.read_text()
-        words.extend(content.split())
+    for text_file in file_list:
+        file_words = text_file.read_tokenized()
+        words.extend(file_words)
 
     # Return a count of all words in the dataset
     return collections.Counter(words)
