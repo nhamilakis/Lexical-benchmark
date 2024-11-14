@@ -1,6 +1,5 @@
-from .data2 import SPEECH_TYPES, CHILDESDataset, CHILDESItem, CHILDESMetaItem
-from .data_prep import CHILDESExtrasLexicon, CHILDESPreparation, OrganizeByAge
-from .turn_taking import TurnTakeData, TurnTakingBuilder
+from .data import SPEECH_TYPES, CHILDESDataset, CHILDESItem, CHILDESMetaItem
+from .data_prep import CHILDESExtrasLexicon, CHILDESPreparation, OrganizeByAge, TurnTakeData, TurnTakingBuilder
 
 __all__ = [
     "CHILDESPreparation",

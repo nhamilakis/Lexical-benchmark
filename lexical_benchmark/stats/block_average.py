@@ -98,42 +98,42 @@ class RejectionRateResult:
     def token_rejection_rate(self) -> float:
         """Compute average token rejection rate."""
         if self.avg_type == "average":
-            return float(np.average([c.token.rejection_rate for c in self.chunk_list]))
+            return float(np.nanmean([c.token.rejection_rate for c in self.chunk_list]))
 
         if self.avg_type == "median":
-            return float(np.median([c.token.rejection_rate for c in self.chunk_list]))
+            return float(np.nanmedian([c.token.rejection_rate for c in self.chunk_list]))
         raise ValueError("No specified average type")
 
     @property
     def token_acceptance_rate(self) -> float:
         """Compute average token rejection rate."""
         if self.avg_type == "average":
-            return float(np.average([c.token.acceptance_rate for c in self.chunk_list]))
+            return float(np.nanmean([c.token.acceptance_rate for c in self.chunk_list]))
 
         if self.avg_type == "median":
-            return float(np.median([c.token.acceptance_rate for c in self.chunk_list]))
+            return float(np.nanmedian([c.token.acceptance_rate for c in self.chunk_list]))
         raise ValueError("No specified average type")
 
     @property
     def type_rejection_rate(self) -> float:
         """Compute average type rejection rate."""
         if self.avg_type == "average":
-            return float(np.average([c.type_.rejection_rate for c in self.chunk_list]))
+            return float(np.nanmean([c.type_.rejection_rate for c in self.chunk_list]))
 
         if self.avg_type == "median":
-            return float(np.median([c.type_.rejection_rate for c in self.chunk_list]))
+            return float(np.nanmedian([c.type_.rejection_rate for c in self.chunk_list]))
         raise ValueError("No specified average type")
 
     @property
     def type_acceptance_rate(self) -> float:
         """Compute average type rejection rate."""
         if self.avg_type == "average":
-            return float(np.average([c.type_.acceptance_rate for c in self.chunk_list]))
+            return float(np.nanmean([c.type_.acceptance_rate for c in self.chunk_list]))
         if self.avg_type == "median":
-            return float(np.median([c.type_.acceptance_rate for c in self.chunk_list]))
+            return float(np.nanmedian([c.type_.acceptance_rate for c in self.chunk_list]))
         raise ValueError("No specified average type")
 
-    def view(self, *, view_type: VIEW_TYPES, avg_type: AVG_TYPES = "median") -> dict[str, t.Any]:
+    def view(self, *, view_type: VIEW_TYPES, avg_type: AVG_TYPES = "average") -> dict[str, t.Any]:
         """Convert item to dict."""
         self.avg_type = avg_type
 
@@ -219,40 +219,39 @@ def split_and_fill_chunks(word_list: list[str], chunk_size: int = 16_000) -> lis
 
 
 def calculate_block_word_filtering_rates(
-    chunk_list: list[list[str]], dictionairy: lexicon.DictionairyCleaner
-) -> RejectionRateResult:
+    word_list: list[str], dictionairy: lexicon.DictionairyCleaner, *, chunk_words: bool = True, chunk_size: int = 16_000
+) -> RejectionRateResult | ChunkRejectionRate:
     """Performs a dictionairy clean-up of each chunk & records stats on number of accepted & rejected words."""
-    rejection_rates = []
 
-    for chunk in chunk_list:
-        total_tokens = len(chunk)  # Total tokens (words)
-        total_token_types = len(set(chunk))  # Unique token types
-
+    def clean_chunk(_chunk: list[str]) -> ChunkRejectionRate:
+        total_tokens = len(_chunk)  # Total tokens (words)
+        total_token_types = len(set(_chunk))  # Unique token types
         # Check which tokens are valid
         invalid_tokens = []
         valid_tokens = []
-
-        for token in chunk:
+        for token in _chunk:
             if dictionairy.check(token):
                 valid_tokens.append(token)
             else:
                 invalid_tokens.append(token)
-
         # Store rejection rates for the chunk
-        rejection_rates.append(
-            ChunkRejectionRate(
-                chunk=chunk,
-                token=RejectionRate(
-                    raw_count=total_tokens,
-                    clean_count=len(valid_tokens),
-                    rejected_count=len(invalid_tokens),
-                ),
-                type_=RejectionRate(
-                    raw_count=total_token_types,
-                    clean_count=len(set(valid_tokens)),
-                    rejected_count=len(set(invalid_tokens)),
-                ),
-            )
+        return ChunkRejectionRate(
+            chunk=_chunk,
+            token=RejectionRate(
+                raw_count=total_tokens,
+                clean_count=len(valid_tokens),
+                rejected_count=len(invalid_tokens),
+            ),
+            type_=RejectionRate(
+                raw_count=total_token_types,
+                clean_count=len(set(valid_tokens)),
+                rejected_count=len(set(invalid_tokens)),
+            ),
         )
 
-    return RejectionRateResult(chunk_list=rejection_rates)
+    if chunk_words:
+        chunk_list = split_and_fill_chunks(word_list, chunk_size=chunk_size)
+        return RejectionRateResult(chunk_list=[clean_chunk(chunk) for chunk in chunk_list])
+
+    # Clean without cutting into chunks
+    return clean_chunk(word_list)
