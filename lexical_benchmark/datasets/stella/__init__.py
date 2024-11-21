@@ -1,10 +1,7 @@
-from .data import STELATranscriptDataset, STELATranscriptionBookIndex, STELAWordFrequencies, TranscriptionItem
+from .data import STELATranscriptDataset
 from .preparation import STELAPrepTranscripts
 
 __all__ = [
     "STELAPrepTranscripts",
     "STELATranscriptDataset",
-    "STELATranscriptionBookIndex",
-    "TranscriptionItem",
-    "STELAWordFrequencies",
 ]

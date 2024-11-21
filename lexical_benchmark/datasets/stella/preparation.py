@@ -7,6 +7,8 @@ from pathlib import Path
 
 from lexical_benchmark import settings
 
+from .data import STELATranscriptDataset
+
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 import pandas as pd  # noqa: E402 (Deprecation avoid)
 
@@ -139,9 +141,9 @@ class InfTrainStructure:
         # Merge by book ID
         return assoc.merge(matched, on="book")
 
-    def __init__(self, root_dir: Path, lang: str = "en") -> None:
+    def __init__(self, root_dir: Path, metadata_dir: Path, lang: str = "en") -> None:
         self.dataset_dir = root_dir
-        self.metadata_dir = root_dir / "medatada"
+        self.metadata_dir = metadata_dir
         self.lang = lang.upper()
 
 
@@ -151,7 +153,7 @@ class STELAPrepTranscripts:
     @property
     def associations_file(self) -> Path:
         """The file storing Wav/Text Associations."""
-        return self.target_dir / "metadata" / "wav_text_associations.csv"
+        return self.dataset.meta.wav_text_associations
 
     @property
     def train_dir(self) -> Path:
@@ -161,12 +163,16 @@ class STELAPrepTranscripts:
     def __init__(
         self,
         lang: str,
-        target_dir: Path = settings.PATH.raw_stela,
-        source_stela: Path = settings.PATH.source_stela,
+        root_dir: Path = settings.PATH.stela,
     ) -> None:
-        self.target_dir = target_dir
+        self.dataset = STELATranscriptDataset(root_dir=root_dir)
+        self.target_dir = self.dataset.preprocessed_path
         self.lang = lang.upper()
-        self.inf_train = InfTrainStructure(root_dir=source_stela, lang=lang)
+        self.inf_train = InfTrainStructure(
+            root_dir=self.dataset.source_path,
+            metadata_dir=self.dataset.meta.meta_root_path,
+            lang=lang,
+        )
         # preset empty items
         self.books: dict[str, Path] = {}
 
@@ -199,20 +205,17 @@ class STELAPrepTranscripts:
         book_id_dict: dict[str, Path] = dict(associations.itertuples(index=False, name=None))  # type: ignore[arg-type,annotation-unchecked]
         self.books = book_id_dict
 
-    def merge_transcriptions(self, book_list: list[str], target: Path) -> None:
+    def merged_book_transcriptions(self, book_list: list[str]) -> str:
         """Write a book list into a single file."""
         # build book index
         self.build_book_dict()
-
-        with target.open("w") as fh:
-            for book in book_list:
-                text_path = self.books.get(book, None)
-                if text_path is None:
-                    raise ValueError(f"Not found {book}")
-
-                # TODO(@nhamilakis): check if precleaning needed
-                fh.write(text_path.read_text())
-                fh.write(" ")
+        result = ""
+        for book in book_list:
+            text_path = self.books.get(book, None)
+            if text_path is None:
+                raise ValueError(f"Not found {book}")
+            result += text_path.read_text() + " "
+        return result
 
     def iter_transcriptions_by_split(self) -> t.Iterable[tuple[str, str, list[str]]]:
         """Load transcriptions by split category."""
@@ -233,9 +236,10 @@ class STELAPrepTranscripts:
 
         c_root_dir = c_root_dir / self.lang
         for hour, split, booklist in self.iter_transcriptions_by_split():
-            # Create folder
-            (c_root_dir / hour / split).mkdir(exist_ok=True, parents=True)
-            # Write transcriptions into file
-            self.merge_transcriptions(booklist, c_root_dir / hour / split / "raw.transcription.txt")
+            item = self.dataset.item(lang=self.lang, hour=hour, section=split)
+            # Fetch book transcriptions
+            text = self.merged_book_transcriptions(booklist)
+            # Write transcriptions
+            item.preprocess.raw.safe_write_text(text)
             # Write list of books used for transcription
-            (c_root_dir / hour / split / "books.txt").write_text("\n".join(booklist))
+            item.clean.books.safe_write_text("\n".join(booklist))

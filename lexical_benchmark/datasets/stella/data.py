@@ -32,59 +32,64 @@ class PreprocessedItem(t.NamedTuple):
 
     raw: Path
     processed: Path
-    word_frequency: Path
+    word_frequencies: Path
     meta: Path
 
 
 class CleanItem(t.NamedTuple):
-    """Struct containing raw speech items."""
+    """Struct containing cleaned speech items."""
 
     transcription: Path
     books: Path
     word_frequencies: Path
-    rejected_words: Path
-    rejected_word_frequencies: Path
+
+
+class RejectedItem(t.NamedTuple):
+    """Struct containing rejected speech."""
+
+    transcription: Path
+    word_frequencies: Path
 
 
 @dataclass
 class MetaDir:
     """Item Object for clean STELA."""
 
-    root: Path
+    dataset_root: Path
 
     @property
-    def meta_dir(self) -> Path:
+    def meta_root_path(self) -> Path:
         """Path to meta directory."""
-        return self.root / "metadata"
+        return self.dataset_root / "metadata"
 
     @property
     def wav_text_associations(self) -> Path:
         """CSV containing wav / text associations."""
-        return self.meta_dir / "wav_text_associations.csv"
+        return self.meta_root_path / "wav_text_associations.csv"
 
     def word_frequencies(self, lang: str, hour_split: str) -> Path:
         """Word Frequencies per split."""
-        return self.meta_dir / "wf" / lang / hour_split / "word-frequency.csv"
+        return self.meta_root_path / "wf" / lang / hour_split / "word-frequency.csv"
 
     def rejected_word_frequencies(self, lang: str, hour_split: str) -> Path:
         """Rejected Word Frequency per split."""
-        return self.meta_dir / "rjwf" / lang / hour_split / "word-frequency.csv"
+        return self.meta_root_path / "rjwf" / lang / hour_split / "word-frequency.csv"
 
     def preprocessed_word_frequencies(self, lang: str, hour_split: str) -> Path:
         """Preprocessed Word Frequency per split."""
-        return self.meta_dir / "unwf" / lang / hour_split / "word-frequency.csv"
+        return self.meta_root_path / "unwf" / lang / hour_split / "word-frequency.csv"
 
     def lang_word_frequency(self, lang: str) -> Path:
         """Word Frequencies per lang."""
-        return self.meta_dir / "wf" / lang / "word-frequency.csv"
+        return self.meta_root_path / "wf" / lang / "word-frequency.csv"
 
     def lang_rejected_word_frequency(self, lang: str) -> Path:
         """Rejected Word Frequencies per lang."""
-        return self.meta_dir / "rjwf" / lang / "word-frequency.csv"
+        return self.meta_root_path / "rjwf" / lang / "word-frequency.csv"
 
     def lang_preprocessed_word_frequency(self, lang: str) -> Path:
         """Preprocessed Word Frequencies per lang."""
-        return self.meta_dir / "unwf" / lang / "word-frequency.csv"
+        return self.meta_root_path / "unwf" / lang / "word-frequency.csv"
 
 
 class STELATranscriptionBookFiles:
@@ -171,8 +176,8 @@ class TranscriptionItem:
         root_dir = self._stela.preprocessed_path.extend(self.parts_id)
         return PreprocessedItem(
             raw=root_dir / "transcription.raw",
-            processed=root_dir / "transcription.cleaned",
-            word_frequency=root_dir / "word-frequency.csv",
+            processed=root_dir / "transcription.preprocessed",
+            word_frequencies=root_dir / "word-frequencies.csv",
             meta=root_dir / "transcription.meta.json",
         )
 
@@ -184,8 +189,15 @@ class TranscriptionItem:
             transcription=root_dir / "trancription.txt",
             books=root_dir / "books.txt",
             word_frequencies=root_dir / "word-frequencies.csv",
-            rejected_words=root_dir / "rejected.txt",
-            rejected_word_frequencies=root_dir / "rejected-word-frequencies.csv",
+        )
+
+    @property
+    def rejected(self) -> RejectedItem:
+        """Path to directory with rejected items."""
+        root_dir = (self._stela.root_dir / "rj_txt").extend(self.parts_id)
+        return RejectedItem(
+            transcription=root_dir / "transcription.txt",
+            word_frequencies=root_dir / "word-frequencies.csv",
         )
 
     @property
@@ -202,7 +214,7 @@ class TranscriptionItem:
         source_book_location = self._stela.source_path / "text" / self.lang
         return STELATranscriptionBookFiles(
             book_id_list=self.book_names,
-            index_path=self._stela.meta_dir.wav_text_associations,
+            index_path=self._stela.meta.wav_text_associations,
             book_source=source_book_location,
         )
 
@@ -224,9 +236,9 @@ class STELATranscriptDataset:
         return self.root_dir / "src" / "preprocessed"
 
     @property
-    def meta_dir(self) -> MetaDir:
+    def meta(self) -> MetaDir:
         """Metadata directory."""
-        return MetaDir(root=self.root_dir)
+        return MetaDir(dataset_root=self.root_dir)
 
     @property
     def languages(self) -> tuple[str, ...]:
@@ -323,7 +335,7 @@ class STELATranscriptDataset:
             yield (
                 item.preprocess.processed,
                 item.clean.transcription,
-                item.clean.rejected_words,
+                item.rejected.transcription,
             )
 
     @staticmethod
@@ -345,27 +357,30 @@ class STELATranscriptDataset:
         """Compute Word Frequency Mapping for clean transcriptions."""
         for lang in self.languages:
             lang_files = []
-            lang_wf_file = self.meta_dir.lang_word_frequency(lang)
+            lang_wf_file = self.meta.lang_word_frequency(lang)
             for hour in self.hour_splits:
                 hour_files = []
-                hour_wf_file = self.meta_dir.word_frequencies(lang, hour)
+                hour_wf_file = self.meta.word_frequencies(lang, hour)
                 for section in self.sections(lang=lang, hour_split=hour):
                     # Add to all hour files
                     item = self.item(lang, hour, section)
                     # Compute local word-frequencies
                     hour_files.append(item.clean.transcription)
                     df = dataset_utils.word_frequency_df([item.clean.transcription])
+                    item.clean.word_frequencies.mk_parent()
                     df.to_csv(item.clean.word_frequencies, index=False)
 
                 # Add to global
                 lang_files.extend(hour_files)
                 # Compute WF for current hour
                 df = dataset_utils.word_frequency_df(hour_files)
+                hour_wf_file.mk_parent()
                 df.to_csv(hour_wf_file, index=False)
                 # reset files
                 hour_files = []
 
             df = dataset_utils.word_frequency_df(lang_files)
+            lang_wf_file.mk_parent()
             df.to_csv(lang_wf_file, index=False)
             # Reset files
             lang_files = []
@@ -374,27 +389,30 @@ class STELATranscriptDataset:
         """Compute Word Frequency Mapping for Rejected transcriptions."""
         for lang in self.languages:
             lang_files = []
-            lang_wf_file = self.meta_dir.lang_rejected_word_frequency(lang)
+            lang_wf_file = self.meta.lang_rejected_word_frequency(lang)
             for hour in self.hour_splits:
                 hour_files = []
-                hour_wf_file = self.meta_dir.rejected_word_frequencies(lang, hour)
+                hour_wf_file = self.meta.rejected_word_frequencies(lang, hour)
                 for section in self.sections(lang=lang, hour_split=hour):
                     # Add to all hour files
                     item = self.item(lang, hour, section)
                     # Compute local word-frequencies
-                    hour_files.append(item.clean.rejected_word_frequencies)
-                    df = dataset_utils.word_frequency_df([item.clean.rejected_words])
-                    df.to_csv(item.clean.rejected_word_frequencies, index=False)
+                    hour_files.append(item.rejected.word_frequencies)
+                    df = dataset_utils.word_frequency_df([item.rejected.transcription])
+                    item.rejected.word_frequencies.mk_parent()
+                    df.to_csv(item.rejected.word_frequencies, index=False)
 
                 # Add to global
                 lang_files.extend(hour_files)
                 # Compute WF for current hour
                 df = dataset_utils.word_frequency_df(hour_files)
+                hour_wf_file.mk_parent()
                 df.to_csv(hour_wf_file, index=False)
                 # reset files
                 hour_files = []
 
             df = dataset_utils.word_frequency_df(lang_files)
+            lang_wf_file.mk_parent()
             df.to_csv(lang_wf_file, index=False)
             # Reset files
             lang_files = []
@@ -403,27 +421,30 @@ class STELATranscriptDataset:
         """Compute Word Frequency Mapping for unprocessed transcriptions."""
         for lang in self.languages:
             lang_files = []
-            lang_wf_file = self.meta_dir.lang_preprocessed_word_frequency(lang)
+            lang_wf_file = self.meta.lang_preprocessed_word_frequency(lang)
             for hour in self.hour_splits:
                 hour_files = []
-                hour_wf_file = self.meta_dir.preprocessed_word_frequencies(lang, hour)
+                hour_wf_file = self.meta.preprocessed_word_frequencies(lang, hour)
                 for section in self.sections(lang=lang, hour_split=hour):
                     # Add to all hour files
                     item = self.item(lang, hour, section)
                     # Compute local word-frequencies
                     hour_files.append(item.preprocess.processed)
                     df = dataset_utils.word_frequency_df([item.preprocess.processed])
-                    df.to_csv(item.preprocess.word_frequency, index=False)
+                    item.preprocess.word_frequencies.mk_parent()
+                    df.to_csv(item.preprocess.word_frequencies, index=False)
 
                 # Add to global
                 lang_files.extend(hour_files)
                 # Compute WF for current hour
                 df = dataset_utils.word_frequency_df(hour_files)
+                hour_wf_file.mk_parent()
                 df.to_csv(hour_wf_file, index=False)
                 # reset files
                 hour_files = []
 
             df = dataset_utils.word_frequency_df(lang_files)
+            lang_wf_file.mk_parent()
             df.to_csv(lang_wf_file, index=False)
             # Reset files
             lang_files = []
