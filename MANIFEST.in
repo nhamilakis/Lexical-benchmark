@@ -1,0 +1,3 @@
+global-exclude *.pyc
+# Exclude the tests folder from the package
+exclude tests/*

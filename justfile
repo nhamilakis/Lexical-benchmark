@@ -13,6 +13,7 @@ notebook-tunnel node=compute_node port=jupyter_port:
     @echo "Creating a tunnel to {{node}}:{{port}}"
     ssh -L "{{port}}:{{node}}:{{port}}" "{{node}}" -N
 
+
 [doc("Fetch notebooks from Oberon")]
 fetch-notebooks:
     echo "Fetching notebooks..."
