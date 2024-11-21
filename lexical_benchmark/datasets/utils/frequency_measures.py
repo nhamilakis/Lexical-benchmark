@@ -6,6 +6,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
+def open_wf(file: Path) -> pd.DataFrame:
+    """Load a WordFrequency Mapping."""
+    return pd.read_csv(file, names=["word", "freq"], header=0)
+
+
 def merge_word_frequencies(df_list: t.Sequence[pd.DataFrame]) -> pd.DataFrame:
     """Merge multiple dataframes containing word frequencies."""
     # Concatenate all dataframes
@@ -32,13 +37,13 @@ def word_frequency_df(file_list: list[Path]) -> pd.DataFrame:
     return pd.DataFrame.from_records(list(freq_mapping.items()), columns=["word", "freq"])
 
 
-def load_word_frequency_file(source_file: Path, target_file: Path) -> pd.DataFrame:
+def safe_load_word_frequency_file(source_file: Path, target_file: Path) -> pd.DataFrame:
     """Load a word frequency mapping, if it does not exist created it."""
     if not target_file.is_file():
         df: pd.DataFrame = word_frequency_df([source_file])
         df.to_csv(target_file, index=False)
         return df
-    return pd.read_csv(target_file, names=["word", "freq"], header=0)
+    return open_wf(target_file)
 
 
 def plot_word_frequency(word_counts: collections.Counter | dict[str, int], top: int = -1, bottom: int = -1) -> None:

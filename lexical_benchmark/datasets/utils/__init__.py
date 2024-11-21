@@ -1,8 +1,9 @@
 from .dataset_clean import DatasetCleaner
 from .frequency_measures import (
-    load_word_frequency_file,
     merge_word_frequencies,
+    open_wf,
     plot_word_frequency,
+    safe_load_word_frequency_file,
     word_frequency,
     word_frequency_df,
 )
@@ -26,9 +27,10 @@ __all__ = [
     "word_frequency",
     "merge_word_frequencies",
     "to_roman",
-    "load_word_frequency_file",
+    "safe_load_word_frequency_file",
     "word_frequency_df",
     "DictionairyCleaner",
     "Lexicon",
     "DatasetCleaner",
+    "open_wf",
 ]

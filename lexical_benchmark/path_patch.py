@@ -23,11 +23,15 @@ except ImportError:
     tomllib = None  # type: ignore[assignment]
 
 
-def safe_write_text(self: pathlib.Path, text: str) -> None:
-    """Safelly dump into a file."""
+def mk_parent(self: pathlib.Path) -> None:
+    """Make parent folders if they do not exist."""
     if not self.parent.is_dir():
         self.parent.mkdir(parents=True)
 
+
+def safe_write_text(self: pathlib.Path, text: str) -> None:
+    """Safelly dump into a file."""
+    mk_parent(self)
     self.write_text(text)
 
 
@@ -102,6 +106,7 @@ def extend(self: pathlib.Path, parts: tuple[str, ...]) -> pathlib.Path:
 
 # Monkey-Patching methods onto the Path class (method-assign angers the type gods so we ask them for forgiveness)
 pathlib.Path.extend = extend  # type: ignore[method-assign]
+pathlib.Path.mk_parent = mk_parent  # type: ignore[method-assign]
 # TXT IO
 pathlib.Path.safe_write_text = safe_write_text  # type: ignore[method-assign]
 pathlib.Path.safe_readlines = safe_readlines  # type: ignore[method-assign]

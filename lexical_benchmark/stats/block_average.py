@@ -58,41 +58,64 @@ class ChunkRejectionRate:
 
 
 @dataclass
+class Measures:
+    """token/type measuring categories struct."""
+
+    raw: float | int
+    clean: float | int
+    rejected: float | int
+
+
+@dataclass
 class RejectionRateResult:
     """Struct to store rejection rate result."""
 
     chunk_list: list[ChunkRejectionRate]
-    avg_type: AVG_TYPES = "median"
+    avg_type: AVG_TYPES = "average"
 
     @property
-    def raw_tokens(self) -> int:
-        """Raw token sum."""
-        return np.sum([chk.token.raw_count for chk in self.chunk_list])
+    def tokens_average_per_unit(self) -> Measures:
+        """Average of tokens per unit."""
+        if not hasattr(self, "_tokens_average_per_unit_lv"):
+            self._tokens_average_per_unit_lv = Measures(
+                raw=float(np.nanmean([chk.token.raw_count for chk in self.chunk_list])),
+                clean=float(np.nanmean([chk.token.clean_count for chk in self.chunk_list])),
+                rejected=float(np.nanmean([chk.token.rejected_count for chk in self.chunk_list])),
+            )
+        return self._tokens_average_per_unit_lv
 
     @property
-    def accepted_tokens(self) -> int:
-        """Raw token sum."""
-        return np.sum([chk.token.clean_count for chk in self.chunk_list])
+    def types_average_per_unit(self) -> Measures:
+        """Average of types per unit."""
+        if not hasattr(self, "_types_average_per_unit_lv"):
+            self._types_average_per_unit_lv = Measures(
+                raw=float(np.nanmean([chk.type_.raw_count for chk in self.chunk_list])),
+                clean=float(np.nanmean([chk.type_.clean_count for chk in self.chunk_list])),
+                rejected=float(np.nanmean([chk.type_.rejected_count for chk in self.chunk_list])),
+            )
+        return self._types_average_per_unit_lv
 
     @property
-    def rejected_tokens(self) -> int:
-        """Raw token sum."""
-        return np.sum([chk.token.rejected_count for chk in self.chunk_list])
+    def token_counts(self) -> Measures:
+        """Total counts of tokens."""
+        if not hasattr(self, "_token_counts_lv"):
+            self._token_counts_lv = Measures(
+                raw=np.sum([chk.token.raw_count for chk in self.chunk_list]),
+                clean=np.sum([chk.token.clean_count for chk in self.chunk_list]),
+                rejected=np.sum([chk.token.rejected_count for chk in self.chunk_list]),
+            )
+        return self._token_counts_lv
 
     @property
-    def raw_types(self) -> int:
-        """Raw token sum."""
-        return np.sum([chk.type_.raw_count for chk in self.chunk_list])
-
-    @property
-    def accepted_types(self) -> int:
-        """Raw token sum."""
-        return np.sum([chk.type_.clean_count for chk in self.chunk_list])
-
-    @property
-    def rejected_types(self) -> int:
-        """Raw token sum."""
-        return np.sum([chk.type_.rejected_count for chk in self.chunk_list])
+    def type_counts(self) -> Measures:
+        """Total counts of types."""
+        if not hasattr(self, "_type_counts_lv"):
+            self._type_counts_lv = Measures(
+                raw=np.sum([chk.token.raw_count for chk in self.chunk_list]),
+                clean=np.sum([chk.token.clean_count for chk in self.chunk_list]),
+                rejected=np.sum([chk.token.rejected_count for chk in self.chunk_list]),
+            )
+        return self._type_counts_lv
 
     @property
     def token_rejection_rate(self) -> float:
@@ -139,19 +162,19 @@ class RejectionRateResult:
 
         if view_type == "result_tokens":
             return {
-                "Tokens": self.raw_tokens,
-                "Tokens Rejected": self.rejected_tokens,
+                "Tokens": self.token_counts.raw,
+                "Tokens Rejected": self.token_counts.rejected,
                 "Token Rejection": self.token_rejection_rate,
-                "Tokens Accepted": self.accepted_tokens,
+                "Tokens Accepted": self.token_counts.clean,
                 "Token Acceptance": self.token_acceptance_rate,
             }
 
         if view_type == "result_types":
             return {
-                "Types": self.raw_types,
-                "Types Rejected": self.rejected_types,
+                "Types": self.type_counts.raw,
+                "Types Rejected": self.type_counts.rejected,
                 "Type Rejection": self.type_rejection_rate,
-                "Types Accepted": self.accepted_types,
+                "Types Accepted": self.type_counts.clean,
                 "Type Acceptance": self.type_acceptance_rate,
             }
         if view_type == "json":
@@ -171,36 +194,36 @@ class RejectionRateResult:
         if view_type == "table_sums":
             return {
                 "token": {
-                    "raw_sum": self.raw_tokens,
-                    "clean_sum": self.accepted_tokens,
-                    "rejected_sum": self.rejected_tokens,
+                    "raw_sum": self.token_counts.raw,
+                    "clean_sum": self.token_counts.clean,
+                    "rejected_sum": self.token_counts.rejected,
                 },
                 "type": {
-                    "raw_sum": self.raw_tokens,
-                    "clean_sum": self.accepted_tokens,
-                    "rejected_sum": self.rejected_tokens,
+                    "raw_sum": self.type_counts.raw,
+                    "clean_sum": self.type_counts.clean,
+                    "rejected_sum": self.type_counts.rejected,
                 },
             }
         if view_type == "table":
             return {
-                "Tokens": self.raw_tokens,
+                "Tokens": self.token_counts.raw,
                 "Token Rejection": self.token_rejection_rate,
                 "Token Acceptance": self.token_acceptance_rate,
-                "Types": self.raw_types,
+                "Types": self.type_counts.raw,
                 "Type Rejection": self.type_rejection_rate,
                 "Type Acceptance": self.type_acceptance_rate,
             }
         if view_type == "table_extras":
             return {
-                "Tokens": self.raw_tokens,
-                "Tokens Rejected": self.rejected_tokens,
+                "Tokens": self.token_counts.raw,
+                "Tokens Rejected": self.token_counts.rejected,
                 "Token Rejection": self.token_rejection_rate,
-                "Tokens Accepted": self.accepted_tokens,
+                "Tokens Accepted": self.token_counts.clean,
                 "Token Acceptance": self.token_acceptance_rate,
-                "Types": self.raw_types,
-                "Types Rejected": self.rejected_types,
+                "Types": self.type_counts.raw,
+                "Types Rejected": self.type_counts.rejected,
                 "Type Rejection": self.type_rejection_rate,
-                "Types Accepted": self.accepted_types,
+                "Types Accepted": self.type_counts.clean,
                 "Type Acceptance": self.type_acceptance_rate,
             }
 
