@@ -11,10 +11,92 @@ wget https://childes.talkbank.org/access/Eng-NA/0-Eng-NA-MOR.zip
 wget https://childes.talkbank.org/access/Eng-UK/0-Eng-UK-MOR.zip
 ```
 
-## Cleanup
+# Processing 
 
-For the cleanup of the CHILDES Datasets ....TBA
+We customised the dataset to suit our needs and we obtain the following structure : 
 
+```
+.
+├── adult
+│   ├── Eng-NA
+│   └── Eng-UK
+├── bckp
+│   ├── Eng-NA
+│   └── Eng-UK
+├── child
+│   ├── Eng-NA
+│   └── Eng-UK
+├── metadata
+│   ├── ids_Eng-NA.txt
+│   ├── ids_Eng-UK.txt
+│   ├── metadata_Eng-NA.csv
+│   ├── metadata_Eng-UK.csv
+│   └── rejected_txt
+├── src
+│   ├── original
+│   └── preprocessed
+|           ├── Eng-NA
+|           │   ├── adult
+|           │   │   ├── XXXX.raw
+|           │   │   ├── XXXX.meta.json
+|           │   │   ├── XXXX.processed
+|                   ...
+|           │   ├── child
+|                   └── ...
+|           │   └── txt
+|                 └── ...
+|           └── Eng-UK
+|               ├── adult
+|                   └── ...
+|               ├── child
+|                   └── ...
+|               └── txt
+|                   └── ...
+├── turn-taking
+│   ├── Eng-NA
+|         ├── XXXX.clean.csv
+|         ...
+│   └── Eng-UK
+|         └── ...
+└── txt
+|   ├── Eng-NA
+|         ├── XXXX.json
+|         ├── XXXX.clean.json
+|         ...
+|   └── Eng-UK
+|         └── ...
+```
+
+
+1. adult: Contains adult only speech as txt files
+
+2. child: Contains child only speech as txt files
+
+3. metadata: 
+  
+  - ids_Eng-NA.txt: contains mapping of the CHILDES id to the files paths
+  - ids_Eng-UK.txt: contains mapping of the CHILDES id to the files paths
+  - metadata_Eng-NA.csv: contains info on children (age, etc..)
+  - metadata_Eng-UK.csv: contains info on children (age, etc..)
+  - rejected_txt: words rejected by word validation step
+
+4. src: Contains source material for the dataset
+  - original: the data as it was donwloaded
+
+  - preprocess: Intermidiary step during cleaning
+
+5. txt: speech with the speaker label intact (in json format)
+
+6. turn-takins: speech in an alternating format (adult-child), allowing to study turn-taking.
+
+
+## Processing & Cleanup
+
+The first step of the clean-up was data extraction. We parsed the .CHA 
+files and extracted only the transcription sections, and some header 
+metadata (age, etc..).
+
+Then we proceed into a cleaning of the CHILDES annotation tags.
 
 We used the Syntax of CHILDES annotation and came up with a list of choice rules on how to process tagging/punctuation/metadata etc...
 You can find the url to the full documentation of the CHAT format [annotations here](https://talkbank.org/manuals/CHAT.html).
@@ -866,3 +948,59 @@ You can find the url to the full documentation of the CHAT format [annotations h
   </tr>
 </tbody></table>
 </details>
+
+
+Once all the CHILDES annotation tags were removed we procedeed with the 
+normal text normalization steps :
+
+1) TextNormalisation : correct accents & remove non-printable characters
+2) Trancribe numbers
+3) Fix symbols ($,€, etc..)
+4) AZFilter
+
+    * replace '-' with a space to extract hyphenated words (fifty-five -> fifty five)
+
+    * Keeps apostrophe char(*'*) to protect shorthands (ex: ain't)
+  
+    * purges everything not between [A-Z].
+
+    * lowecases everything
+
+5) Fix words by removing prefix and trailing quote char (')
+
+This creates the preprocessed dataset, that we can now tokenize into 
+words and pass it through a dictionairy to keep only valid english 
+words.
+
+For the English dictionairy we used the following sources : 
+
+1. [kaikki](https://kaikki.org/index.html): list of words and phrases in machine reading format (JSONL) scrapped from wiki dictionairy 
+
+2. [SCOWLv2](http://app.aspell.net/create): Open-source dictionairy of words, used mostly for spellchecking by a lot of open-source projects (Mozzila, Open-Office, etc..q)
+
+3. [YAWL](https://github.com/elasticdog/yawl): Open-source dictionairy of words used to create crossword-type board games.
+
+4. CHILDES_EXTRAS: a custom dictionairy that adds specific words that were extracted from the annotation tags:
+
+  From the adult-only speech we kept the following forms :
+  - Onomatopoeia
+  - Phonological Form
+  - Babbling
+  - Word-play
+  - Child-Invented Form
+  - Family Form
+  - Dialect Words
+  - Neologisms
+  - Interjections
+  - Fillers
+  - Sound Fragments
+
+
+We filter all of the words found in a dataset and separate them into 
+accepted & rejected based on if they are found in our combined 
+dictionairy.
+
+## Cleanup stats
+
+
+...TBA
