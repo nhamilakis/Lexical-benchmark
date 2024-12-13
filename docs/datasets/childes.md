@@ -19,13 +19,14 @@ We customised the dataset to suit our needs and we obtain the following structur
 .
 ├── adult
 │   ├── Eng-NA
+|         └── *.txt
 │   └── Eng-UK
-├── bckp
-│   ├── Eng-NA
-│   └── Eng-UK
+|         └── *.txt
 ├── child
 │   ├── Eng-NA
+|         └── *.txt
 │   └── Eng-UK
+|         └── *.txt
 ├── metadata
 │   ├── ids_Eng-NA.txt
 │   ├── ids_Eng-UK.txt
@@ -37,9 +38,9 @@ We customised the dataset to suit our needs and we obtain the following structur
 │   └── preprocessed
 |           ├── Eng-NA
 |           │   ├── adult
-|           │   │   ├── XXXX.raw
-|           │   │   ├── XXXX.meta.json
-|           │   │   ├── XXXX.processed
+|           │   │   ├── *.raw
+|           │   │   ├── *.meta.json
+|           │   │   ├── *.processed
 |                   ...
 |           │   ├── child
 |                   └── ...
@@ -54,14 +55,14 @@ We customised the dataset to suit our needs and we obtain the following structur
 |                   └── ...
 ├── turn-taking
 │   ├── Eng-NA
-|         ├── XXXX.clean.csv
+|         ├── *.clean.csv
 |         ...
 │   └── Eng-UK
 |         └── ...
 └── txt
 |   ├── Eng-NA
-|         ├── XXXX.json
-|         ├── XXXX.clean.json
+|         ├── *.json
+|         ├── *.clean.json
 |         ...
 |   └── Eng-UK
 |         └── ...

@@ -222,7 +222,7 @@ proceed to  cut it into chunks of given size.
 len(WORDS_3200h_00)  # ~3200h
 ```
 
-![avg-rates](../img/chunk_average_rejection_rates.png)
+![avg-chunk-rates](../img/chunk_average_rejection_rates.png)
 
 
 # Data Verification

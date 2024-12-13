@@ -42,6 +42,9 @@ where = ["."]
 include = ["lexical_benchmark*"]
 exclude = ["examples*", "tests*"]
 
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+
 [tool.mypy]
 exclude = [
     'parser\.py$' # Exclude parser.py -> sly does not type-check

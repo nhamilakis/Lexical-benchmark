@@ -1,5 +1,6 @@
 typing_extensions
 matplotlib
+seaborn
 pandas
 numpy
 # torch # todo check version
@@ -14,3 +15,8 @@ scipy
 statsmodels
 num2words
 humanize
+psutil
+librosa
+openai-whisper
+typed-argument-parser
+openpyxl
