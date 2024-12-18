@@ -13,6 +13,7 @@ class ChunkStats:
 
     accepted_count: int
     rejected_count: int
+    total_words: int
     accepted_words: list[str]
     rejected_words: list[str]
 
@@ -60,7 +61,7 @@ def chunk_splitter(words: list[str], chunk_size: int = 16_000) -> list[list[str]
     return [words[i * chunk_size : (i + 1) * chunk_size] for i in range(num_chunks)]
 
 
-def clean_chunk(chunk: list[str], filter_fn: t.Callable[[str], bool]) -> ChunkStats:
+def word_clean_chunk(chunk: list[str], filter_fn: t.Callable[[str], bool]) -> ChunkStats:
     """Processes a single chunk of words and calculates the acceptance and rejection rates.
 
     Args:
@@ -77,7 +78,11 @@ def clean_chunk(chunk: list[str], filter_fn: t.Callable[[str], bool]) -> ChunkSt
     rejected = [word for word in chunk if not filter_fn(word)]
 
     return ChunkStats(
-        accepted_count=len(accepted), rejected_count=len(rejected), accepted_words=accepted, rejected_words=rejected
+        accepted_count=len(accepted),
+        rejected_count=len(rejected),
+        accepted_words=accepted,
+        rejected_words=rejected,
+        total_words=len(chunk),
     )
 
 
@@ -103,7 +108,7 @@ def clean_chunk_list(chunks: list[list[str]], filter_fn: t.Callable[[str], bool]
 
     # Process each chunk
     for chunk in chunks:
-        chunk_stat = clean_chunk(chunk, filter_fn)
+        chunk_stat = word_clean_chunk(chunk, filter_fn)
         total_accepted += chunk_stat.accepted_count
         total_rejected += chunk_stat.rejected_count
         total_words += len(chunk)
@@ -111,12 +116,11 @@ def clean_chunk_list(chunks: list[list[str]], filter_fn: t.Callable[[str], bool]
         # Update unique accepted and rejected words
         all_accepted_words.update(chunk_stat.accepted_words)
         all_rejected_words.update(chunk_stat.rejected_words)
-
         chunk_stats.append(chunk_stat)
 
     # Calculate average acceptance and rejection rates
-    average_acceptance_rate = np.average([(chunk.accepted_count / len(chunk.accepted_words)) for chunk in chunk_stats])
-    average_rejection_rate = np.average([(chunk.rejected_count / len(chunk.rejected_words)) for chunk in chunk_stats])
+    average_acceptance_rate = np.average([(chunk.accepted_count / chunk.total_words) for chunk in chunk_stats])
+    average_rejection_rate = np.average([(chunk.rejected_count / chunk.total_words) for chunk in chunk_stats])
 
     # Unique word stats
     unique_accepted = len(all_accepted_words)

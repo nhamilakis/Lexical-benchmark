@@ -91,6 +91,23 @@ We customised the dataset to suit our needs and we obtain the following structur
 6. turn-takins: speech in an alternating format (adult-child), allowing to study turn-taking.
 
 
+The `child` folder contains child speech the `adult` folder contains adult speech.
+Each first folder corresponds to a Language_Accent.
+- English North America
+- English United Kingdom.
+
+File are named after the original CHILDES folders so we do not remove the link between child/adult sets.
+The metadata folder contains information about contents:
+
+| file_id           | lang  child_gender | child_age |         |
+|-------------------|--------------------|-----------|---------|
+| Haggerty_haggerty | eng                | female    | 2;07.18 |
+| Brown_Eve_010600b | eng                | female    | 1;06.00 |
+| Brown_Eve_010600a | eng                | female    | 1;06.00 |
+
+Items that do not have a `child_gender` or `child_age` columns signify those files did not contain child speech.
+
+
 ## Processing & Cleanup
 
 The first step of the clean-up was data extraction. We parsed the .CHA 

@@ -9,7 +9,7 @@ from lexical_benchmark.datasets.utils import text_cleaning
 from .cleanup_rules import cleaning_adult_speech_rules, cleaning_child_speech_rules
 
 SPEECH_TYPES = t.Literal["adult", "child"]
-WORD_TYPES = t.Literal["clean", "rejected", "raw"]
+WORD_TYPES = t.Literal["clean", "rejected", "processed", "raw"]
 
 
 class PreprocessedItem(t.NamedTuple):
@@ -113,6 +113,34 @@ class CHILDESItem:
 
 
 @dataclass
+class CHILDESWordFrequencies:
+    """Structure with word frequency paths."""
+
+    root_dir: Path
+
+    @property
+    def wf_dir(self) -> Path:
+        """Word Frequencies Location."""
+        return self.root_dir / "wf"
+
+    def rejected(self, lang_accent: str, speech_type: SPEECH_TYPES) -> Path:
+        """Rejected Word Frequencies."""
+        return self.wf_dir / lang_accent / f"rejected_{speech_type}_wf.csv"
+
+    def clean(self, lang_accent: str, speech_type: SPEECH_TYPES) -> Path:
+        """Rejected Word Frequencies."""
+        return self.wf_dir / lang_accent / f"clean_{speech_type}_wf.csv"
+
+    def processed(self, lang_accent: str, speech_type: SPEECH_TYPES) -> Path:
+        """Rejected Word Frequencies."""
+        return self.wf_dir / lang_accent / f"processed_{speech_type}_wf.csv"
+
+    def raw(self, lang_accent: str, speech_type: SPEECH_TYPES) -> Path:
+        """Rejected Word Frequencies."""
+        raise ValueError(f"Cannot compute WF for RAW CHILDES/{lang_accent}/{speech_type} text.")
+
+
+@dataclass
 class CHILDESDataset:
     """Navigation of the CHILDES Dataset."""
 
@@ -137,6 +165,11 @@ class CHILDESDataset:
     def speech_types(self) -> tuple[SPEECH_TYPES, ...]:
         """Categories of SPEECH."""
         return ("child", "adult")
+
+    @property
+    def wf(self) -> CHILDESWordFrequencies:
+        """Load word-frequency structure."""
+        return CHILDESWordFrequencies(root_dir=self.root_dir)
 
     @staticmethod
     def clean_rulespec(speech_type: SPEECH_TYPES) -> list[text_cleaning.CleanerFN]:
@@ -199,7 +232,7 @@ class CHILDESDataset:
         else:
             raise ValueError(f"Expected {SPEECH_TYPES} got '{speech_type}' !")
 
-    def word_frequencies(
+    def build_word_frequencies(
         self, lang_accent: str, speech_type: SPEECH_TYPES, word_type: WORD_TYPES
     ) -> collections.Counter:
         """Return a frequency map of given characteristics.
@@ -211,17 +244,18 @@ class CHILDESDataset:
         speech_type : SPEECH_TYPES
             Use 'child' or 'adult' speech words.
         word_type : WORD_TYPES
-            'rejected', 'clean', 'raw' measure words from different steps of the processing:
+            'rejected', 'clean', 'processed', 'raw' measure words from different steps of the processing:
             - rejected: words rejected by dictionary
             - clean: words accepted by dictionary filter
-            - raw: clean & rejected words before passing through the dictionary validation (post-preprocessing).
+            - processed: clean & rejected words before passing through the dictionary validation (post-preprocessing).
+            - raw: items before any processing
 
         """
         if word_type == "clean":
             words = []
             for item in self.iter_accent(lang_accent):
                 words.extend(item.transcription(speech_type).read_tokenized())
-        elif word_type == "raw":
+        elif word_type == "processed":
             words = []
             for item in self.iter_accent(lang_accent):
                 words.extend(item.preprocess_item(speech_type).processed.read_tokenized())
@@ -229,6 +263,8 @@ class CHILDESDataset:
             words = []
             for item in self.iter_accent(lang_accent):
                 words.extend(item.meta.rejected(speech_type).read_tokenized())
+        elif word_type == "raw":
+            raise ValueError("Cannot Tokenize RAW CHILDES Files")
         else:
             raise ValueError(f"Expected {WORD_TYPES} got '{word_type}' !")
 

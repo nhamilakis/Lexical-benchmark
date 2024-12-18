@@ -1,7 +1,9 @@
-from .data import STELATranscriptDataset
-from .preparation import STELAPrepTranscripts
+from .data import STELAAudioTextSourceIndex, STELATranscriptDataset
+from .preparation import InfTrainStructure, STELAPrepTranscripts
 
 __all__ = [
+    "InfTrainStructure",
+    "STELAAudioTextSourceIndex",
     "STELAPrepTranscripts",
     "STELATranscriptDataset",
 ]

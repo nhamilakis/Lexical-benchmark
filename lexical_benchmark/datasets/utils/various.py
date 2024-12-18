@@ -2,9 +2,10 @@ import pandas as pd
 import spacy
 
 
-def spacy_model(model_name: str) -> spacy.Language:
+def spacy_model(model_name: str) -> spacy.Language:  # type: ignore[private-import-usage]
     """Safely load spacy Language Model."""
     try:
+        spacy.prefer_gpu()  # type: ignore[private-import-usage]
         return spacy.load(model_name)
     except OSError:
         from spacy.cli.download import download
@@ -14,7 +15,7 @@ def spacy_model(model_name: str) -> spacy.Language:
         return spacy.load(model_name)
 
 
-def word_to_pos(word: str, pos_model: spacy.Language) -> str | None:
+def word_to_pos(word: str, pos_model: spacy.Language) -> str | None:  # type: ignore[private-import-usage]
     """Infer Part of Speech from a given word."""
     doc = pos_model(word)
     first_token = next(iter(doc), None)

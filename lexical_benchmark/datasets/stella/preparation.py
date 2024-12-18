@@ -164,6 +164,8 @@ class STELAPrepTranscripts:
         self,
         lang: str,
         root_dir: Path = settings.PATH.stela,
+        with_asr: Path | None = None,
+        bad_books: tuple[str, ...] = (),
     ) -> None:
         self.dataset = STELATranscriptDataset(root_dir=root_dir)
         self.target_dir = self.dataset.preprocessed_path
@@ -173,8 +175,10 @@ class STELAPrepTranscripts:
             metadata_dir=self.dataset.meta.meta_root_path,
             lang=lang,
         )
+        self.BAD_BOOKS = bad_books
         # preset empty items
         self.books: dict[str, Path] = {}
+        self.asr_location = with_asr
 
     def associations_df(self) -> pd.DataFrame:
         """Load asscociations as a DataFrame."""
@@ -205,6 +209,14 @@ class STELAPrepTranscripts:
         book_id_dict: dict[str, Path] = dict(associations.itertuples(index=False, name=None))  # type: ignore[arg-type,annotation-unchecked]
         self.books = book_id_dict
 
+    def get_asr(self, book_id: str) -> str:
+        """Load book text from ASR transcriptions."""
+        if self.asr_location is None:
+            raise ValueError("ASR location not specified.")
+
+        print(f"Using ASR: for  {book_id}.")
+        return "\n".join([file.read_text() for file in (self.asr_location / book_id).glob("*.txt")])
+
     def merged_book_transcriptions(self, book_list: list[str]) -> str:
         """Write a book list into a single file."""
         # build book index
@@ -214,7 +226,11 @@ class STELAPrepTranscripts:
             text_path = self.books.get(book, None)
             if text_path is None:
                 raise ValueError(f"Not found {book}")
-            result += text_path.read_text() + " "
+
+            if self.asr_location and book in self.BAD_BOOKS:
+                result += self.get_asr(book) + " "
+            else:
+                result += text_path.read_text() + " "
         return result
 
     def iter_transcriptions_by_split(self) -> t.Iterable[tuple[str, str, list[str]]]:
@@ -230,6 +246,16 @@ class STELAPrepTranscripts:
             booklist = list(set(str(row.book).split(",")))
             yield f"{row.hour}", f"{row.split:02}", booklist
 
+    def tag_asr_books(self, book_list: list[str]) -> list[str]:
+        """Add ASR tag to bad books."""
+
+        def tag(book: str) -> str:
+            if book in self.BAD_BOOKS:
+                return f"{book}/asr"
+            return book
+
+        return [tag(book) for book in book_list]
+
     def build_transcript(self, root_dir: Path | None = None) -> None:
         """Make train folder architecture."""
         c_root_dir = root_dir if root_dir is not None else self.target_dir / "txt"
@@ -242,4 +268,4 @@ class STELAPrepTranscripts:
             # Write transcriptions
             item.preprocess.raw.safe_write_text(text)
             # Write list of books used for transcription
-            item.clean.books.safe_write_text("\n".join(booklist))
+            item.clean.books.safe_write_text("\n".join(self.tag_asr_books(booklist)))

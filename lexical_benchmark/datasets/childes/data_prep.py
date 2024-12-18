@@ -177,7 +177,7 @@ class CHILDESExtrasLexicon:
         else:
             self.childes = childes_dataset
         self.words: set[str] = set()
-        self.langs_speech: list[tuple[str, "SPEECH_TYPES"]] = []
+        self.langs_speech: list[tuple[str, SPEECH_TYPES]] = []
 
     def add_words(self, word_list: list[str]) -> None:
         """Add words to dictionairy."""

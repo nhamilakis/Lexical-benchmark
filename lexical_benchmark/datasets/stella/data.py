@@ -92,8 +92,13 @@ class MetaDir:
         return self.meta_root_path / "unwf" / lang / "word-frequency.csv"
 
 
-class STELATranscriptionBookFiles:
+class STELAAudioTextSourceIndex:
     """BookID/Transcription association index wrapper."""
+
+    @property
+    def asr_path(self) -> Path:
+        """ASR Root dir."""
+        return settings.PATH.dataset_root / "asr"
 
     @staticmethod
     def load_index(index_path: Path) -> pd.DataFrame:
@@ -116,14 +121,32 @@ class STELATranscriptionBookFiles:
             return file
         raise FileNotFoundError(f"No book named : {book_filename} found in {book_path}")
 
-    def __init__(self, book_id_list: list[str], index_path: Path, book_source: Path) -> None:
-        index = self.load_index(index_path)
+    @staticmethod
+    def book2wav(index: pd.DataFrame, book_id: str) -> list[str]:
+        """Convert a book_id to a list of wav files."""
+        return index[index["book"] == book_id]["wav"].unique().tolist()
+
+    def get_book_index(self, book_id_list: list[str], book_source: Path) -> dict[str, Path]:
+        """Load book index."""
         book_index = {}
 
         for book_id in book_id_list:
-            filename = self.book2filename(index, book_id)
-            book_index[book_id] = self.book2path(book_source, filename)
-        self.books = book_index
+            filename = self.book2filename(self.index, book_id)
+            if "asr" in book_id:
+                book_index[book_id] = self.asr_path / book_id
+            else:
+                book_index[book_id] = self.book2path(book_source, filename)
+        return book_index
+
+    def get_book2wav_index(self, book_id_list: list[str]) -> dict[str, list[str]]:
+        """Load book to wav index."""
+        book2wav = {}
+        for book_id in book_id_list:
+            book2wav[book_id] = self.book2wav(self.index, book_id)
+        return book2wav
+
+    def __init__(self, index_path: Path) -> None:
+        self.index = self.load_index(index_path)
 
 
 @dataclass
@@ -209,14 +232,11 @@ class TranscriptionItem:
         raise FileNotFoundError(f"No booklist for {self.section_id}")
 
     @property
-    def book_sources_files(self) -> STELATranscriptionBookFiles:
+    def book_sources_files(self) -> dict[str, Path]:
         """Path of source book files."""
         source_book_location = self._stela.source_path / "text" / self.lang
-        return STELATranscriptionBookFiles(
-            book_id_list=self.book_names,
-            index_path=self._stela.meta.wav_text_associations,
-            book_source=source_book_location,
-        )
+        indx = STELAAudioTextSourceIndex(index_path=self._stela.meta.wav_text_associations)
+        return indx.get_book_index(book_id_list=self.book_names, book_source=source_book_location)
 
 
 class STELATranscriptDataset:
@@ -254,7 +274,6 @@ class STELATranscriptDataset:
     def word_frequencies(self) -> t.Any:
         """Word frequency builder."""
         # TODO
-        pass
 
     def item(self, lang: str, hour: str, section: str) -> TranscriptionItem:
         """Return a specific Item."""
@@ -283,6 +302,16 @@ class STELATranscriptDataset:
         """Iterator for STELA dataset."""
         for lang in self.languages:
             yield from self.iter_lang(lang=lang)
+
+    def get_books(self, lang: str) -> dict[str, Path]:
+        """Get all books of a language."""
+        book_ids = []
+        for item in self.iter_lang(lang):
+            book_ids.extend(item.book_names)
+
+        source_book_location = self.source_path / "text" / lang
+        indx = STELAAudioTextSourceIndex(index_path=self.meta.wav_text_associations)
+        return indx.get_book_index(book_id_list=list(set(book_ids)), book_source=source_book_location)
 
     def sections(self, lang: str, hour_split: str) -> tuple[str, ...]:
         """List of sections per split."""
@@ -337,6 +366,25 @@ class STELATranscriptDataset:
                 item.clean.transcription,
                 item.rejected.transcription,
             )
+
+    def book_wav_filemap(self, lang: str) -> dict[str, list[Path]]:
+        """Filemapping of source wav files."""
+        all_wavs: dict[str, Path] = {
+            f"{wav.name}": wav for wav in (self.source_path / "wav" / lang.upper()).rglob("*.wav")
+        }
+        book_ids = []
+        for item in self.iter_lang(lang):
+            book_ids.extend(item.book_names)
+        book_ids = list(set(book_ids))
+
+        indx = STELAAudioTextSourceIndex(index_path=self.meta.wav_text_associations)
+        book_wavnames = indx.get_book2wav_index(book_ids)
+
+        def assemble(book_id: str) -> list[Path]:
+            items = [all_wavs.get(wav) for wav in book_wavnames.get(book_id, [])]
+            return [i for i in items if i is not None]
+
+        return {f"{bid}": assemble(bid) for bid in book_ids}
 
     @staticmethod
     def clean_up_rules(lang: str = "EN") -> list[text_cleaning.CleanerFN]:

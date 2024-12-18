@@ -34,7 +34,7 @@ class DatasetCleaner:
     def cleanup_files(
         cls,
         *,
-        filemap: t.Sequence[tuple[Path, Path, Path]],
+        filemap: t.Sequence[tuple[Path, Path, Path]] | t.Iterable[tuple[Path, Path, Path]],
         ruleset: list[text_cleaning.CleanerFN],
         save_logs: bool = True,
     ) -> None:
@@ -67,7 +67,10 @@ class DatasetCleaner:
 
     @classmethod
     def word_validate_files(
-        cls, *, filemap: t.Sequence[tuple[Path, Path, Path]], cleaner: lexicon.DictionairyCleaner
+        cls,
+        *,
+        filemap: t.Sequence[tuple[Path, Path, Path]] | t.Iterable[tuple[Path, Path, Path]],
+        cleaner: lexicon.DictionairyCleaner,
     ) -> None:
         """Filter given files through a Dictionairy validator.
 

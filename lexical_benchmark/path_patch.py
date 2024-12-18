@@ -35,6 +35,13 @@ def safe_write_text(self: pathlib.Path, text: str) -> None:
     self.write_text(text)
 
 
+def safe_append_text(self: pathlib.Path, text: str) -> None:
+    """Safelly append into a file."""
+    mk_parent(self)
+    with self.open("a") as fh:
+        fh.write(text)
+
+
 def safe_readlines(self: pathlib.Path) -> list[str]:
     """Read file safely."""
     try:
@@ -77,24 +84,23 @@ def write_toml(self: pathlib.Path, data: t.Any) -> None:
 def read_toml(self: pathlib.Path) -> t.Any:
     """Read file as toml."""
     if tomllib:
-        return tomllib.loads(self.read_text())
+        return tomllib.loads(self.read_text())  # type: ignore[attribute-access]
     raise OSError("Failed to find tomllib library !!")
 
 
 def write_yaml(self: pathlib.Path, data: t.Any) -> None:
     """Dump object into a toml file."""
-    if yaml is None:
-        raise OSError("Failed to find tomllib library !!")
-
-    sr_data = yaml.dumps(data) if yaml else ""
-    safe_write_text(self, sr_data)
+    if yaml:
+        sr_data = yaml.dumps(data) if yaml else ""  # type: ignore[attribute-access]
+        safe_write_text(self, sr_data)
+    raise OSError("Failed to find tomllib library !!")
 
 
 def read_yaml(self: pathlib.Path) -> t.Any:
     """Read file as yaml."""
-    if yaml is None:
-        raise OSError("Failed to find tomllib library !!")
-    return yaml.loads(self.read_text(), Loader=yaml.SafeLoader)
+    if yaml:
+        return yaml.loads(self.read_text(), Loader=yaml.SafeLoader)  # type: ignore[attribute-access]
+    raise OSError("Failed to find tomllib library !!")
 
 
 def extend(self: pathlib.Path, parts: tuple[str, ...]) -> pathlib.Path:
@@ -109,6 +115,7 @@ pathlib.Path.extend = extend  # type: ignore[method-assign]
 pathlib.Path.mk_parent = mk_parent  # type: ignore[method-assign]
 # TXT IO
 pathlib.Path.safe_write_text = safe_write_text  # type: ignore[method-assign]
+pathlib.Path.safe_append_text = safe_append_text  # type: ignore[method-assign]
 pathlib.Path.safe_readlines = safe_readlines  # type: ignore[method-assign]
 pathlib.Path.read_tokenized = read_tokenized  # type: ignore[method-assign]
 # JSON IO

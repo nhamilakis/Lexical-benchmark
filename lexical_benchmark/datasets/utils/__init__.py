@@ -1,4 +1,7 @@
 from .dataset_clean import DatasetCleaner
+from .df_utils import (
+    extend_wf_pos,
+)
 from .frequency_measures import (
     merge_word_frequencies,
     open_wf,
@@ -33,4 +36,5 @@ __all__ = [
     "Lexicon",
     "DatasetCleaner",
     "open_wf",
+    "extend_wf_pos",
 ]

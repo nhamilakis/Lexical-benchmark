@@ -30,6 +30,23 @@ _HTML_SIDE_BY_SIDE_OUTPUT = """
 </style>
 """
 
+HTML_3_DF_HTML_TEMPLATE = """
+<div style="display: flex; justify-content: space-between; margin: 20px;">
+    <div style="margin-right: 20px;">
+        <h3>{title1}</h3>
+        {table1}
+    </div>
+    <div style="margin-right: 20px;">
+        <h3>{title2}</h3>
+        {table2}
+    </div>
+    <div>
+        <h3>{title3}</h3>
+        {table3}
+    </div>
+</div>
+"""
+
 
 class StylingOptions(t.TypedDict, total=False):
     """DataFrame Styling Options."""

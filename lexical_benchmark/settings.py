@@ -86,7 +86,15 @@ class _MyPathSettings:
     @property
     def lexicon_root(self) -> _Path:
         _assert_dir(self.DATA_DIR / "datasets" / "lexicon")
-        return self.DATA_DIR / "datasets" / "lexicon"
+        return self.dataset_root / "lexicon"
+
+    @property
+    def analysis_dir(self) -> _Path:
+        return self.DATA_DIR / "analysis"
+
+    @property
+    def asr_dir(self) -> _Path:
+        return self.DATA_DIR / "asr"
 
     @property
     def childes(self) -> _Path:
