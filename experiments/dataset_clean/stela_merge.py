@@ -8,6 +8,13 @@
 #SBATCH --export=ALL
 #SBATCH --output stela-clean-%J.log
 # fmt: on
+"""Build script for STELA/txt_merged.
+
+This script helps build the `txt_merged` folder in the STELA dataset, which creates the same
+chunking as the original but its build from the ground up by merging two 50h chunks to create a 100h one, etc..
+
+That way we know that the totals are always the same.
+"""
 from lexical_benchmark import settings
 from lexical_benchmark.datasets import stella
 
@@ -15,7 +22,7 @@ from lexical_benchmark.datasets import stella
 # ARGS
 ######
 lang = "EN"
-root_dir = settings.PATH.dataset_root / "STELATranscriptions"
+root_dir = settings.PATH.dataset_root / "STELATranscriptions2"
 
 #####
 dataset = stella.STELATranscriptDataset(root_dir=root_dir)
