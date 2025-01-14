@@ -7,7 +7,7 @@ import os
 os.environ['MKL_THREADING_LAYER'] = 'GNU'
 
 
-
+#TODO: check whether this can be directly run
 
 def parseArgs(argv):
     # Run parameters
