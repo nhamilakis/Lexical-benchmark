@@ -30,7 +30,7 @@ wandb.init(mode="offline")
 
 def parseargs():
     # Run parameters
-    parser = argparse.ArgumentParser(description='Train LSTM Language Model')
+    parser = argparse.ArgumentParser(description='Train Transformer Language Model')
     parser.add_argument('--TrainPath', type=str, default='/scratch1/projects/lexical-benchmark/v2/datasets/ChildRealistic/by_month/EN/36/00/char_hf.txt',
                         help='Path to the train file')
     parser.add_argument('--ValPath', type=str, default=f'/scratch1/projects/lexical-benchmark/v2/datasets/ChildRealistic/dev/EN/char_hf.txt',
