@@ -62,11 +62,16 @@ def _assert_dir(dir_location: _Path) -> None:
 class _MyPathSettings:
     DATA_DIR: _Path = _Path(_os.environ.get("DATA_DIR", "data/"))
     COML_SERVERS: tuple = tuple({"oberon", "oberon2", "habilis", *[f"puck{i}" for i in range(1, 7)]})
+    JZ_SERVERS: tuple = tuple({"placeholder","placeholder"})     # TODO: add Jean-Zay server
     KNOWN_HOSTS: tuple[str, ...] = (*COML_SERVERS, "nicolass-mbp")
 
     def __post_init__(self) -> None:
         if _platform.node() in self.COML_SERVERS:
             self.DATA_DIR = _Path("/scratch1/projects/lexical-benchmark/v2")
+
+        if _platform.node() in self.JZ_SERVERS:
+            self.DATA_DIR = _Path("/lustre/fswork/projects/rech/hhb/ucx81cx") # TODO: check path to Jean-Zay server
+
         elif _platform.node() == "nicolass-mbp":
             self.DATA_DIR = _Path.home() / "workspace/coml/data/LBenchmark2/data"
 
