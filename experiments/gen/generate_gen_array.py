@@ -9,8 +9,8 @@ from lexical_benchmark.utils.format_util import *
 
 def parseargs():
     # Run parameters
-    parser = argparse.ArgumentParser(description='Get the array script for training')
-    parser.add_argument('--OutPath', type=str, default='/scratch2/jliu/Lexical-benchmark/experiments/train/hf',
+    parser = argparse.ArgumentParser(description='Get the array script for generation')
+    parser.add_argument('--OutPath', type=str, default='/scratch2/jliu/Lexical-benchmark/experiments/gen',
                       help='Directory to save path file')
     parser.add_argument('--Resume', default = 'True',
                       help='whether to check there exists the finished job')
@@ -20,7 +20,7 @@ def parseargs():
                       help='only load the target dataset; if empty include all')
     parser.add_argument('--Target_month', default = [],
                       help='only load the target month for training; if empty include all')
-    parser.add_argument('--max_num', default = 2,
+    parser.add_argument('--max_num', default = 0,
                       help='max number of models, if 0 include all')
     parser.add_argument('--lang', default = 'EN',
                       help='language to test')
@@ -28,12 +28,11 @@ def parseargs():
 
 
 
-
 def main(argv):
 
     # Args parser
     args = parseargs()
-    root_dir: Path = settings.PATH.dataset_root
+    root_dir: Path = settings.PATH.DATA_DIR/'models'
 
     print('##########################')
     print('Filter the directory list!')
@@ -70,27 +69,31 @@ def main(argv):
                     sub_month_dirs = get_subdirs_by_count(sub_month_dirs,args.max_num)
                      
                 # Process each path and check if transformed path exists
-                for original_path in sub_month_dirs:
+                for original_path_parent in sub_month_dirs:
                     # Create the transformed path
-                    transformed_path = Path(str(original_path).replace('datasets', 'models'))
-                    if str_to_bool(args.Resume):
-                        # only check the existing checkpoint when setting "Resume" as True
-                        print('Checking whether the model has been trained')
-                        if not (transformed_path/args.target_model/'pytorch_model.bin').exists():
-                            # Only add paths that don't have corresponding transformed versions
-                            data_dirs.append(original_path)
-                            model_dirs.append(transformed_path/args.target_model)
-                        else:
-                            print(f"The target model already exists: {transformed_path}")
-                    else:
-                        print('Ignore the trained model, train from scratch')
-                        data_dirs.append(original_path)
-                        model_dirs.append(transformed_path/args.target_model)
+                    original_path = original_path_parent/args.target_model
+                    # check whether model training has finished 
+                    if (original_path/'pytorch_model.bin').exists():
+                        transformed_path = Path(str(original_path).replace('models', 'gen'))
 
+                        if str_to_bool(args.Resume):
+                            # only check the existing checkpoint when setting "Resume" as True
+                            if not (transformed_path/'gen.csv').exists():
+                                # Only add paths that don't have corresponding transformed versions
+                                data_dirs.append(original_path)
+                                model_dirs.append(transformed_path)
+                            else:
+                                print(f"The target generation already exists: {transformed_path}")
+                        else:
+                            print('Ignore the finished generation, generate from scratch')
+                            data_dirs.append(original_path)
+                            model_dirs.append(transformed_path)
+                    else:
+                        print(f'Skip due to untrained model: {original_path}')
     
     file_df = pd.DataFrame([data_dirs,model_dirs]).T
-    file_df.to_csv(f'{args.OutPath}/{args.target_model}.train',index = False, header = False)
-    print(f'Write the result to {args.OutPath}/{args.target_model}.train')
+    file_df.to_csv(f'{args.OutPath}/{args.target_model}.gen',index = False, header = False)
+    print(f'Write the result to {args.OutPath}/{args.target_model}.gen')
 
 
 
