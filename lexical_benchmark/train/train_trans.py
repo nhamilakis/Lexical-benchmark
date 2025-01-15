@@ -22,7 +22,7 @@ import os
 import sys
 import string
 import argparse
-from lexical_benchmark.utils.gen_util import str_to_bool
+from lexical_benchmark.utils.format_util import str_to_bool
 import wandb
 wandb.init(mode="offline")
 

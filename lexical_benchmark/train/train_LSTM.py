@@ -17,7 +17,7 @@ import argparse
 from pathlib import Path
 
 from train_util import *
-from lexical_benchmark.utils.gen_util import str_to_bool
+from lexical_benchmark.utils.format_util import str_to_bool
 
 
 import wandb

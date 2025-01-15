@@ -14,6 +14,7 @@ import pandas as pd
 from pathlib import Path
 from lexical_benchmark.utils.hf_util import *
 from lexical_benchmark.utils.gen_util import *
+from lexical_benchmark.utils.format_util import str_to_bool
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 
