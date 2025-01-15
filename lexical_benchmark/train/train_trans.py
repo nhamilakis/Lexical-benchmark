@@ -182,19 +182,21 @@ def main(argv):
         # Resume training if checkpoint specified
         ckpt_lst = []
         for ckpt in Path(args.OutPath).iterdir():
-            print(ckpt)
             if ckpt.is_dir():  
                 try:
                     ckpt_lst.append(int(ckpt.name.split('-')[1]))
                 except:
                     pass
-        
-        resume_path = f'{args.OutPath}/checkpoint-{str(max(ckpt_lst))}'
-        trainer.train(resume_from_checkpoint=resume_path)
-        print(f'Resuming ckpt from {resume_path}')
+        try:
+            resume_path = f'{args.OutPath}/checkpoint-{str(max(ckpt_lst))}'
+            trainer.train(resume_from_checkpoint=resume_path)
+            print(f'Resuming ckpt from {resume_path}')
+        except:
+            print('No checkpoint to resume. Train model from scratch!')
+            trainer.train()
     else:
         trainer.train()
-        print(f'Training the transformer model from scratch!')
+        print(f'Training the Transformer model from scratch!')
     
     # Save the final model
     trainer.save_model(args.OutPath)
