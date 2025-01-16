@@ -6,6 +6,7 @@ remote_asr_path := "workspace/src/LexicalBenchmark2/data-v2/asr-test/"
 remote_notebook_path := "workspace/src/LexicalBenchmark2/notebooks/"
 remote_experiment_path := "workspace/src/LexicalBenchmark2/experiments/"
 remote_source_path := "workspace/src/LexicalBenchmark2/source/"
+scratch1_deploy_folder := "/scratch1/projects/lexical-benchmark/v2/jean-zay-code/Lexical_benchmark"
 
 _default:
   @just --choose
@@ -34,6 +35,12 @@ deploy-experiments:
 deploy-source: 
     echo "Syncing source-code directory..."
     rsync -azP --delete --exclude=".mypy_cache" --exclude="notebooks"  --exclude="experiments" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{remote}}:{{remote_source_path}}"
+
+
+[doc("Deploy source code to remote")]
+deploy-scratch1: 
+    echo "Syncing source-code directory..."
+    rsync -azP --delete --exclude=".mypy_cache" --exclude="notebooks"  --exclude="experiments" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{remote}}:{{scratch1_deploy_folder}}"
 
 [doc("Deploying all elements to remote")]
 deploy: deploy-source deploy-experiments
