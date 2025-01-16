@@ -3,7 +3,6 @@ matplotlib
 seaborn
 pandas
 numpy
-torch # todo check version
 polyglot
 requests
 nltk
@@ -15,14 +14,10 @@ num2words
 humanize
 psutil
 librosa
-openai-whisper
 typed-argument-parser
 openpyxl
-
-huggingface-hub==0.22.2
 pyarrow==15.0.2
 python-dateutil==2.9.0.post0
 PyYAML==6.0.1
-tokenizers==0.15.2
 tqdm
-transformers==4.39.3
+
