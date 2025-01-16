@@ -13,8 +13,8 @@
 #SBATCH --cpus-per-task=8
 # Only run this when testing
 ##SBATCH --qos=qos_gpu_a100-dev
-#SBATCH --time=02:00:00
-#SBATCH --output=/lustre/fswork/projects/rech/hhb/ucx81cx/logs/%x-%j-%a.log
+#SBATCH --time=00:30:00
+#SBATCH --output=/lustre/fswork/projects/rech/hhb/ucx81cx/logs/generation-%j-%a.log
 #SBATCH --hint=nomultithread        # hyperthreading is deactivated
 
 # ENV setup, if not set
@@ -34,7 +34,11 @@ if [[ -z "${1}" ]]; then
     exit 1
 fi
 JOB_INDEX_FILE=$1
-
+if [[ -z "${2}" ]]; then
+    echo "Error: specify line in file required" >&2
+    exit 1
+fi
+JOB_ID=$2
 
 get_line() {
     local file="$1"
@@ -84,11 +88,11 @@ echo "python: $(which python)"
 echo "python-version $(python -V)"
 
 
-echo "Running Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
+echo "Running Generation  ($SLURM_ARRAY_JOB_ID/$JOB_ID) @ $(date)"
 
 # Grab parameters from index file
-read model output <<< "$(get_line "${JOB_INDEX_FILE}" $SLURM_ARRAY_TASK_ID)"
+read model output <<< "$(get_line "${JOB_INDEX_FILE}" $2)"
 
 python $CODE/Lexical_benchmark/src/scripts/generation/generate.py --gen_file "$WORK/oberon-gen/CHILDES_model.csv" --model_path "$MODEL_ROOT/$model" --generation_path "$GEN_ROOT/$output" --debug "True"
 
-echo "Completed Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
+echo "Completed Generation  ($SLURM_ARRAY_JOB_ID/$JOB_ID) @ $(date)"

@@ -65,6 +65,7 @@ select = ["ALL"] # Be brave use all rules
 fixable = ["ALL"]
 # remove the ones that make no sense
 ignore = [
+    "S105",    # ignore hardcoded stuff
     "S107",    # falsely detects hardcoded passwords in code
     "ANN401",  # allow the t.Any type to be used
     "D100",    # allow top doc-string to be missing

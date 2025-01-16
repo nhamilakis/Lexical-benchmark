@@ -33,3 +33,5 @@ if torch.cuda.is_available():
         x = torch.rand(1000, 1000).cuda()
         y = torch.matmul(x, x)
         print(f"GPU {i}: Matrix multiplication test successful")
+
+
