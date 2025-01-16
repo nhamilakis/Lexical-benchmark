@@ -39,11 +39,12 @@ def parse_args():
     parser.add_argument("--seed", type=int, default=42, help="random seed")
     parser.add_argument("--AddedTokens", default=["'", "|"], help="A list of added special tokens")
     parser.add_argument("--SAVE_INTERVAL", default=2,  type=int, help="The number of rows to save")
+    parser.add_argument('--resume', action='store_true', help="if true, resume from intermediate generation")
     parser.add_argument("--debug", default="False", help="if debug, generate first 10 sentences")
     return parser.parse_args()
 
 
-def split_dataframe(df, n_rows):
+def split_dataframe(df, n_rows)->list:
     """Split a dataframe into a list of subdataframes with approximately n_rows each.
 
     Args:
@@ -68,10 +69,17 @@ def split_dataframe(df, n_rows):
 
     return dfs
 
-
 def main():
     # Args parser
     args = parse_args()
+
+    # Check if target file already exists
+    generation_path = Path(args.generation_path)
+    target_file = generation_path / args.gen_name
+    if target_file.exists():
+        print(f"Target file {target_file} already exists. Skipping generation.")
+        return
+
     device = 0 if torch.cuda.is_available() else "cpu"
     seed = args.seed
     # set the constant random seed
@@ -104,7 +112,7 @@ def main():
     temp_lst = args.temp_lst
 
     print(f"Generating from {args.gen_file}")
-    data = pd.read_csv(args.gen_file)
+    data = pd.read_csv(args.gen_file).loc[:, 'month':]
     # filter by month
     df = data[data["model"] == month]
 
@@ -125,8 +133,20 @@ def main():
     # perform the temperature samplign across the given list
     temp_columns = [f"unprompted_{temp}" for temp in temp_lst]
     # segment the df into different subdf
-    gen = pd.DataFrame()
+    if args.resume:
+        try:
+            gen = pd.read_csv(generation_path /"gen_intermediate.csv").loc[:, 'month':]
+            # look for the target dataframe
+            df = df.iloc[gen.shape[0]:]
+            print(f'Generating file from {generation_path} /gen_intermediate.csv!')
+        except ValueError as e:
+            raise ValueError(f"{generation_path}/gen_intermediate.csv does not exists !") from e
+    else:
+        print('Generating file from scratch!')
+        gen = pd.DataFrame()
+
     dfs = split_dataframe(df, args.SAVE_INTERVAL)
+
     for df in dfs:
         df[temp_columns] = df["sent_len"].apply(lambda x: pd.Series(lm_generate.generate(x, tokenizer, model, device, temp_lst)))
         print(df)
@@ -135,7 +155,7 @@ def main():
         gen.to_csv(generation_path / "gen_intermediate.csv")
         print(f"Having saved the generated file to {generation_path}")
 
-    gen.to_csv(generation_path / gen_name)
+    gen.to_csv(generation_path /gen_name)
     print(f"Having saved the generated file to {generation_path}")
     logger.info(f"Generated texts saved to {generation_path}")
 
