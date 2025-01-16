@@ -13,15 +13,15 @@ from lexical_benchmark.utils.format_util import *
 def parseargs():
     # Run parameters
     parser = argparse.ArgumentParser(description='Get the array script for generation')
-    parser.add_argument('--OutPath', type=str, default='/scratch2/jliu/Lexical-benchmark/experiments/gen',
+    parser.add_argument('--OutPath', type=str, default='/scratch2/jliu/Lexical-benchmark/experiments/gen/STELA.gen'',
                       help='Directory to save path file')
     parser.add_argument('--Resume', default = 'True',
                       help='whether to check there exists the finished job')
-    parser.add_argument('--target_model', default = 'trans',
+    parser.add_argument('--target_model', default = '',
                       help='the target model to be trained; used to check and specify the model dir')
-    parser.add_argument('--target_dataset', default = [],
+    parser.add_argument('--target_dataset', default = ['STELATranscriptions2'],
                       help='only load the target dataset; if empty include all')
-    parser.add_argument('--target_month', default = [12,24,36],
+    parser.add_argument('--target_month', default = [12,18,24,30,36],
                       help='only load the target month for training; if empty include all')
     parser.add_argument('--max_num', default = 0,
                       help='max number of models, if 0 include all')
@@ -90,11 +90,11 @@ def main(argv):
                         data_dirs.append(original_path)
                         model_dirs.append(transformed_path)
     
-    # Save results
+    
     if data_dirs:  # Only save if we have results
         file_df = pd.DataFrame([data_dirs, model_dirs]).T
-        file_df.to_csv(f'{args.OutPath}/{args.target_model}.gen', index=False, header=False)
-        print(f'Write the result to {args.OutPath}/{args.target_model}.gen')
+        file_df.to_csv(args.OutPath, index=False, header=False)
+        print(f'Write the result to {args.OutPath}')
     else:
         print("No matching directories found based on the given criteria")
 
