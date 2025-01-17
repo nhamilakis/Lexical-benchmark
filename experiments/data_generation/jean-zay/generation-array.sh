@@ -15,7 +15,8 @@
 ##SBATCH --qos=qos_gpu_a100-dev
 #SBATCH --time=20:00:00
 # Array Number of Jobs to run in Parallel
-#SBATCH --array=0-2
+# Given via CMD arguments (because it varies depending on the number of jobs)
+##SBATCH --array=0-2
 #SBATCH --output=/lustre/fswork/projects/rech/hhb/ucx81cx/logs/%x-%j-%a.log
 #SBATCH --hint=nomultithread        # hyperthreading is deactivated
 
@@ -31,12 +32,18 @@ export CODE="$WORK/code"
 export _LM_ENV="active"
 export JZ=1
 
-if [[ -z "${1}" ]]; then
-    echo "Error: index file required" >&2
+if [[ -z "${SLURM_ARRAY_TASK_ID}" ]]; then
+    echo "Error: This requires an ARRAY_JOB" >&2
+    echo "Add the array option to sbatch: --array=0-2" >&2
     exit 1
 fi
 JOB_INDEX_FILE=$1
 
+
+if [[ -z "${1}" ]]; then
+    echo "Error: index file required" >&2
+    exit 1
+fi
 
 get_line() {
     local file="$1"
