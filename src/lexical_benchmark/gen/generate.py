@@ -79,7 +79,7 @@ def generate(word_num, tokenizer, model, device, temp_lst):
             # Generate the next token(s)
             outputs = model.generate(
                 input_ids=input_ids,
-                max_length=input_ids.shape[1] + 1, # Increment by 1 token
+                max_length=2048 #input_ids.shape[1] + 1 # issue with Increment by 1 token
                 num_beams=1,
                 num_return_sequences=1,
                 temperature=temp,
