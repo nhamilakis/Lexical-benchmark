@@ -41,4 +41,5 @@ getline_split $FILENAME $SLURM_ARRAY_TASK_ID
 
 python generate.py --model_path $MODEL_ROOT \
     --generation_path $GEN_ROOT \
+    --resume \
     --debug "False"
