@@ -13,7 +13,7 @@ from tqdm import tqdm
 def parseargs():
     # Run parameters
     parser = argparse.ArgumentParser(description="Get the array script for generation")
-    parser.add_argument("--OutPath", type=str, default=".", help="Directory to save path file")
+    parser.add_argument("--OutPath", type=str, default="/scratch1/projects/lexical-benchmark/v2/datasets/script_arg", help="Directory to save path file")
     parser.add_argument("--Resume", default="True", help="whether to check there exists the finished job")
     parser.add_argument(
         "--target_model", default="", help="the target model to be trained; used to check and specify the model dir"
