@@ -73,10 +73,6 @@ def load_char_tokenizer(model_max_length: int=2048, special_token_lst: list[str]
     # add the new token for abbreviation
     for special_token in special_token_lst:
         tokenizer.add_tokens(special_token)
-    """
-        tokenizer.pad_token = tokenizer.eos_token
-        tokenizer.padding_side = 'left'  # Set padding to the left side
-        """
     return tokenizer
 
 

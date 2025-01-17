@@ -3,6 +3,7 @@
 import argparse
 import random
 from pathlib import Path
+from tqdm import tqdm
 
 import numpy as np
 import pandas as pd
@@ -19,13 +20,13 @@ def parse_args():
     parser.add_argument(
         "--model_path",
         type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/models/ChildRealistic/by_month/EN/12/00/LSTM/checkpoint-75000",
+        default="/scratch1/projects/lexical-benchmark/v2/models/STELATranscriptions2/by_month/EN/36/00/trans",
         help="Path to the base LM",
     )
     parser.add_argument(
         "--generation_path",
         type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/gen/ChildRealistic/by_month/EN/12/00/LSTM",
+        default="/scratch1/projects/lexical-benchmark/v2/gen/STELATranscriptions2/by_month/EN/36/00/trans",
         help="Path to the generated texts",
     )
     parser.add_argument(
@@ -147,7 +148,7 @@ def main():
 
     dfs = split_dataframe(df, args.SAVE_INTERVAL)
 
-    for df in dfs:
+    for df in tqdm(dfs):
         df[temp_columns] = df["sent_len"].apply(lambda x: pd.Series(lm_generate.generate(x, tokenizer, model, device, temp_lst)))
         print(df)
         logger.info(f"Generated texts saved to {generation_path}")
