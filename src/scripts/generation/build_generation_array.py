@@ -23,7 +23,7 @@ def parseargs():
     )
     parser.add_argument(
         "--target_month",
-        default=[12, 18, 24, 30, 36],
+        default=[],
         help="only load the target month for training; if empty include all",
     )
     parser.add_argument("--max_num", default=0, help="max number of models, if 0 include all")

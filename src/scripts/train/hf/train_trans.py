@@ -16,12 +16,13 @@ import logging
 import argparse
 from pathlib import Path
 
-from train_util import *
+
 from transformers import GPT2Config, GPT2LMHeadModel
 import os
 import sys
 import string
 import argparse
+from lexical_benchmark.utils.train_util import *
 from lexical_benchmark.utils.format_util import str_to_bool
 import wandb
 wandb.init(mode="offline")
