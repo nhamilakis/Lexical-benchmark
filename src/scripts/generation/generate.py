@@ -140,8 +140,8 @@ def main():
             # look for the target dataframe
             df = df.iloc[gen.shape[0]:]
             print(f'Generating file from {generation_path} /gen_intermediate.csv!')
-        except ValueError as e:
-            raise ValueError(f"{generation_path}/gen_intermediate.csv does not exists !") from e
+        except:
+            print('No file to resume from. Generating file from scratch!')
     else:
         print('Generating file from scratch!')
         gen = pd.DataFrame()
