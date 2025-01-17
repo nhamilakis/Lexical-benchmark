@@ -15,7 +15,7 @@
 ##SBATCH --qos=qos_gpu_a100-dev
 #SBATCH --time=20:00:00
 # Array Number of Jobs to run in Parallel
-#SBATCH --array=0-8
+#SBATCH --array=0-2
 #SBATCH --output=/lustre/fswork/projects/rech/hhb/ucx81cx/logs/%x-%j-%a.log
 #SBATCH --hint=nomultithread        # hyperthreading is deactivated
 
@@ -91,6 +91,6 @@ echo "Running Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
 # Grab parameters from index file
 read model output <<< "$(get_line "${JOB_INDEX_FILE}" $SLURM_ARRAY_TASK_ID)"
 
-python $CODE/Lexical_benchmark/src/scripts/generation/generate.py --gen_file "$WORK/oberon-gen/CHILDES_model.csv" --model_path "$MODEL_ROOT/$model" --generation_path "$GEN_ROOT/$output" --debug "False" --SAVE_INTERVAL 100
+python $CODE/Lexical_benchmark/src/scripts/generation/generate.py --gen_file "$WORK/oberon-gen/CHILDES_model.csv" --model_path "$MODEL_ROOT/$model" --generation_path "$GEN_ROOT/$output" --debug "False" --SAVE_INTERVAL 100 --resume
 
 echo "Completed Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
