@@ -1,22 +1,23 @@
 #!/bin/bash
-#SBATCH --job-name=lb-generation-debug
+#SBATCH --job-name=lb-training-LSTM
 #SBATCH --account=hhb@a100
 # Partition (A100)
 #SBATCH -C a100
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 # Number of GPUs per task (On a100 8 GPUs per node are available.)
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:4
 # Number of cores per task for gpu_p5 (1/8 of 8-GPUs A100 node)
 # A100 nodes have 64 cores, should use proportional to GPU number (1 gpu 1/8 of the CPUs)
 # For 4 GPUs use 32 cores per task
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=32
 # Only run this when testing
 ##SBATCH --qos=qos_gpu_a100-dev
-#SBATCH --time=02:00:00
+#SBATCH --time=20:00:00
 # Array Number of Jobs to run in Parallel
-#SBATCH --array=0-8
-#SBATCH --output=/lustre/fswork/projects/rech/hhb/ucx81cx/logs/%x-%j-%a.log
+# Given via CMD arguments (because it varies depending on the number of jobs)
+##SBATCH --array=0-2
+#SBATCH --output=/lustre/fswork/projects/rech/hhb/ucx81cx/logs/%x-%A-%a.log
 #SBATCH --hint=nomultithread        # hyperthreading is deactivated
 
 # ENV setup, if not set
@@ -24,19 +25,24 @@ if [[ -z "${_LM_ENV}" ]]; then
     source $WORK/load.sh
 fi
 
-export MODEL_ROOT="$WORK/model_light"
+export MODEL_ROOT="$WORK/models"
 export GEN_ROOT="$WORK/jz-gen"
 export DATASET_ROOT="$WORK/datasets"
 export CODE="$WORK/code"
 export _LM_ENV="active"
 export JZ=1
 
+if [[ -z "${SLURM_ARRAY_TASK_ID}" ]]; then
+    echo "Error: This requires an ARRAY_JOB" >&2
+    echo "Add the array option to sbatch: --array=0-2" >&2
+    exit 1
+fi
+
 if [[ -z "${1}" ]]; then
     echo "Error: index file required" >&2
     exit 1
 fi
 JOB_INDEX_FILE=$1
-
 
 get_line() {
     local file="$1"
@@ -89,8 +95,9 @@ echo "python-version $(python -V)"
 echo "Running Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
 
 # Grab parameters from index file
-read model output <<< "$(get_line "${JOB_INDEX_FILE}" $SLURM_ARRAY_TASK_ID)"
+read TRAIN DEV MODEL <<< "$(get_line "${JOB_INDEX_FILE}" $SLURM_ARRAY_TASK_ID)"
 
-python $CODE/Lexical_benchmark/src/scripts/train/hf/train_LSTM.py # TODO: add args
+python $CODE/Lexical_benchmark/src/scripts/train/hf/train_LSTM.py --TrainPath "$DATASET_ROOT/$TRAIN" \
+    --OutPath "$MODEL_ROOT/$MODEL" --ValPath "$DATASET_ROOT/$DEV"
 
 echo "Completed Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"

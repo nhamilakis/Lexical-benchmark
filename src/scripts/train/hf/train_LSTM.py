@@ -1,54 +1,62 @@
-from typing import Optional, Dict, Any
-from dataclasses import dataclass
-from transformers import (
-    Trainer, 
-    TrainingArguments, 
-    PreTrainedTokenizer,
-    PreTrainedModel,
-    PretrainedConfig,
-    DataCollatorForLanguageModeling,
-    EarlyStoppingCallback
-)
-from torch import nn
-import torch
-import os
-import logging
+#!/usr/bin/env python
 import argparse
+import logging
+import os
 from pathlib import Path
 
-from lexical_benchmark.utils.train_util import *
-from lexical_benchmark.utils.format_util import str_to_bool
-
-
+import torch
 import wandb
+from lexical_benchmark.utils import hf_util
+from lexical_benchmark.utils.format_util import str_to_bool
+from torch import nn
+from transformers import (
+    DataCollatorForLanguageModeling,
+    EarlyStoppingCallback,
+    PretrainedConfig,
+    PreTrainedModel,
+    Trainer,
+    TrainingArguments,
+)
+
 wandb.init(mode="offline")
 
 
-
-
-def parse_args():
+def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description='Train LSTM Language Model')
-    parser.add_argument('--TrainPath', type=str, default='/scratch1/projects/lexical-benchmark/v2/datasets/ChildRealistic/by_month/EN/12/00/char_hf.txt',
-                        help='Path to the train file')
-    parser.add_argument('--ValPath', type=str, default=f'/scratch1/projects/lexical-benchmark/v2/datasets/ChildRealistic/dev/EN/char_hf.txt',
-                        help='Path to the validation file')
-    parser.add_argument('--OutPath', type=str, default='/scratch1/projects/lexical-benchmark/v2/models/ChildRealistic/by_month/EN/12/00',
-                      help='Directory to save model checkpoints')
-    parser.add_argument('--Resume', default = 'False',
-                      help='Whether to resume from previous ckpt: True or False')
-    parser.add_argument('--AddedTokens', default = ['\'','|'],
-                      help='A list of added special tokens')
+    parser = argparse.ArgumentParser(description="Train LSTM Language Model")
+    parser.add_argument(
+        "--TrainPath",
+        type=str,
+        default="/scratch1/projects/lexical-benchmark/v2/datasets/ChildRealistic/by_month/EN/12/00/char_hf.txt",
+        help="Path to the train file",
+    )
+    parser.add_argument(
+        "--ValPath",
+        type=str,
+        default="/scratch1/projects/lexical-benchmark/v2/datasets/ChildRealistic/dev/EN/char_hf.txt",
+        help="Path to the validation file",
+    )
+    parser.add_argument(
+        "--OutPath",
+        type=str,
+        default="/scratch1/projects/lexical-benchmark/v2/models/ChildRealistic/by_month/EN/12/00",
+        help="Directory to save model checkpoints",
+    )
+    parser.add_argument("--Resume", default="False", help="Whether to resume from previous ckpt: True or False")
+    parser.add_argument("--AddedTokens", default=["'", "|"], help="A list of added special tokens")
     return parser.parse_args()
 
-#TODO: add the num_workers and batch_size compatible with new GPU devices
+
+# TODO: add the num_workers and batch_size compatible with new GPU devices
 
 # largest size of each block
 block_size = 128
 model_max_length = 2048
 
+
 class LSTMConfig(PretrainedConfig):
     """Configuration class for LSTM language model."""
+
     model_type = "lstm"
 
     def __init__(
@@ -58,7 +66,7 @@ class LSTMConfig(PretrainedConfig):
         hidden_size: int = 1024,
         num_layers: int = 3,
         dropout: float = 0.1,
-        **kwargs
+        **kwargs,
     ):
         """Initialize LSTM Config."""
         super().__init__(**kwargs)
@@ -67,50 +75,47 @@ class LSTMConfig(PretrainedConfig):
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.dropout = dropout
-        
+
 
 class LSTMForLanguageModeling(PreTrainedModel):
     """LSTM-based language model compatible with HuggingFace's interface."""
-    
+
     config_class = LSTMConfig
-    
+
     def __init__(self, config: LSTMConfig):
         super().__init__(config)
-        
+
         self.embedding = nn.Embedding(config.vocab_size, config.embedding_dim)
         self.lstm = nn.LSTM(
             input_size=config.embedding_dim,
             hidden_size=config.hidden_size,
             num_layers=config.num_layers,
             dropout=config.dropout if config.num_layers > 1 else 0,
-            batch_first=True
+            batch_first=True,
         )
         self.output = nn.Linear(config.hidden_size, config.vocab_size)
-        
-        
-            
+
     def forward(
         self,
-        input_ids: Optional[torch.LongTensor] = None,
-        attention_mask: Optional[torch.FloatTensor] = None,
-        labels: Optional[torch.LongTensor] = None,
+        input_ids: torch.LongTensor | None = None,
+        attention_mask: torch.FloatTensor | None = None,
+        labels: torch.LongTensor | None = None,
+        *,
         return_dict: bool = True,
-    ) -> Dict[str, torch.Tensor]:
-        
+    ) -> dict[str, torch.Tensor]:
         embeddings = self.embedding(input_ids)
         lstm_output, _ = self.lstm(embeddings)
         logits = self.output(lstm_output)
-        
+
         loss = None
         if labels is not None:
             # Shift so that tokens < n predict n
             shift_logits = logits[..., :-1, :].contiguous()
             shift_labels = labels[..., 1:].contiguous()
-            
+
             loss_fct = nn.CrossEntropyLoss()
-            loss = loss_fct(shift_logits.view(-1, self.config.vocab_size), 
-                          shift_labels.view(-1))
-            
+            loss = loss_fct(shift_logits.view(-1, self.config.vocab_size), shift_labels.view(-1))
+
         if return_dict:
             return {
                 "loss": loss,
@@ -159,61 +164,53 @@ def setup_training_arguments(args) -> TrainingArguments:
         disable_tqdm=False,
     )
 
+
 def main():
     """Main training function."""
     args = parse_args()
 
     # Create output directory if it doesn't exist
-    os.makedirs(args.OutPath, exist_ok=True)
-    
-    
+    Path(args.OutPath).mkdir(exist_ok=True)
+
     # Setup logging
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
         level=logging.INFO,
-        handlers=[
-            logging.FileHandler(os.path.join(args.OutPath, "training.log")),
-            logging.StreamHandler()
-        ]
+        handlers=[logging.FileHandler(os.path.join(args.OutPath, "training.log")), logging.StreamHandler()],
     )
     logger = logging.getLogger(__name__)
     logger.info("Starting training with arguments: %s", args)
-    
 
-    print('######################')
-    print('Loading char-tokenizer')
-    print('######################')
+    print("######################")
+    print("Loading char-tokenizer")
+    print("######################")
 
     # Load tokenizer and create data collator
-    tokenizer = load_char_tokenizer(model_max_length=2048,special_token_lst=args.AddedTokens)
-    print('Character tokenizer has been loaded')
-    data_collator = DataCollatorForLanguageModeling(
-        tokenizer=tokenizer,
-        mlm=False
-    )
+    tokenizer = hf_util.load_char_tokenizer(model_max_length=2048, special_token_lst=args.AddedTokens)
+    print("Character tokenizer has been loaded")
+    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
     logger.info(f"Vocabulary size: {len(tokenizer.get_vocab())}")
 
-    print('######################')
-    print('Tokenizing the dataset')
-    print('######################')
+    print("######################")
+    print("Tokenizing the dataset")
+    print("######################")
 
-
-    train_dataset = tokenize_data(tokenizer,args.TrainPath,block_size)
-    val_dataset = tokenize_data(tokenizer, args.ValPath, block_size)
+    train_dataset = hf_util.tokenize_data(tokenizer, args.TrainPath, block_size)
+    val_dataset = hf_util.tokenize_data(tokenizer, args.ValPath, block_size)
     logger.info(f"Training dataset size: {len(train_dataset)}")
     logger.info(f"Validation dataset size: {len(val_dataset)}")
 
-    print('#################')
-    print('Loading the model')
-    print('#################')
+    print("#################")
+    print("Loading the model")
+    print("#################")
 
     # Initialize config and model
     config = LSTMConfig(
         vocab_size=len(tokenizer.get_vocab())  # Should match your vocabulary size
     )
     model = LSTMForLanguageModeling(config)
-    
+
     # Initialize trainer
     trainer = Trainer(
         model=model,
@@ -221,37 +218,37 @@ def main():
         data_collator=data_collator,
         train_dataset=train_dataset,  # You'll need to implement dataset loading
         eval_dataset=val_dataset,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
     )
 
+    print("##############")
+    print("Start training")
+    print("##############")
 
-    print('##############')
-    print('Start training')
-    print('##############')
-
-    if str_to_bool(args.Resume):  
+    if str_to_bool(args.Resume):
         # Resume training if checkpoint specified
         ckpt_lst = []
         for ckpt in Path(args.OutPath).iterdir():
-            if ckpt.is_dir():  
+            if ckpt.is_dir():
                 try:
-                    ckpt_lst.append(int(ckpt.name.split('-')[1]))
+                    ckpt_lst.append(int(ckpt.name.split("-")[1]))
                 except:
                     pass
         try:
-            resume_path = f'{args.OutPath}/checkpoint-{str(max(ckpt_lst))}'
+            resume_path = f"{args.OutPath}/checkpoint-{str(max(ckpt_lst))}"
             trainer.train(resume_from_checkpoint=resume_path)
-            print(f'Resuming ckpt from {resume_path}')
+            print(f"Resuming ckpt from {resume_path}")
         except:
-            print('No checkpoint to resume. Train model from scratch!')
+            print("No checkpoint to resume. Train model from scratch!")
             trainer.train()
     else:
         trainer.train()
-        print(f'Training the LSTM model from scratch!')
-        
+        print("Training the LSTM model from scratch!")
+
     # Save the final model
     trainer.save_model(args.OutPath)
     logger.info(f"Model saved to {args.OutPath}")
+
 
 if __name__ == "__main__":
     main()

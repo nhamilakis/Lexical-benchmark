@@ -14,31 +14,37 @@ CODE="/scratch1/projects/lexical-benchmark/v2/jean-zay-code/"
 FILENAME="LSTM_train-args.index"
 
 
-getline_split() {
-    if [ $# -ne 2 ]; then
-        echo "Usage: getline_split <file> <line_number>"
+
+get_line() {
+    local file="$1"
+    local n="$2"
+
+    # Check if both arguments are provided
+    if [[ $# -ne 2 ]]; then
+        echo "Usage: get_line <file> <line_number>" >&2
         return 1
     fi
-    
-    file="$1"
-    n="$2"
-    
-    if [ ! -f "$file" ]; then
-        echo "Error: File '$file' not found"
+
+    # Check if file exists
+    if [[ ! -f "$file" ]]; then
+        echo "Error: File '$file' not found" >&2
         return 1
     fi
-    
-    # Read the line and split by space into global variables
-    IFS=' ' read -r TRAIN DEV MODEL <<< $(sed -n "$((n+1))p" "$file")
-    
-    echo "TRAIN: ${TRAIN}"
-    echo "DEV: ${DEV}"
-    echo "MODEL: ${MODEL}"
+
+    # Check if n is a number
+    if ! [[ "$n" =~ ^[0-9]+$ ]]; then
+        echo "Error: Line number must be a non-negative integer" >&2
+        return 1
+    fi
+
+    # Get the line (adding 1 because sed uses 1-based indexing)
+    n=$((n + 1))
+    sed "${n}q;d" "$file"
 }
 
 
-
-getline_split $FILENAME $SLURM_ARRAY_TASK_ID
+# Grab parameters from index file
+read TRAIN DEV MODEL <<< "$(get_line "${JOB_INDEX_FILE}" $SLURM_ARRAY_TASK_ID)"
 
 
 
