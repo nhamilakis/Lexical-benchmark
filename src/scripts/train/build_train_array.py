@@ -11,7 +11,7 @@ from lexical_benchmark.utils.format_util import *
 def parseargs():
     # Run parameters
     parser = argparse.ArgumentParser(description='Get the array script for model training')
-    parser.add_argument('--OutPath', type=str, default='/scratch2/jliu/Lexical-benchmark/experiments/train',
+    parser.add_argument('--OutPath', type=str, default='.',
                       help='Directory to save path file')
     parser.add_argument('--Resume', default = 'True',
                       help='whether to check there exists the finished job')

@@ -42,7 +42,7 @@ def parse_args() -> argparse.Namespace:
         default="/scratch1/projects/lexical-benchmark/v2/models/ChildRealistic/by_month/EN/12/00",
         help="Directory to save model checkpoints",
     )
-    parser.add_argument("--Resume", default="False", help="Whether to resume from previous ckpt: True or False")
+    parser.add_argument("--Resume", default="True", help="Whether to resume from previous ckpt: True or False")
     parser.add_argument("--AddedTokens", default=["'", "|"], help="A list of added special tokens")
     return parser.parse_args()
 

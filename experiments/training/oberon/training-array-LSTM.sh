@@ -8,8 +8,10 @@
 #SBATCH --array=0-3
 
 # ENV setup, if not set
-CODE="/scratch1/projects/lexical-benchmark/v2/jean-zay-code/"
-
+DIR_ROOT="/scratch1/projects/lexical-benchmark/v2"
+CODE=$DIR_ROOT/jean-zay-code/
+DATASET_ROOT=DIR_ROOT/datasets
+MODEL_ROOT=DIR_ROOT/models
 
 FILENAME="LSTM_train-args.index"
 
@@ -48,6 +50,5 @@ read TRAIN DEV MODEL <<< "$(get_line "${JOB_INDEX_FILE}" $SLURM_ARRAY_TASK_ID)"
 
 
 
-python $CODE/Lexical_benchmark/src/scripts/train/hf/train_LSTM.py --TrainPath $TRAIN \
-    --OutPath $MODEL \
-    --ValPath $DEV
+python $CODE/Lexical_benchmark/src/scripts/train/hf/train_LSTM.py --TrainPath "$DATASET_ROOT/$TRAIN" \
+    --OutPath "$MODEL_ROOT/$MODEL" --ValPath "$DATASET_ROOT/$DEV"
