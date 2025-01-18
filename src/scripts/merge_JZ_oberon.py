@@ -1,8 +1,27 @@
+"""merge gen from JZ and obeorn"""
 from datetime import datetime
 from pathlib import Path
+import argparse
 import shutil
+from lexical_benchmark import settings
 
-def merge_folders_with_conflict_resolution(src_folder1, src_folder2, dst_folder, strategy='ask'):
+
+def parseargs():
+    # Run parameters
+    parser = argparse.ArgumentParser(description="Get the array script for generation")
+    parser.add_argument("--source1", type=str, default="gen/oberon"
+                , help="Source Directory1")
+    parser.add_argument("--source2", type=str, default="gen/jz"
+                , help="Directory to save path file")
+    parser.add_argument("--dest", type=str, default="gen/merged"
+                , help="Destination Directory to save path file")
+    return parser.parse_args()
+
+
+
+
+
+def merge_folders(src_folder1, src_folder2, dst_folder, strategy='ask'):
     """
     Merge folders with conflict resolution.
     
@@ -74,11 +93,22 @@ def merge_folders_with_conflict_resolution(src_folder1, src_folder2, dst_folder,
                 shutil.copy2(item, dst_path)
                 print(f"Copied from folder2: {rel_path}")
 
-# Example usage
-if __name__ == "__main__":
-    folder1 = "/scratch1/projects/lexical-benchmark/v2/gen/oberon"
-    folder2 = "/scratch1/projects/lexical-benchmark/v2/gen/jz"
-    destination = "/scratch1/projects/lexical-benchmark/v2/gen/merged"
+
+def main():
+    # Args parser
+    args = parseargs()
+    root_dir: Path = settings.PATH.DATA_DIR 
+
+    folder1 = f"{root_dir}/{args.source1}"
+    folder2 = f"{root_dir}/{args.source2}"
+    destination = f"{root_dir}/{args.dest}"
     
     # Choose strategy: 'ask', 'newest', 'skip', or 'overwrite'
-    merge_folders_with_conflict_resolution(folder1, folder2, destination, strategy='ask')
+    merge_folders(folder1, folder2, destination, strategy='ask')
+
+
+
+
+
+if __name__ == "__main__":
+    main()

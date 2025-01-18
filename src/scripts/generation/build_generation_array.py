@@ -9,7 +9,6 @@ from lexical_benchmark.utils import format_util
 from tqdm import tqdm
 
 
-# TODO: remove the argument of the model type
 def parseargs():
     # Run parameters
     parser = argparse.ArgumentParser(description="Get the array script for generation")
