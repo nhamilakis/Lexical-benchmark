@@ -19,9 +19,13 @@ class Metric:
         return 
 
     def get_rej_rate():
-
+        # refer to the notebook
         return
 
     def get_CDI(self,threhsold:int):
         """get average CDI scores of the given word list"""
-        return
+        return 
+
+    # return the result for all the stat
+
+
