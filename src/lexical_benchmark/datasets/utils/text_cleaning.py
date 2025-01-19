@@ -398,3 +398,9 @@ class MultiCharSeqRemover(CharSeqRemover):
             self.seq = seq
             clean_line = super().__call__(clean_line)
         return clean_line
+
+
+
+def char2word(chars:str)->str:
+        """convert the char string into a word string"""
+        return ' '.join(chars.split('|'))
