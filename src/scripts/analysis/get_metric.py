@@ -1,4 +1,4 @@
-"""Merge generations among differnet months"""
+"""Compute core metrics from the generation file """
 
 
 import argparse
@@ -70,23 +70,12 @@ def main():
     # Args parser
     args = parse_args()
     gen_dir: Path = settings.PATH.DATA_DIR / args.gen_dir
+    gen_dir: Path = settings.PATH.DATA_DIR / args.gen_dir
 
     gen_all = pd.DataFrame()
-    for estimation in tqdm(gen_dir.iterdir()):
-        if estimation.is_dir():
-            for dataset in estimation.iterdir():
-                for month in (dataset/"by_month"/args.lang).iterdir():
-                    for chunk in month.iterdir():
-                        for model in chunk.iterdir():
-                            if (model/args.filename).exists():
-                                # load file
-                                gen = pd.read_csv(model/args.filename).loc[:, 'month':]
-                                val_lst = [estimation.name,model.name,chunk.name]
-                                colname_lst = ['estimation','model_type','chunk']
-                                converted_gen = concat_gen(gen,val_lst,colname_lst)
-                                gen_all = pd.concat([gen_all,converted_gen])
-                                print(f'Concatenate file with total row number {converted_gen.shape[0]}')
-
+    
+    # loop over differnt model, chunk
+    
     gen_all.to_csv(out_dir/args.filename)                         
     print(f'Saving the concatenated generation to {out_dir/args.filename}')
 
