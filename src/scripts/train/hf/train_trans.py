@@ -115,7 +115,7 @@ def main(argv):
     # Args parser
     args = parseargs()
     # Create output directory if it doesn't exist
-    os.makedirs(args.OutPath, exist_ok=True)
+    Path(args.OutPath).mkdir(exist_ok=True, parents=True)
 
     # Setup logging
     logging.basicConfig(
