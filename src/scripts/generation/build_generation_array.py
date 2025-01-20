@@ -12,7 +12,8 @@ from tqdm import tqdm
 def parseargs():
     # Run parameters
     parser = argparse.ArgumentParser(description="Get the array script for generation")
-    parser.add_argument("--OutPath", type=str, default="/scratch1/projects/lexical-benchmark/v2/datasets/script_arg", help="Directory to save path file")
+    parser.add_argument("--GenPath", type=str, default="gen/merged", help="Generation root directory")
+    parser.add_argument("--OutPath", type=str, default="datasets/script_arg/generation-args.index", help="Directory to save path file")
     parser.add_argument("--Resume", default="True", help="whether to check there exists the finished job")
     parser.add_argument(
         "--target_model", default="", help="the target model to be trained; used to check and specify the model dir"
@@ -35,7 +36,8 @@ def main() -> None:
     # Args parser
     args = parseargs()
     root_dir: Path = settings.PATH.DATA_DIR / "models"
-    gen_root = settings.PATH.DATA_DIR / "gen" / 'merged'
+    gen_root = settings.PATH.DATA_DIR / args.GenPath
+    OutPath = settings.PATH.DATA_DIR / args.OutPath
 
     data_dirs = []
     model_dirs = []
@@ -88,8 +90,8 @@ def main() -> None:
     if data_dirs:  # Only save if we have results
         file_df = pd.DataFrame([data_dirs, model_dirs]).T
 
-        file_df.to_csv(Path(args.OutPath) / "generation-args.index", index=False, header=False, sep=" ")
-        print(f"Write the result to {args.OutPath}")
+        file_df.to_csv(OutPath, index=False, header=False, sep=" ")
+        print(f"Write the result to {OutPath}")
     else:
         print("No matching directories found based on the given criteria")
 
