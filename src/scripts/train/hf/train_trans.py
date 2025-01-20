@@ -111,7 +111,7 @@ def setup_training_arguments(args) -> TrainingArguments:
     )
 
 
-def main(argv):
+def main() -> None:
     # Args parser
     args = parseargs()
     # Create output directory if it doesn't exist
@@ -201,5 +201,4 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    args = sys.argv[1:]
-    main(args)
+    main()
