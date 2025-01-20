@@ -66,7 +66,6 @@ def split_dataframe(df, n_rows)->list:
         end_idx = min((i + 1) * n_rows, total_rows)
         subdf = df.iloc[start_idx:end_idx].copy()
         dfs.append(subdf)
-        print(f"Split {i+1}: {len(subdf)} rows (indices {start_idx} to {end_idx-1})")
 
     return dfs
 
@@ -148,7 +147,7 @@ def main():
 
     for df in tqdm(dfs):
         df[temp_columns] = df["sent_len"].apply(lambda x: pd.Series(lm_generate.generate(x, tokenizer, model, device, temp_lst)))
-        print(df)
+        print(df.head(5))
         logger.info(f"Generated texts saved to {generation_path}")
         gen = pd.concat([gen, df])
         gen.to_csv(generation_path / "gen_intermediate.csv")
