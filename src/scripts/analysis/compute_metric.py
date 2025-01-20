@@ -34,35 +34,10 @@ def parse_args():
     return parser.parse_args()
 
 
-def concat_gen(df:pd.DataFrame,val_lst:list,colname_lst:list)->pd.DataFrame:
-    """
-    concat gen in differnt files
-    final col: month,file_id,text,sent_len,model,temp,gen,estimation,model_type,chunk
-    """
-    # get the columnds to be splitted and merged
-    id_vars, value_vars = split_df_col(df,'model')
-    # convert multi-column into one single column
-    melted_df = pd.melt(
-    df,
-    id_vars = id_vars,
-    value_vars = value_vars,
-    var_name='temp',
-    value_name='gen_raw'
-    )
-    melted_df['temp'] = melted_df['temp'].str.replace('unprompted_', '')
-    # append the values to the df
-    n = 0
-    while n < len(val_lst):
-        melted_df[colname_lst[n]] = val_lst[n]
-        n += 1
+def load_dataset():
+    """load the dataset into word list"""
 
-    # Pop the column and add it back
-    col_to_move = melted_df.pop('gen_raw')
-    melted_df['gen_raw'] = col_to_move
-
-    # apply cleaning on the generation codes
-    melted_df['gen'] = melted_df['gen_raw'].apply(char2word)
-    return melted_df
+    return word_list
 
 
 
