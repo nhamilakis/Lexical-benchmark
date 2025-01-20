@@ -13,7 +13,7 @@
 #SBATCH --cpus-per-task=32
 # Only run this when testing
 ##SBATCH --qos=qos_gpu_a100-dev
-#SBATCH --time=20:00:00
+#SBATCH --time=12:00:00
 # Array Number of Jobs to run in Parallel
 # Given via CMD arguments (because it varies depending on the number of jobs)
 ##SBATCH --array=0-2
