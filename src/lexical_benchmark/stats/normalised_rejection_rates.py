@@ -11,23 +11,27 @@ import seaborn as sns
 class ChunkStats:
     """Statistics for a given chunk."""
 
-    accepted_count: int
-    rejected_count: int
-    total_words: int
-    accepted_words: list[str]
-    rejected_words: list[str]
+    total_tokens: list[str]
+    rejected_tokens: list[str]
+    accepted_tokens: list[str]
 
-    def chunk_unique_acceptance_rate(self) -> float:
-        """Unique Acceptance Rate."""
-        accepted_words = len(set(self.accepted_words))
-        all_words = len(set(self.accepted_words).union(set(self.rejected_words)))
-        return accepted_words / all_words if all_words > 0 else 0.0
 
-    def chunk_unique_rejection_rate(self) -> float:
-        """Unique Rejection Rate."""
-        rejected_words = len(set(self.rejected_words))
+    def type_token_ratio(self) -> float:
+        """Get type/token per chunk."""
         all_words = len(set(self.rejected_words).union(set(self.accepted_words)))
-        return rejected_words / all_words if all_words > 0 else 0.0
+        return all_words / self.total_words
+
+    def token_rejection_rate(self) -> float:
+        """Compute token rejection rate of chunk."""
+        all_tokens = len(self.total_tokens)
+        return len(self.rejected_tokens) / all_tokens if all_tokens > 0 else 0.0
+
+    def type_rejection_rate(self) -> float:
+        """Compute type rejection rate of chunk."""
+        all_types = len(set(self.total_tokens))
+        return len(set(self.rejected_tokens)) / all_types if all_types > 0 else 0.0
+
+
 
 
 @dataclass
@@ -35,17 +39,26 @@ class CleaningStats:
     """Summary statistics of the cleaning operation."""
 
     chunk_stats: list[ChunkStats]
-    total_accepted: int
-    total_rejected: int
-    total_words: int
-    unique_accepted: int
-    unique_rejected: int
-    unique_total: int
-    # Rates
-    acceptance_rate: np.floating[t.Any]
-    rejection_rate: np.floating[t.Any]
-    unique_acceptance_rate: np.floating[t.Any]  # Average Unique Acceptance Rate
-    unique_rejection_rate: np.floating[t.Any]  # Average Unique Rejection Rate
+
+    def mean_type_token_ratio(self) -> float:
+        """Calculate mean type/token ratio across chunk list."""
+        return  np.mean([ck.type_token_ratio() for ck in self.chunk_stats])
+
+    def mean_token_rejection_rate(self) -> float:
+        """Compute mean token rejection rate accross chunks."""
+        return np.mean([ck.token_rejection_rate() for ck in self.chunk_stats])
+
+    def mean_type_rejection_rate(self) -> float:
+        """Compute mean type rejection rate accrossh chunks."""
+        return np.mean([ck.type_rejection_rate() for ck in self.chunk_stats])
+
+    def total_types(self) -> int:
+        """Count the total number of types in all chunks."""
+        return np.sum([len(set(ck.total_tokens)) for ck in self.chunk_stats])
+
+    def total_tokens(self) -> int:
+        """Count the total number of types in all chunks."""
+        return np.sum([len(ck.total_tokens) for ck in self.chunk_stats])
 
 
 def chunk_splitter(words: list[str], chunk_size: int = 16_000) -> list[list[str]]:
@@ -78,11 +91,9 @@ def word_clean_chunk(chunk: list[str], filter_fn: t.Callable[[str], bool]) -> Ch
     rejected = [word for word in chunk if not filter_fn(word)]
 
     return ChunkStats(
-        accepted_count=len(accepted),
-        rejected_count=len(rejected),
-        accepted_words=accepted,
-        rejected_words=rejected,
-        total_words=len(chunk),
+        total_tokens=chunk,
+        rejected_tokens=rejected,
+        accepted_tokens=accepted
     )
 
 
@@ -99,52 +110,16 @@ def clean_chunk_list(chunks: list[list[str]], filter_fn: t.Callable[[str], bool]
         CleaningStats: A dataclass containing stats on the cleaning operation.
 
     """
-    total_accepted = 0
-    total_rejected = 0
-    total_words = 0
     chunk_stats = []
-    all_accepted_words = set()
-    all_rejected_words = set()
 
     # Process each chunk
     for chunk in chunks:
         chunk_stat = word_clean_chunk(chunk, filter_fn)
-        total_accepted += chunk_stat.accepted_count
-        total_rejected += chunk_stat.rejected_count
-        total_words += len(chunk)
-
-        # Update unique accepted and rejected words
-        all_accepted_words.update(chunk_stat.accepted_words)
-        all_rejected_words.update(chunk_stat.rejected_words)
         chunk_stats.append(chunk_stat)
 
-    # Calculate average acceptance and rejection rates
-    average_acceptance_rate = np.average([(chunk.accepted_count / chunk.total_words) for chunk in chunk_stats])
-    average_rejection_rate = np.average([(chunk.rejected_count / chunk.total_words) for chunk in chunk_stats])
 
-    # Unique word stats
-    unique_accepted = len(all_accepted_words)
-    unique_rejected = len(all_rejected_words)
-    unique_total = len(all_accepted_words.union(all_rejected_words))
+    return CleaningStats(chunk_stats=chunk_stats)
 
-    average_unique_acceptance_rate = np.average(
-        [chunk_stat.chunk_unique_acceptance_rate() for chunk_stat in chunk_stats]
-    )
-    average_unique_rejection_rate = np.average([chunk_stat.chunk_unique_rejection_rate() for chunk_stat in chunk_stats])
-
-    return CleaningStats(
-        total_accepted=total_accepted,
-        total_rejected=total_rejected,
-        total_words=total_words,
-        acceptance_rate=average_acceptance_rate,
-        rejection_rate=average_rejection_rate,
-        chunk_stats=chunk_stats,
-        unique_accepted=unique_accepted,
-        unique_rejected=unique_rejected,
-        unique_total=unique_total,
-        unique_acceptance_rate=average_unique_acceptance_rate,
-        unique_rejection_rate=average_unique_rejection_rate,
-    )
 
 
 def cleaning_stats_as_pandas(cleaning_stats_list: list[tuple[str, CleaningStats]]) -> pd.DataFrame:
