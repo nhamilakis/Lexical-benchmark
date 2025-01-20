@@ -134,16 +134,14 @@ def main():
     # perform the temperature samplign across the given list
     temp_columns = [f"unprompted_{temp}" for temp in temp_lst]
     # segment the df into different subdf
-    if args.resume:
-        try:
-            gen = pd.read_csv(generation_path /"gen_intermediate.csv").loc[:, 'month':]
-            # look for the target dataframe
-            df = df.iloc[gen.shape[0]:]
-            print(f'Generating file from {generation_path} /gen_intermediate.csv!')
-        except:
-            print('No file to resume from. Generating file from scratch!')
+    resume_file = generation_path /"gen_intermediate.csv"
+    if args.resume and resume_file.is_file():
+        gen = pd.read_csv(resume_file).loc[:, "month":]
+        # look for the target dataframe
+        df = df.iloc[gen.shape[0]:]
+        print(f"Generating file from {generation_path} /gen_intermediate.csv!")
     else:
-        print('Generating file from scratch!')
+        print("Generating file from scratch!")
         gen = pd.DataFrame()
 
     dfs = split_dataframe(df, args.SAVE_INTERVAL)
