@@ -21,7 +21,7 @@ def parseargs():
 
 
 
-def merge_folders(src_folder1, src_folder2, dst_folder, strategy='ask'):
+def merge_folders(src_folder1, src_folder2, dst_folder, strategy='overwrite'):
     """
     Merge folders with conflict resolution.
     
@@ -104,7 +104,7 @@ def main():
     destination = f"{root_dir}/{args.dest}"
     
     # Choose strategy: 'ask', 'newest', 'skip', or 'overwrite'
-    merge_folders(folder1, folder2, destination, strategy='ask')
+    merge_folders(folder1, folder2, destination, strategy='overwrite')
 
 
 

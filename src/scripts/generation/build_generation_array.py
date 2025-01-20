@@ -18,7 +18,7 @@ def parseargs():
         "--target_model", default="", help="the target model to be trained; used to check and specify the model dir"
     )
     parser.add_argument(
-        "--target_dataset", default=["STELATranscriptions2"], help="only load the target dataset; if empty include all"
+        "--target_dataset", default=[], help="only load the target dataset; if empty include all"
     )
     parser.add_argument(
         "--target_month",
@@ -35,7 +35,7 @@ def main() -> None:
     # Args parser
     args = parseargs()
     root_dir: Path = settings.PATH.DATA_DIR / "models"
-    gen_root = settings.PATH.DATA_DIR / "gen"
+    gen_root = settings.PATH.DATA_DIR / "gen" / 'merged'
 
     data_dirs = []
     model_dirs = []
@@ -74,7 +74,7 @@ def main() -> None:
                     if not (original_path / "pytorch_model.bin").exists():
                         print(f"Skip due to untrained model: {original_path}")
                         continue
-                    transformed_path = Path(str(original_path).replace("models", "gen"))
+                    transformed_path = Path(str(original_path).replace("models", "gen/merged"))
                     if format_util.str_to_bool(args.Resume):
                         if not (transformed_path / "gen.csv").exists():
                             data_dirs.append(original_path.relative_to(root_dir))
