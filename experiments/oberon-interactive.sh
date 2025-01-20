@@ -1,0 +1,1 @@
+srun --pty --job-name="lb-interactive-debug" --gres="gpu:1" --cpus-per-task="8" -t "4:00:00" bash -i

@@ -3,7 +3,6 @@
 import argparse
 import random
 from pathlib import Path
-from tqdm import tqdm
 
 import numpy as np
 import pandas as pd
@@ -11,6 +10,7 @@ import torch
 from lexical_benchmark.gen import generate as lm_generate
 from lexical_benchmark.utils import hf_util
 from lexical_benchmark.utils.format_util import str_to_bool
+from tqdm import tqdm
 
 
 def parse_args():
@@ -80,7 +80,8 @@ def main():
         print(f"Target file {target_file} already exists. Skipping generation.")
         return
 
-    device = 0 if torch.cuda.is_available() else "cpu"
+    # device = 0 if torch.cuda.is_available() else "cpu"
+    device = "cpu"
     seed = args.seed
     # set the constant random seed
     torch.manual_seed(seed)

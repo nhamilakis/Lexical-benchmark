@@ -86,6 +86,6 @@ read TRAIN DEV MODEL <<< "$(get_line "${JOB_INDEX_FILE}" $SLURM_ARRAY_TASK_ID)"
 python "$CODE/Lexical_benchmark/src/scripts/train/hf/train_trans.py" \
     --TrainPath "$DATASET_ROOT/$TRAIN" \
     --OutPath "$MODEL_ROOT/$MODEL" \
-    --ValPath "$DATASET_ROOT/$DEV"
+    --ValPath "$DATASET_ROOT/$DEV" --resume
 
 echo "Completed Training  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"

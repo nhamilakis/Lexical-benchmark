@@ -13,7 +13,7 @@
 #SBATCH --cpus-per-task=8
 # Only run this when testing
 ##SBATCH --qos=qos_gpu_a100-dev
-#SBATCH --time=20:00:00
+#SBATCH --time=15:00:00
 # Array Number of Jobs to run in Parallel
 # Given via CMD arguments (because it varies depending on the number of jobs)
 ##SBATCH --array=0-2
@@ -91,6 +91,7 @@ echo "Memory Info: $(free -h | grep Mem)"
 echo -e "\n=== PYTHON ==="
 echo "python: $(which python)"
 echo "python-version $(python -V)"
+echo "CUDA-AVAILABLE $(python -c 'import torch; print(torch.cuda.is_available());')"
 
 
 echo "Running Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"

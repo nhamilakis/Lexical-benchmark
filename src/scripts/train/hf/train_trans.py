@@ -1,13 +1,13 @@
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
 from transformers import (
-    Trainer, 
-    TrainingArguments, 
+    Trainer,
+    TrainingArguments,
     PreTrainedTokenizer,
     PreTrainedModel,
     PretrainedConfig,
     DataCollatorForLanguageModeling,
-    EarlyStoppingCallback
+    EarlyStoppingCallback,
 )
 from torch import nn
 import torch
@@ -25,24 +25,35 @@ import argparse
 from lexical_benchmark.utils.hf_util import *
 from lexical_benchmark.utils.format_util import str_to_bool
 import wandb
-wandb.init(mode="offline")
 
+wandb.init(mode="offline")
 
 
 def parseargs():
     # Run parameters
-    parser = argparse.ArgumentParser(description='Train Transformer Language Model')
-    parser.add_argument('--TrainPath', type=str, default='/scratch1/projects/lexical-benchmark/v2/datasets/ChildRealistic/by_month/EN/36/00/char_hf.txt',
-                        help='Path to the train file')
-    parser.add_argument('--ValPath', type=str, default=f'/scratch1/projects/lexical-benchmark/v2/datasets/ChildRealistic/dev/EN/char_hf.txt',
-                        help='Path to the validation file')
-    parser.add_argument('--OutPath', type=str, default='/scratch1/projects/lexical-benchmark/v2/models/ChildRealistic/by_month/EN/36/00',
-                      help='Directory to save model checkpoints')
-    parser.add_argument('--Resume', default = 'True',
-                      help='Whether to resume from previous ckpt: True or False')
-    parser.add_argument('--AddedTokens', default = ['\'','|'],
-                      help='A list of added special tokens')
+    parser = argparse.ArgumentParser(description="Train Transformer Language Model")
+    parser.add_argument(
+        "--TrainPath",
+        type=str,
+        default="/scratch1/projects/lexical-benchmark/v2/datasets/ChildRealistic/by_month/EN/36/00/char_hf.txt",
+        help="Path to the train file",
+    )
+    parser.add_argument(
+        "--ValPath",
+        type=str,
+        default="/scratch1/projects/lexical-benchmark/v2/datasets/ChildRealistic/dev/EN/char_hf.txt",
+        help="Path to the validation file",
+    )
+    parser.add_argument(
+        "--OutPath",
+        type=str,
+        default="/scratch1/projects/lexical-benchmark/v2/models/ChildRealistic/by_month/EN/36/00",
+        help="Directory to save model checkpoints",
+    )
+    parser.add_argument("--resume", action="store_true", help="Whether to resume from previous ckpt: True or False")
+    parser.add_argument("--AddedTokens", default=["'", "|"], help="A list of added special tokens")
     return parser.parse_args()
+
 
 # largest size of each block
 block_size = 128
@@ -56,7 +67,7 @@ config = GPT2Config(
     n_layer=3,  # Number of hidden layers
     n_embd=1024,  # Hidden size (embedding dimension)
     n_inner=4096,  # Dimension of the feedforward network
-)# Hidden size (embedding dimension)
+)  # Hidden size (embedding dimension)
 
 
 def setup_training_arguments(args) -> TrainingArguments:
@@ -101,54 +112,43 @@ def setup_training_arguments(args) -> TrainingArguments:
 
 
 def main(argv):
-
     # Args parser
     args = parseargs()
     # Create output directory if it doesn't exist
     os.makedirs(args.OutPath, exist_ok=True)
-    
-    
+
     # Setup logging
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
         level=logging.INFO,
-        handlers=[
-            logging.FileHandler(os.path.join(args.OutPath, "training.log")),
-            logging.StreamHandler()
-        ]
+        handlers=[logging.FileHandler(os.path.join(args.OutPath, "training.log")), logging.StreamHandler()],
     )
     logger = logging.getLogger(__name__)
     logger.info("Starting training with arguments: %s", args)
-    
 
-    print('######################')
-    print('Loading char-tokenizer')
-    print('######################')
+    print("######################")
+    print("Loading char-tokenizer")
+    print("######################")
 
     # Load tokenizer and create data collator
-    tokenizer = load_char_tokenizer(model_max_length=2048,special_token_lst=args.AddedTokens)
-    print('Character tokenizer has been loaded')
-    data_collator = DataCollatorForLanguageModeling(
-        tokenizer=tokenizer,
-        mlm=False
-    )
+    tokenizer = load_char_tokenizer(model_max_length=2048, special_token_lst=args.AddedTokens)
+    print("Character tokenizer has been loaded")
+    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
     logger.info(f"Vocabulary size: {len(tokenizer.get_vocab())}")
 
-    print('######################')
-    print('Tokenizing the dataset')
-    print('######################')
+    print("######################")
+    print("Tokenizing the dataset")
+    print("######################")
 
-
-    train_dataset = tokenize_data(tokenizer,args.TrainPath,block_size)
+    train_dataset = tokenize_data(tokenizer, args.TrainPath, block_size)
     val_dataset = tokenize_data(tokenizer, args.ValPath, block_size)
     logger.info(f"Training dataset size: {len(train_dataset)}")
     logger.info(f"Validation dataset size: {len(val_dataset)}")
 
-    print('#################')
-    print('Loading the model')
-    print('#################')
-
+    print("#################")
+    print("Loading the model")
+    print("#################")
 
     # Initialize the model with the configured settings
     model = GPT2LMHeadModel(config=config)
@@ -160,45 +160,41 @@ def main(argv):
         data_collator=data_collator,
         train_dataset=train_dataset,  # You'll need to implement dataset loading
         eval_dataset=val_dataset,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
     )
-
 
     trainer = Trainer(
         model=model,
         args=setup_training_arguments(args),
         data_collator=data_collator,
         train_dataset=train_dataset,
-        eval_dataset=val_dataset  # Assuming you have a validation set
+        eval_dataset=val_dataset,  # Assuming you have a validation set
     )
 
+    print("##############")
+    print("Start training")
+    print("##############")
 
-    print('##############')
-    print('Start training')
-    print('##############')
-
-
-
-    if str_to_bool(args.Resume):  
+    if args.resume:
         # Resume training if checkpoint specified
         ckpt_lst = []
         for ckpt in Path(args.OutPath).iterdir():
-            if ckpt.is_dir():  
+            if ckpt.is_dir():
                 try:
-                    ckpt_lst.append(int(ckpt.name.split('-')[1]))
+                    ckpt_lst.append(int(ckpt.name.split("-")[1]))
                 except:
                     pass
         try:
-            resume_path = f'{args.OutPath}/checkpoint-{str(max(ckpt_lst))}'
+            resume_path = f"{args.OutPath}/checkpoint-{str(max(ckpt_lst))}"
             trainer.train(resume_from_checkpoint=resume_path)
-            print(f'Resuming ckpt from {resume_path}')
+            print(f"Resuming ckpt from {resume_path}")
         except:
-            print('No checkpoint to resume. Train model from scratch!')
+            print("No checkpoint to resume. Train model from scratch!")
             trainer.train()
     else:
         trainer.train()
-        print(f'Training the Transformer model from scratch!')
-    
+        print("Training the Transformer model from scratch!")
+
     # Save the final model
     trainer.save_model(args.OutPath)
     logger.info(f"Model saved to {args.OutPath}")
