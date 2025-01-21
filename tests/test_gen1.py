@@ -1,0 +1,142 @@
+from pathlib import Path
+import argparse
+import logging
+import string
+import torch
+import random
+from typing import List, Dict, Optional
+from tqdm import tqdm
+import pandas as pd
+import numpy as np
+from transformers import AutoModelForCausalLM, PreTrainedTokenizer, PreTrainedModel
+from lexical_benchmark.utils import hf_util 
+from lexical_benchmark.utils import gen_util
+from test_gen_util import Logger,TextGenerator,BatchProcessor
+
+
+def parse_args():
+    # Run parameters
+    parser = argparse.ArgumentParser(description="Finetune decoder-onlyls models")
+
+    parser.add_argument(
+        "--model_path",
+        type=str,
+        default="/scratch1/projects/lexical-benchmark/v2/models/STELATranscriptions2/by_month/EN/36/00/trans",
+        help="Path to the base LM",
+    )
+    parser.add_argument(
+        "--generation_path",
+        type=str,
+        default="/scratch1/projects/lexical-benchmark/v2/gen/merged/STELATranscriptions2/by_month/EN/36/00/trans",
+        help="Path to the generated texts",
+    )
+    parser.add_argument(
+        "--gen_file",
+        type=str,
+        default="/scratch1/projects/lexical-benchmark/v2/gen/merged/CHILDES_model.csv",
+        help="Path to the generated texts",
+    )
+    parser.add_argument("--temp_lst", type=list, default=[0.3, 0.6, 1.0, 1.5], help="target month model")
+    parser.add_argument("--gen_name", type=str, default="gen.csv", help="gen file name")
+    parser.add_argument("--seed", type=int, default=42, help="random seed")
+    parser.add_argument("--AddedTokens", default=["'", "|"], help="A list of added special tokens")
+    parser.add_argument("--SAVE_INTERVAL", default=2,  type=int, help="The number of rows to save")
+    parser.add_argument('--resume', action='store_true', help="if true, resume from intermediate generation")
+    parser.add_argument("--debug", action='store_true', help="if debug, generate first 10 sentences")
+    return parser.parse_args()
+
+
+
+
+def main(args):
+    """Main function to run the generation process with the specified arguments."""
+    # Setup paths
+    generation_path = Path(args.generation_path)
+    generation_path.mkdir(parents=True, exist_ok=True)
+    gen_name = args.gen_name
+    model_type = Path(args.generation_path).name
+    
+    # Get month from path
+    try:
+        month = int(Path(args.generation_path).parents[1].name)
+    except ValueError as e:
+        raise ValueError(f"Parent folder of {args.generation_path} does not contain month info!") from e
+    print(f"{month=}")
+    
+    # Check if target file already exists
+    target_file = generation_path / gen_name
+    if target_file.exists():
+        print(f"Target file {target_file} already exists. Skipping generation.")
+        return
+    
+    # Setup logger
+    logger = Logger.setup(generation_path)
+    logger.info(f"Starting generation with arguments: {args}")
+    
+    # Set random seed
+    random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(args.seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    
+    try:
+        # Load and filter data by month
+        df = pd.read_csv(args.gen_file).loc[:, 'month':]
+        df = df[df["model"] == month]
+        logger.info(f"Loaded input file with {len(df)} rows for month {month}")
+        
+        # Debug mode handling
+        if args.debug:
+            df = df.head(10)
+            gen_name = gen_name.split(".")[0] + "_debug.csv"
+            logger.info("Debug mode: using first 10 rows only")
+        
+        # Create generator
+        generator = TextGenerator(
+            model_path=args.model_path,
+            model_type=model_type,
+            model_max_length=1024
+        )
+        
+        # Add special tokens
+        if len(args.AddedTokens) > 0:
+            generator.add_special_tokens(args.AddedTokens)
+        
+        # Create processor
+        processor = BatchProcessor(
+            generator=generator,
+            save_path=generation_path,
+            chunk_size=10
+        )
+        
+        # Process data using BatchProcessor
+        result_df = processor.process_dataframe(
+            df=df,
+            temp_lst=args.temp_lst,
+            save_interval=args.SAVE_INTERVAL,
+            resume=args.resume
+        )
+        
+        # Save final results
+        final_path = generation_path / gen_name
+        result_df.to_csv(final_path)
+        logger.info(f"Generation completed. Final results saved to {final_path}")
+        
+    except Exception as e:
+        logger.error(f"Error during processing: {str(e)}")
+        raise
+        
+    finally:
+        torch.cuda.empty_cache()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    main(args)
+
+
+
+
