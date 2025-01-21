@@ -75,3 +75,44 @@ def timed_status(
 
     stop_threads = True
     worker.join()
+
+
+
+class PathNamespace:
+    """A Namespace holding a variety of paths."""
+
+    def __init__(self, **kwargs: t.Unpack[dict[str, Path]]) -> None:
+        self._paths: dict[str, Path] = {}
+        for name, path in kwargs.items():
+            if not isinstance(path, Path):
+                raise TypeError(f"Value for {name} must be a Path object")
+            self._paths[name] = path
+
+    def __getattr__(self, name: str) -> Path:
+        """Access paths as attributes.
+
+        Raises
+        ------
+            AttributeError: If path name doesn't exist
+
+        """
+        try:
+            return self._paths[name]
+        except KeyError as e:
+            raise AttributeError(f"No path named '{name}' in namespace") from e
+
+    def __getitem__(self, key: str) -> Path:
+        """Access paths using dictionary-style access."""
+        return self.__getattr__(key)
+
+
+    def __iter__(self) -> t.Iterator[tuple[str, Path]]:
+        """Iterate over path names and objects.
+
+        Returns
+        -------
+            Iterator of (name, path) pairs
+
+        """
+        return iter(self._paths.items())
+
