@@ -2,12 +2,11 @@ import argparse
 import logging
 import torch
 import random
-#from typing import List, Dict, Optional
 from pathlib import Path
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
-from transformers import AutoModelForCausalLM, PreTrainedTokenizer, PreTrainedModel
+from transformers import AutoModelForCausalLM, PreTrainedTokenizer, PreTrainedModel,PretrainedConfig
 from lexical_benchmark.utils.gen_util import Logger,TextGenerator,BatchProcessor
 
 def parse_args():
@@ -17,13 +16,13 @@ def parse_args():
     parser.add_argument(
         "--model_path",
         type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/models/STELATranscriptions2/by_month/EN/36/00/trans",
+        default="/scratch1/projects/lexical-benchmark/v2/models/STELATranscriptions2/by_month/EN/15/00/trans",
         help="Path to the base LM",
     )
     parser.add_argument(
         "--generation_path",
         type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/gen/merged/STELATranscriptions2/by_month/EN/36/00/trans",
+        default="/scratch1/projects/lexical-benchmark/v2/gen/merged/STELATranscriptions2/by_month/EN/15/00/trans",
         help="Path to the generated texts",
     )
     parser.add_argument(
@@ -35,14 +34,14 @@ def parse_args():
     parser.add_argument("--temp_lst", type=list, default=[0.3, 0.6, 1.0, 1.5], help="target month model")
     parser.add_argument("--gen_name", type=str, default="gen.csv", help="gen file name")
     parser.add_argument("--seed", type=int, default=42, help="random seed")
-    parser.add_argument("--AddedTokens", default=["'", "|"], help="A list of added special tokens")
-    parser.add_argument("--SAVE_INTERVAL", default=2,  type=int, help="The number of rows to save")
+    parser.add_argument("--added_tokens", default=["'", "|"], help="A list of added special tokens")
+    parser.add_argument("--save_interval", default=2,  type=int, help="The number of rows to save")
     parser.add_argument('--resume', action='store_true', help="if true, resume from intermediate generation")
     parser.add_argument("--debug", action='store_true', help="if debug, generate first 10 sentences")
     return parser.parse_args()
 
 
-#TODO: check the resume option: seperate saving for now
+
 
 def main(args):
     """Main function to run the generation process with the specified arguments."""
@@ -86,9 +85,9 @@ def main(args):
         
         # Debug mode handling
         if args.debug:
-            df = df.head(10)
+            df = df.head(20)
             gen_name = gen_name.split(".")[0] + "_debug.csv"
-            logger.info("Debug mode: using first 10 rows only")
+            logger.info("Debug mode: using first 20 rows only")
         
         # Create generator
         generator = TextGenerator(
@@ -98,21 +97,20 @@ def main(args):
         )
         
         # Add special tokens
-        if len(args.AddedTokens) > 0:
-            generator.add_special_tokens(args.AddedTokens)
+        if len(args.added_tokens) > 0:
+            generator.add_special_tokens(args.added_tokens)
         
         # Create processor
         processor = BatchProcessor(
             generator=generator,
             save_path=generation_path,
-            chunk_size=10
+            chunk_size=args.save_interval
         )
         
         # Process data using BatchProcessor
         result_df = processor.process_dataframe(
             df=df,
             temp_lst=args.temp_lst,
-            save_interval=args.SAVE_INTERVAL,
             resume=args.resume
         )
         

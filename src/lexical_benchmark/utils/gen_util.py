@@ -10,6 +10,9 @@ from tqdm import tqdm
 import pandas as pd
 import numpy as np
 from lexical_benchmark.utils import hf_util 
+from transformers import AutoModelForCausalLM, PreTrainedTokenizer, PreTrainedModel,PretrainedConfig
+
+
 
 
 class Logger:
@@ -78,7 +81,7 @@ class TextGenerator:
         # add the new token for abbreviation
         for special_token in special_token_lst:
             self.tokenizer.add_tokens(special_token)
-            print("Added special tokens to the tokenizer")
+        print(f"Added {len(special_token_lst)} special tokens to the tokenizer")
         
 
     
@@ -100,8 +103,7 @@ class TextGenerator:
                     
                     outputs = self.model.generate(
                         input_ids=input_ids,
-                        #max_new_tokens=1,
-                        max_length=curr_length + 1,
+                        max_length=curr_length + 1,   # make sure generating one token each time
                         do_sample=True,
                         temperature=temp,
                         num_beams=1,
@@ -161,7 +163,7 @@ class BatchProcessor:
         return batch
     
     def process_dataframe(self, df: pd.DataFrame, temp_lst: List[float], 
-                         save_interval: int, resume: bool = False) -> pd.DataFrame:
+                        resume: bool = False) -> pd.DataFrame:
         """Process entire dataframe with save intervals."""
         gen = pd.DataFrame()
         resume_file = self.save_path / "gen_intermediate.csv"
@@ -169,11 +171,11 @@ class BatchProcessor:
         if resume and resume_file.is_file():
             gen = pd.read_csv(resume_file).loc[:, "month":]
             df = df.iloc[gen.shape[0]:]
-            self.logger.info(f"Resuming generation from checkpoint. Rows processed: {len(gen)}")
+            self.logger.info(f"Resuming from previous generation. Rows processed: {len(gen)}")
         
         total_rows = len(df)
-        chunks = [df.iloc[i:i + save_interval] for i in range(0, total_rows, save_interval)]
-        
+        chunks = [df.iloc[i:i + self.chunk_size] for i in range(0, total_rows, self.chunk_size)]
+
         for chunk in tqdm(chunks, desc="Processing chunks"):
             processed_chunks = []
             
