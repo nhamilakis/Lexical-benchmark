@@ -1,40 +1,35 @@
 """match freq based on between human and machine cdi."""
 
 import argparse
-import sys
+import collections
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
-from lexical_benchmark.utils.stat_tool import bin_stats, init_index, loss, swap_index
-from lm_benchmark.settings import ROOT   #TODO:  replace the rot path with setting
+from lexical_benchmark import settings
+from lexical_benchmark.datasets import childes, stella
+from lexical_benchmark.utils import stat_tools
 
 
 def arguments() -> argparse.Namespace:
     """Build & Parse command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--CDI_path", default=f"{ROOT}/datasets/processed/CDI/")
-    parser.add_argument("--human_freq", default=f"{ROOT}/datasets/processed/freq/CHILDES_adult.csv")
-    parser.add_argument("--machine_freq", default=f"{ROOT}/datasets/processed/freq/3200h.csv")
+    parser.add_argument("--dataset-root")
+    parser.add_argument("--CDI_path", default=f"{settings.PATH.dataset_root}/processed/CDI/")
+    parser.add_argument("--human_freq", default=f"{settings.PATH.dataset_root}/CHILDES/")
+    parser.add_argument("--machine_freq", default=f"{settings.PATH.dataset_root}/processed/freq/3200h.csv")
     parser.add_argument("--lang", type=str, default="BE")
-    parser.add_argument("--test_type", type=str, default="exp")
+    parser.add_argument("--test-type", type=str, default="exp")
     parser.add_argument("--sampling_ratio", type=int, default=1)
     parser.add_argument("--nbins", type=int, default=6)
     return parser.parse_args()
 
 
-def annotate_freq(cdi_file: Path, human_freq: Path) -> pd.DataFrame:
+def annotate_freq(cdi_data: pd.DataFrame, human_freq: pd.DataFrame) -> pd.DataFrame:
     """Annotate Frequencies."""
-    cdi_data = pd.read_csv(cdi_file)
-    human_freq_data = pd.read_csv(human_freq)
-    merged_df = cdi_data.merge(human_freq_data, on="word", how="left")
+    merged_df = cdi_data.copy()
+    merged_df = merged_df.merge(human_freq, on="word", how="left")
     merged_df.dropna()
-    # add the freq column
-    #merged_df.drop(columns=['count_x', 'correct_x'])
-    #merged_df = merged_df.rename(columns={'count_y': 'count', 'correct_y': 'correct'})
-    # sort by count
-    #merged_df = merged_df.sort_values(by=['count', 'word']).reset_index(drop=True)
     return merged_df
 
 
@@ -62,55 +57,87 @@ def match_sample(
     if not lenref * sampling_ratio < lensam:
         raise ValueError("The sampling rate is too high to create matched sets!")
 
-    refstat = bin_stats(dataref, nbins)
-    pidx, nidx = init_index(lensam, lenref * sampling_ratio)
+    refstat = stat_tools.bin_stats(dataref, nbins)
+    pidx, nidx = stat_tools.init_index(lensam, lenref * sampling_ratio)
     data = datasam[pidx]
-    datastat = bin_stats(data, nbins)
-    lbest = loss(refstat, datastat)
+    datastat = stat_tools.bin_stats(data, nbins)
+    lbest = stat_tools.loss(refstat, datastat)
 
     for _ in range(n):
-        pidx1, nidx1 = swap_index(pidx, nidx)
+        pidx1, nidx1 = stat_tools.swap_index(pidx, nidx)
         data = datasam[pidx1]
-        datastat = bin_stats(data, nbins)
-        l1 = loss(refstat, datastat)
+        datastat = stat_tools.bin_stats(data, nbins)
+        l1 = stat_tools.loss(refstat, datastat)
         if lbest > l1:
             lbest = l1
             pidx, nidx = np.array(pidx1, copy=True), np.array(nidx1, copy=True)
 
-    teststat = bin_stats(datasam[pidx], nbins)
+    teststat = stat_tools.bin_stats(datasam[pidx], nbins)
     refstat["set"] = "human"
     teststat["set"] = "machine"
     stat = pd.concat([refstat, teststat])
     return pidx, lbest, stat
 
 
+
+
+def load_chiles_adult(lang: str = "EN") -> pd.DataFrame:
+    """Load Word Frequencies for CHILDES."""
+    childes_dataset = childes.CHILDESDataset()
+    uk_freq_file = childes_dataset.wf.processed("Eng-UK", "adult")
+    na_freq_file = childes_dataset.wf.processed("Eng-NA", "adult")
+
+    uk_freq = pd.read_csv(uk_freq_file, header=0)
+    na_freq = pd.read_csv(na_freq_file, header=0)
+
+    combined_df = pd.concat([uk_freq, na_freq])
+    return combined_df.groupby("word")["freq"].sum().reset_index()
+
+
+def load_stella_3200h(lang: str = "EN") -> pd.DataFrame:
+    """Load Word Frequencies for STELA/EN/3200h."""
+    stella_dataset = stella.STELATranscriptDataset()
+    transcriptions = stella_dataset.by_month / f"by_month/{lang}/36/00/" / "transcriptions.txt"
+    freqs = collections.Counter(transcriptions.read_tokenized())
+    return pd.DataFrame(list(freqs.items()), columns=["word", "freq"])
+
+
+def load_cdi_data(test_type: str, lang: str = "EN") -> pd.DataFrame:
+    """Load the CDI data."""
+    cdi_data_file = Path(...) / f"{lang}_{test_type}_human.csv"
+
+    return pd.read_csv(cdi_data_file)
+
+
 def main() -> None:
     """Run the GoldReference loader and write results to a file."""
     args = arguments()
-    lang = args.lang
 
-    machine_freq_file = Path(args.machine_freq)
-    cdi_file = Path(args.CDI_path) / f"{lang}_{args.test_type}_human.csv"
-    cdi_stat_file = Path(args.CDI_path) / f"{lang}_{args.test_type}_stat.csv"
-    human_freq_file = Path(args.human_freq)
-    machine_cdi_file = Path(args.CDI_path) / f"{lang}_{args.test_type}_machine.csv"
+    ## Load Frequencies & other data
+    machine_freq = load_stella_3200h()
+    human_freq = load_chiles_adult()
+    cdi_data = load_cdi_data(lang=args.lang, test_type=args.test_type)
 
     # match human-CDI and CHILDES
-    target = annotate_freq(cdi_file, human_freq_file)
-    machine_freq = pd.read_csv(str(machine_freq_file))
+    # TODO: this is already computed elsewhere
+    target = annotate_freq(cdi_data, human_freq)
+
+    # Why are we overwriting the cdi ??? should create a new childes annotated CDI file ???
+    # TODO: write this into a temp file to not overwrite source
     target.to_csv(cdi_file)
+
+
     # match files
     pidx, _, stat = match_sample(target, machine_freq, args.sampling_ratio, args.nbins)
+
     # save the files
-
+    # Is this the target file ?? or does this exist before ?
+    machine_cdi_file = Path(args.CDI_path) / f"{args.lang}_{args.test_type}_machine.csv"
     machine_freq.iloc[pidx].to_csv(machine_cdi_file)
+
+    cdi_stat_file = Path(args.CDI_path) / f"{args.lang}_{args.test_type}_stat.csv"
     stat.to_csv(cdi_stat_file)
-    
-
-
-
 
 
 if __name__ == "__main__":
-    args = sys.argv[1:]
     main()

@@ -1,3 +1,4 @@
+from time import sleep
 import typing as t
 from dataclasses import dataclass
 from pathlib import Path
@@ -254,6 +255,11 @@ class STELATranscriptDataset:
     def preprocessed_path(self) -> Path:
         """Path to preprocessed version of the dataset."""
         return self.root_dir / "src" / "preprocessed"
+
+    @property
+    def by_month(self) -> Path:
+        """Path to the by_month split of the dateset."""
+        return self.root_dir / "by_month"
 
     @property
     def meta(self) -> MetaDir:

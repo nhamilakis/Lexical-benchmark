@@ -117,6 +117,10 @@ class _MyPathSettings:
         return self.dataset_root / "STELATranscriptions"
 
     @property
+    def stela2(self) ->  _Path:
+        return self.dataset_root / "STELATranscriptions2"
+
+    @property
     def code_root(self) -> _Path:
         import lexical_benchmark
 
