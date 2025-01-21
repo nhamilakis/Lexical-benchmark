@@ -20,19 +20,19 @@ def parse_args():
     parser.add_argument(
         "--model_path",
         type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/models/STELATranscriptions2/by_month/EN/36/00/trans",
+        default="/scratch1/projects/lexical-benchmark/v2/models/STELATranscriptions2/by_month/EN/15/00/trans",
         help="Path to the base LM",
     )
     parser.add_argument(
         "--generation_path",
         type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/gen/STELATranscriptions2/by_month/EN/36/00/trans",
+        default="/scratch1/projects/lexical-benchmark/v2/gen/merged/STELATranscriptions2/by_month/EN/15/00/trans",
         help="Path to the generated texts",
     )
     parser.add_argument(
         "--gen_file",
         type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/gen/CHILDES_model.csv",
+        default="/scratch1/projects/lexical-benchmark/v2/gen/merged/CHILDES_model1.csv",
         help="Path to the generated texts",
     )
     parser.add_argument("--temp_lst", type=list, default=[0.3, 0.6, 1.0, 1.5], help="target month model")

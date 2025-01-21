@@ -90,7 +90,7 @@ def main() -> None:
     if data_dirs:  # Only save if we have results
         file_df = pd.DataFrame([data_dirs, model_dirs]).T
 
-        file_df.to_csv(OutPath, index=False, header=False, sep=" ")
+        file_df.to_csv(OutPathnano, index=False, header=False, sep=" ")
         print(f"Write the result to {OutPath}")
     else:
         print("No matching directories found based on the given criteria")

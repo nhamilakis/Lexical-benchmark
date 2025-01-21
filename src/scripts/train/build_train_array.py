@@ -15,7 +15,7 @@ def parseargs():
                       help='Directory to save path file')
     parser.add_argument('--Resume', default = 'True',
                       help='whether to check there exists the finished job')
-    parser.add_argument('--target_model_lst', default = ['LSTM'],
+    parser.add_argument('--target_model_lst', default = [],
                       help='the target model to be trained; used to check and specify the model dir')
     parser.add_argument('--target_dataset', default = [],
                       help='only load the target dataset; if empty include all')
