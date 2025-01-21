@@ -1,6 +1,4 @@
 """Merge generations among differnet months"""
-
-
 import argparse
 import pandas as pd
 from pathlib import Path
@@ -72,11 +70,12 @@ def main():
     gen_dir: Path = settings.PATH.DATA_DIR / args.gen_dir
     out_dir: Path = settings.PATH.DATA_DIR / args.out_dir
 
+    '''
     gen_all = pd.DataFrame()
     for estimation in tqdm(gen_dir.iterdir()):
         if estimation.is_dir():
             for dataset in estimation.iterdir():
-                for month in (dataset/"by_month"/args.lang).iterdir():
+                for month in (dataset/args.lang).iterdir():
                     for chunk in month.iterdir():
                         for model in chunk.iterdir():
                             if (model/args.filename).exists():
@@ -90,8 +89,23 @@ def main():
 
     gen_all.to_csv(out_dir/args.filename)                         
     print(f'Saving the concatenated generation to {out_dir/args.filename}')
+    '''
+    # save the file recursively; 
+    # /scratch1/projects/lexical-benchmark/v2/models/ChildRealistic/by_month/EN/12/00/LSTM
+    gen_all = pd.read_csv(out_dir/args.filename)
+    col_lst = ['estimation','month','chunk','model_type']
+    gen_grouped = gen_all.groupby(col_lst)
+    for group, gen_group in gen_grouped:
+        # only select partial 
+        gen_group = gen_group[]
+        # save the generation to the target file
+        file_dir = gen_dir/'1000'/group[0]/f"{group[1]:02d}"/f"{group[2]:02d}"/group[3]
+        file_dir.mkdir(parents=True, exist_ok=True)
+        gen_group.to_csv(file_dir/'gen.csv')
+        print(f'Saving the result to {file_dir}')
 
 
+        
 
 if __name__ == "__main__":
     main()
