@@ -82,6 +82,6 @@ echo "Running Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
 # Grab parameters from index file
 read model output <<< "$(get_line "${JOB_INDEX_FILE}" $SLURM_ARRAY_TASK_ID)"
 
-python $CODE/src/scripts/generation/generate.py --gen_file "$GEN_ROOT/CHILDES_model.csv" --model_path "$MODEL_ROOT/$model" --generation_path "$GEN_ROOT/$output" --debug "False" --SAVE_INTERVAL 100 --resume
+python $CODE/src/scripts/generation/generate.py --gen_file "$GEN_ROOT/CHILDES_model.csv" --model_path "$MODEL_ROOT/$model" --generation_path "$GEN_ROOT/$output" --save_interval 100 --resume
 
 echo "Completed Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
