@@ -13,12 +13,14 @@ def parseargs():
     return parser.parse_args()
 
 
+
+
 def main():
     # Args parser
     args = parseargs()
 
     root_path = PATH.DATA_DIR / args.source_dir
-    # convert 15th month to the chunk first to avoid overlapping
+    
     overlap_lst = [15,30]
     replaced_lst = []
     for month_num in overlap_lst:
