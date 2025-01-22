@@ -4,21 +4,20 @@ import logging
 import os
 from pathlib import Path
 
-import torch
-import wandb
-from lexical_benchmark.utils.train_util import LSTMForLanguageModeling, setup_training_arguments,tokenize_data,LSTMConfig
-from lexical_benchmark.utils.hf_util import CharacterTokenizer, load_char_tokenizer
 from lexical_benchmark.settings import dataset_name_dict
-
-from torch import nn
+from lexical_benchmark.utils import hf_util
+from lexical_benchmark.utils.train_util import (
+    LSTMConfig,
+    LSTMForLanguageModeling,
+    setup_training_arguments,
+)
 from transformers import (
     DataCollatorForLanguageModeling,
     EarlyStoppingCallback,
-    PretrainedConfig,
-    PreTrainedModel,
     Trainer,
-    TrainingArguments,
 )
+
+import wandb
 
 
 def parse_args() -> argparse.Namespace:
@@ -98,7 +97,7 @@ def main():
     wandb.init(
     project="Lex_benchmark",
     # name format: datasetname_model_month_chunk  e.g. child_lstm_2_00   
-    name=job_name,  
+    name=job_name,
     mode="offline"
     )
     print(f'Wandb job name: {job_name}')
@@ -128,7 +127,7 @@ def main():
 
     # Initialize config and model
     config = LSTMConfig(
-        vocab_size=len(tokenizer.get_vocab())  
+        vocab_size=len(tokenizer.get_vocab())
     )
     model = LSTMForLanguageModeling(config)
 

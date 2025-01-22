@@ -1,32 +1,21 @@
-from typing import Optional, Dict, Any
-from dataclasses import dataclass
-from transformers import (
-    Trainer,
-    TrainingArguments,
-    PreTrainedTokenizer,
-    PreTrainedModel,
-    PretrainedConfig,
-    DataCollatorForLanguageModeling,
-    EarlyStoppingCallback,
-)
-from torch import nn
-import torch
-import os
-import logging
+#!/usr/bin/env python
 import argparse
+import logging
+import os
 from pathlib import Path
 
-
-from transformers import GPT2Config, GPT2LMHeadModel
-import sys
-import string
-from lexical_benchmark.utils.train_util import setup_training_arguments,tokenize_data
-from lexical_benchmark.utils.hf_util import CharacterTokenizer, load_char_tokenizer
 from lexical_benchmark.settings import dataset_name_dict
+from lexical_benchmark.utils.hf_util import load_char_tokenizer
+from lexical_benchmark.utils.train_util import setup_training_arguments, tokenize_data
+from transformers import (
+    DataCollatorForLanguageModeling,
+    EarlyStoppingCallback,
+    GPT2Config,
+    GPT2LMHeadModel,
+    Trainer,
+)
 
 import wandb
-
-
 
 
 def parseargs():
@@ -77,7 +66,7 @@ def main() -> None:
     # Create output directory if it doesn't exist
     Path(args.OutPath).mkdir(exist_ok=True, parents=True)
 
-    print("##################)
+    print("##################")
     print("Setting up logging")
     print("##################")
 
@@ -96,7 +85,7 @@ def main() -> None:
     wandb.init(
     project="Lex_benchmark",
     # name format: datasetname_model_month_chunk  e.g. child_lstm_2_00   
-    name=job_name,  
+    name=job_name,
     mode="offline"
     )
     print(f'Wandb job name: {job_name}')
