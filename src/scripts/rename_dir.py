@@ -1,4 +1,4 @@
-"""rename the month-based convention into chunk-based"""
+"""Rename the month-based convention into chunk-based"""
 
 import argparse
 from pathlib import Path
@@ -18,22 +18,26 @@ def main():
     args = parseargs()
 
     root_path = PATH.DATA_DIR / args.source_dir
-
     # convert 15th month to the chunk first to avoid overlapping
-    new_dir_15 = root_path / f"{month2chunk(15, 1000):02d}"
-    Path(root_path / "15").rename(new_dir_15)
-    print(f"replacing the source name {root_path}/15 to {new_dir_15}")
+    overlap_lst = [15,30]
+    replaced_lst = []
+    for month_num in overlap_lst:
+        if (root_path/str(month_num)).exists():
+            new_dir = root_path / f"{month2chunk(month_num, 1000):02d}"
+            replaced_lst.append(new_dir)
+            (root_path/str(month_num)).rename(new_dir)
+            print(f"replacing the source name {root_path}/{month_num} to {new_dir}")
 
     for month in root_path.iterdir():
         month_num = int(month.name)
-
-        if month_num > 5 and month != new_dir_15.name:
+        if month_num > 5 and month not in replaced_lst:
             new_dir = root_path / f"{month2chunk(month_num, 1000):02d}"
-        else:
+            Path(month).rename(new_dir)
+            print(f"replacing the source name {month} to {new_dir}")
+        elif month_num < 6 and month not in replaced_lst:
             new_dir = root_path / f"{int(month.name):02d}"
-
-        Path(month).rename(new_dir)
-        print(f"replacing the source name {root_path / 15} to {new_dir_15}")
+            Path(month).rename(new_dir)
+            print(f"replacing the source name {month} to {new_dir}")
 
 
 if __name__ == "__main__":
