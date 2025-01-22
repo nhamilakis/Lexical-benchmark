@@ -13,7 +13,7 @@
 #SBATCH --cpus-per-task=8
 # Only run this when testing
 ##SBATCH --qos=qos_gpu_a100-dev
-#SBATCH --time=15:00:00
+#SBATCH --time=20:00:00
 # Array Number of Jobs to run in Parallel
 # Given via CMD arguments (because it varies depending on the number of jobs)
 ##SBATCH --array=0-2
@@ -99,7 +99,6 @@ echo "Running Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
 # Grab parameters from index file
 read model output <<< "$(get_line "${JOB_INDEX_FILE}" $SLURM_ARRAY_TASK_ID)"
 
-#python $CODE/Lexical_benchmark/src/scripts/generation/generate.py --gen_file "$WORK/oberon-gen/CHILDES_model.csv" --model_path "$MODEL_ROOT/$model" --generation_path "$GEN_ROOT/$output" --debug "False" --SAVE_INTERVAL 100 --resume
+python $CODE/Lexical_benchmark/src/scripts/generation/generate.py --gen_file "$GEN_ROOT/CHILDES_model.csv" --model_path "$MODEL_ROOT/$model" --generation_path "$GEN_ROOT/$output" --save_interval 100 --resume
 
-python $CODE/src/scripts/generation/generate.py --gen_file "$GEN_ROOT/CHILDES_model.csv" --model_path "$MODEL_ROOT/$model" --generation_path "$GEN_ROOT/$output" --save_interval 100 --resume
 echo "Completed Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
