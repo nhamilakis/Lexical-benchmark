@@ -73,7 +73,7 @@ def main() -> None:
                 # Process paths
                 for original_path in sub_month_dirs:
                     # Check model training completion
-                    if not (original_path / "pytorch_model.bin").exists():
+                    if not (original_path / "training_args.bin").exists():
                         print(f"Skip due to untrained model: {original_path}")
                         continue
                     transformed_path = Path(str(original_path).replace("models", "gen/merged"))

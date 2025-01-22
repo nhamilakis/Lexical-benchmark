@@ -1,7 +1,5 @@
-import string
-
 from transformers import LineByLineTextDataset, PreTrainedTokenizer
-
+import string
 
 class CharacterTokenizer(PreTrainedTokenizer):
     """Tokenization for characters."""
@@ -66,6 +64,8 @@ class CharacterTokenizer(PreTrainedTokenizer):
         return self.convert_tokens_to_string(tokens)
 
 
+
+
 def load_char_tokenizer(model_max_length: int=2048, special_token_lst: list[str]=["'", "|"]):
     # config and load the tokenizer
     chars = string.ascii_letters
@@ -75,11 +75,3 @@ def load_char_tokenizer(model_max_length: int=2048, special_token_lst: list[str]
         tokenizer.add_tokens(special_token)
     return tokenizer
 
-
-def tokenize_data(tokenizer, data_path, block_size: int):
-    """Tokenize the dataset."""
-    return LineByLineTextDataset(
-        tokenizer=tokenizer,
-        file_path=data_path,
-        block_size=block_size,
-    )

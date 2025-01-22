@@ -6,8 +6,10 @@ from pathlib import Path
 
 import torch
 import wandb
-from lexical_benchmark.utils import hf_util
-from lexical_benchmark.utils.format_util import str_to_bool
+from lexical_benchmark.utils.train_util import LSTMForLanguageModeling, setup_training_arguments,tokenize_data,LSTMConfig
+from lexical_benchmark.utils.hf_util import CharacterTokenizer, load_char_tokenizer
+from lexical_benchmark.settings import dataset_name_dict
+
 from torch import nn
 from transformers import (
     DataCollatorForLanguageModeling,
@@ -17,8 +19,6 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-
-wandb.init(mode="offline")
 
 
 def parse_args() -> argparse.Namespace:
@@ -42,18 +42,17 @@ def parse_args() -> argparse.Namespace:
         default="/scratch1/projects/lexical-benchmark/v2/models/ChildRealistic/by_month/EN/12/00",
         help="Directory to save model checkpoints",
     )
-    parser.add_argument("--Resume", default="True", help="Whether to resume from previous ckpt: True or False")
+    parser.add_argument("--resume", action='store_true', help="if true, resume from previous ckpt")
     parser.add_argument("--AddedTokens", default=["'", "|"], help="A list of added special tokens")
     return parser.parse_args()
 
-
-# TODO: add the num_workers and batch_size compatible with new GPU devices
 
 # largest size of each block
 block_size = 128
 model_max_length = 2048
 
-
+#TODO: modify the trainer in train_util to put LSTMConfig here
+'''     
 class LSTMConfig(PretrainedConfig):
     """Configuration class for LSTM language model."""
 
@@ -75,95 +74,7 @@ class LSTMConfig(PretrainedConfig):
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.dropout = dropout
-
-
-class LSTMForLanguageModeling(PreTrainedModel):
-    """LSTM-based language model compatible with HuggingFace's interface."""
-
-    config_class = LSTMConfig
-
-    def __init__(self, config: LSTMConfig):
-        super().__init__(config)
-
-        self.embedding = nn.Embedding(config.vocab_size, config.embedding_dim)
-        self.lstm = nn.LSTM(
-            input_size=config.embedding_dim,
-            hidden_size=config.hidden_size,
-            num_layers=config.num_layers,
-            dropout=config.dropout if config.num_layers > 1 else 0,
-            batch_first=True,
-        )
-        self.output = nn.Linear(config.hidden_size, config.vocab_size)
-
-    def forward(
-        self,
-        input_ids: torch.LongTensor | None = None,
-        attention_mask: torch.FloatTensor | None = None,
-        labels: torch.LongTensor | None = None,
-        *,
-        return_dict: bool = True,
-    ) -> dict[str, torch.Tensor]:
-        embeddings = self.embedding(input_ids)
-        lstm_output, _ = self.lstm(embeddings)
-        logits = self.output(lstm_output)
-
-        loss = None
-        if labels is not None:
-            # Shift so that tokens < n predict n
-            shift_logits = logits[..., :-1, :].contiguous()
-            shift_labels = labels[..., 1:].contiguous()
-
-            loss_fct = nn.CrossEntropyLoss()
-            loss = loss_fct(shift_logits.view(-1, self.config.vocab_size), shift_labels.view(-1))
-
-        if return_dict:
-            return {
-                "loss": loss,
-                "logits": logits,
-            }
-        return (loss, logits)
-
-
-def setup_training_arguments(args) -> TrainingArguments:
-    """Configure training arguments to match Fairseq settings."""
-    return TrainingArguments(
-        output_dir=args.OutPath,
-        overwrite_output_dir=True,
-        # Batch size and optimization
-        per_device_train_batch_size=32,  # Increase batch size
-        gradient_accumulation_steps=4,  # Increase gradient accumulation steps
-        max_steps=100000,  # Reduce max steps
-        # Learning rate schedule
-        learning_rate=1e-4,
-        warmup_steps=1000,
-        warmup_ratio=0.0,
-        lr_scheduler_type="inverse_sqrt",
-        # Optimizer settings
-        optim="adamw_torch",
-        adam_beta1=0.9,
-        adam_beta2=0.98,
-        weight_decay=0.01,
-        max_grad_norm=0.0,
-        # Logging and saving
-        logging_dir=args.OutPath,
-        logging_steps=100,
-        save_strategy="steps",
-        save_steps=1000,
-        save_total_limit=20,  # Reduce save total limit
-        # Evaluation
-        evaluation_strategy="steps",
-        eval_steps=1000,
-        # Early stopping settings
-        load_best_model_at_end=True,  # Required for early stopping
-        metric_for_best_model="eval_loss",  # Monitor eval loss for early stopping
-        greater_is_better=False,  # Lower loss is better
-        # FP16 training
-        fp16=True,  # Match Fairseq's fp16
-        # Misc
-        dataloader_num_workers=4,
-        disable_tqdm=False,
-    )
-
+'''
 
 def main():
     """Main training function."""
@@ -172,7 +83,7 @@ def main():
     # Create output directory if it doesn't exist
     Path(args.OutPath).mkdir(exist_ok=True, parents=True)
 
-    # Setup logging
+    # Setup logging   
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
@@ -181,6 +92,16 @@ def main():
     )
     logger = logging.getLogger(__name__)
     logger.info("Starting training with arguments: %s", args)
+
+    model_path = Path(args.OutPath)
+    job_name=f"{dataset_name_dict[model_path.parents[3].name]}_lstm_{model_path.parent.name}_{model_path.name}"
+    wandb.init(
+    project="Lex_benchmark",
+    # name format: datasetname_model_month_chunk  e.g. child_lstm_2_00   
+    name=job_name,  
+    mode="offline"
+    )
+    print(f'Wandb job name: {job_name}')
 
     print("######################")
     print("Loading char-tokenizer")
@@ -207,7 +128,7 @@ def main():
 
     # Initialize config and model
     config = LSTMConfig(
-        vocab_size=len(tokenizer.get_vocab())  # Should match your vocabulary size
+        vocab_size=len(tokenizer.get_vocab())  
     )
     model = LSTMForLanguageModeling(config)
 
@@ -225,7 +146,7 @@ def main():
     print("Start training")
     print("##############")
 
-    if str_to_bool(args.Resume):
+    if args.resume:
         # Resume training if checkpoint specified
         ckpt_lst = []
         for ckpt in Path(args.OutPath).iterdir():
