@@ -26,7 +26,18 @@ model_dict = {
 
 #######################################################
 # Dataset abbreviation dict
-dataset_name_dict = {'ChildRealistic':'child','STELATranscription2':'stela'}
+dataset_name_dict = {"ChildRealistic": "child", "STELATranscription2": "stela"}
+
+
+def chunk2month(chunk_num: int, hour_per_year: int, hour_per_chunk: int = 50) -> int:
+    """Convert chunk numbers into month based on estimation per year."""
+    return int(12 * (hour_per_chunk / hour_per_year) * chunk_num)
+
+
+def month2chunk(month: int, hour_per_year: int, hour_per_chunk: int = 50) -> int:
+    """Convert month into chunk numbersbased on estimation per year."""
+    return int((month / 12) * hour_per_year / hour_per_chunk)
+
 
 #######################################################
 
@@ -67,7 +78,6 @@ def _assert_dir(dir_location: _Path) -> None:
 
 @_dataclasses.dataclass
 class _MyPathSettings:
-
     def is_jz(self) -> bool:
         """Check wether we are running in the jean-zay cluster."""
         if "JZ" in _os.environ:
@@ -124,7 +134,7 @@ class _MyPathSettings:
         return self.dataset_root / "STELATranscriptions"
 
     @property
-    def stela2(self) ->  _Path:
+    def stela2(self) -> _Path:
         return self.dataset_root / "STELATranscriptions2"
 
     @property
