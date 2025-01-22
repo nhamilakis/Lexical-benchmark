@@ -23,6 +23,13 @@ model_dict = {
     "7100h": [66, 74],
 }
 
+
+#######################################################
+# Dataset abbreviation dict
+dataset_name_dict = {'ChildRealistic':'child','STELATranscription2':'stela'}
+
+#######################################################
+
 #######################################################
 # Filters for CHILDES content
 CONTENT_POS = {"ADJ", "NOUN", "VERB", "ADV", "PROPN"}

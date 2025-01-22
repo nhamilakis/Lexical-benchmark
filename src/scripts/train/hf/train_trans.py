@@ -18,15 +18,15 @@ from pathlib import Path
 
 
 from transformers import GPT2Config, GPT2LMHeadModel
-import os
 import sys
 import string
-import argparse
-from lexical_benchmark.utils.hf_util import *
-from lexical_benchmark.utils.format_util import str_to_bool
+from lexical_benchmark.utils.train_util import setup_training_arguments,tokenize_data
+from lexical_benchmark.utils.hf_util import CharacterTokenizer, load_char_tokenizer
+from lexical_benchmark.settings import dataset_name_dict
+
 import wandb
 
-wandb.init(mode="offline")
+
 
 
 def parseargs():
@@ -70,46 +70,6 @@ config = GPT2Config(
 )  # Hidden size (embedding dimension)
 
 
-def setup_training_arguments(args) -> TrainingArguments:
-    """Configure training arguments to match Fairseq settings."""
-    return TrainingArguments(
-        output_dir=args.OutPath,
-        overwrite_output_dir=True,
-        # Batch size and optimization
-        per_device_train_batch_size=32,  # Increase batch size
-        gradient_accumulation_steps=4,  # Increase gradient accumulation steps
-        max_steps=100000,  # Reduce max steps
-        # Learning rate schedule
-        learning_rate=1e-4,
-        warmup_steps=1000,
-        warmup_ratio=0.0,
-        lr_scheduler_type="inverse_sqrt",
-        # Optimizer settings
-        optim="adamw_torch",
-        adam_beta1=0.9,
-        adam_beta2=0.98,
-        weight_decay=0.01,
-        max_grad_norm=0.0,
-        # Logging and saving
-        logging_dir=args.OutPath,
-        logging_steps=100,
-        save_strategy="steps",
-        save_steps=1000,
-        save_total_limit=20,  # Reduce save total limit
-        # Evaluation
-        evaluation_strategy="steps",
-        eval_steps=1000,
-        # Early stopping settings
-        load_best_model_at_end=True,  # Required for early stopping
-        metric_for_best_model="eval_loss",  # Monitor eval loss for early stopping
-        greater_is_better=False,  # Lower loss is better
-        # FP16 training
-        fp16=True,  # Match Fairseq's fp16
-        # Misc
-        dataloader_num_workers=4,
-        disable_tqdm=False,
-    )
-
 
 def main() -> None:
     # Args parser
@@ -117,7 +77,10 @@ def main() -> None:
     # Create output directory if it doesn't exist
     Path(args.OutPath).mkdir(exist_ok=True, parents=True)
 
-    # Setup logging
+    print("##################)
+    print("Setting up logging")
+    print("##################")
+
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
@@ -126,6 +89,17 @@ def main() -> None:
     )
     logger = logging.getLogger(__name__)
     logger.info("Starting training with arguments: %s", args)
+
+    # init weight and biases
+    model_path = Path(args.OutPath)
+    job_name=f"{dataset_name_dict[model_path.parents[3].name]}_trans_{model_path.parent.name}_{model_path.name}"
+    wandb.init(
+    project="Lex_benchmark",
+    # name format: datasetname_model_month_chunk  e.g. child_lstm_2_00   
+    name=job_name,  
+    mode="offline"
+    )
+    print(f'Wandb job name: {job_name}')
 
     print("######################")
     print("Loading char-tokenizer")
