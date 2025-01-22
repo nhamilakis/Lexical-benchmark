@@ -4,7 +4,7 @@ import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
 from lexical_benchmark import settings
-from lexical_benchmark.utils.analysis_util import split_df_col
+#from lexical_benchmark.utils.analysis_util import split_df_col
 from lexical_benchmark.datasets.utils.text_cleaning import char2word
 
 
@@ -30,6 +30,25 @@ def parse_args():
     parser.add_argument("--filename", type=str, default="gen.csv", help="gen file name")
     parser.add_argument("--lang", type=str, default='EN', help="random seed")
     return parser.parse_args()
+
+
+
+
+def split_df_col(df:pd.DataFrame,target_col:str)->list[str]:
+    # Get column names
+    cols = df.columns.tolist()
+
+    # Find indices of target columns
+    target_cols = [target_col]
+    target_indices = [cols.index(col) for col in target_cols]
+
+    # Get columns to the left of first target
+    left_cols = cols[:min(target_indices)+1]
+    # Get columns to the right of last target
+    right_cols = cols[max(target_indices) + 1:]
+    return left_cols, right_cols
+
+
 
 
 def concat_gen(df:pd.DataFrame,val_lst:list,colname_lst:list)->pd.DataFrame:
@@ -70,7 +89,7 @@ def main():
     gen_dir: Path = settings.PATH.DATA_DIR / args.gen_dir
     out_dir: Path = settings.PATH.DATA_DIR / args.out_dir
 
-    '''
+    
     gen_all = pd.DataFrame()
     for estimation in tqdm(gen_dir.iterdir()):
         if estimation.is_dir():
@@ -81,23 +100,26 @@ def main():
                             if (model/args.filename).exists():
                                 # load file
                                 gen = pd.read_csv(model/args.filename).loc[:, 'month':]
+                                ''''''
                                 val_lst = [estimation.name,model.name,chunk.name]
                                 colname_lst = ['estimation','model_type','chunk']
                                 converted_gen = concat_gen(gen,val_lst,colname_lst)
+                                
                                 gen_all = pd.concat([gen_all,converted_gen])
                                 print(f'Concatenate file with total row number {converted_gen.shape[0]}')
 
     gen_all.to_csv(out_dir/args.filename)                         
     print(f'Saving the concatenated generation to {out_dir/args.filename}')
-    '''
+    
     # save the file recursively; 
     # /scratch1/projects/lexical-benchmark/v2/models/ChildRealistic/by_month/EN/12/00/LSTM
     gen_all = pd.read_csv(out_dir/args.filename)
     col_lst = ['estimation','month','chunk','model_type']
+    headers = ['file_id','text','sent_len','gen_raw','gen']
     gen_grouped = gen_all.groupby(col_lst)
     for group, gen_group in gen_grouped:
         # only select partial 
-        gen_group = gen_group[]
+        gen_group = gen_group[headers]
         # save the generation to the target file
         file_dir = gen_dir/'1000'/group[0]/f"{group[1]:02d}"/f"{group[2]:02d}"/group[3]
         file_dir.mkdir(parents=True, exist_ok=True)
