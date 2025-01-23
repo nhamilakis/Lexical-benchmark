@@ -1,10 +1,10 @@
 from pathlib import Path
 
 from lexical_benchmark import settings
-from lexical_benchmark.datasets.gen_child.preparation import CHILDESMonth, ModelMonth
+from lexical_benchmark.datasets.gen_child.preparation import CHILDESMonth, ModelMonth,GenerationMerger
 
 
-
+'''
 print('Testing CHILDESMonth Class')
 root_dir: Path = settings.PATH.dataset_root  / "CHILDES"
 out_dir: Path = settings.PATH.DATA_DIR /"gen"/ "test"/ "CHILDES.csv"
@@ -26,3 +26,14 @@ model_processor = ModelMonth(child_df=out_dir,
 model_processor.process()
 
 print('Finished testing ModelMonth Class')
+
+'''
+
+print('Testing GenerationMerger Class')
+
+model_out_dir = settings.PATH.DATA_DIR /"gen"/ "merged"
+model_processor = GenerationMerger(hour_per_year=1000,
+                            gen_dir=model_out_dir)
+model_processor.process()
+
+print('Finished testing GenerationMerger Class')

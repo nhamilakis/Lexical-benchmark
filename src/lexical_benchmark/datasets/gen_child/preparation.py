@@ -4,7 +4,9 @@ from pathlib import Path
 
 import pandas as pd
 from tqdm import tqdm
+
 from lexical_benchmark.settings import chunk2month
+
 
 class GenerationMerger:
     """Merge model generations and re-distribute by actual months."""
@@ -12,57 +14,102 @@ class GenerationMerger:
         self,
         hour_per_year: int,
         gen_dir: Path,
-        out_dir: Path,
         lang: str = "EN",
         filename: str = "gen.csv"
         )-> None:
 
         self.hour_per_year = hour_per_year
         self.gen_dir = gen_dir
-        self.out_dir = out_dir
         self.lang = lang
         self.filename = filename
-        self.out_dir.mkdir(parents=True, exist_ok=True)
 
 
-    def concat_files(self)->pd.DataFrame:
+    def concat_files1(self)->pd.DataFrame:
         gen_all = pd.DataFrame()
         info_dict = {}
         # loop over dataset in the path like: ChildRealistic/by_month/EN/10/00/LSTM
         for dataset in self.gen_dir.iterdir():
+            if dataset.is_dir():
                 for month in (dataset / "by_month" / self.lang).iterdir():
                     for chunk in month.iterdir():
                         for model in chunk.iterdir():
-                            gen_path = model / f"{self.hour_per_year}_hour_per_year.csv"
-                            if not gen_path.exists():
-                                gen_path = model / self.filename
+                            gen_path_year = model / f"{self.hour_per_year}_hour_per_year.csv"
+                            gen_path = model / self.filename
+                            if not gen_path_year.exists() and not gen_path.exists():
+                                # pass if there is not genrated file
+                                print(f"No generated file in {model}. Skip")
+                                continue
+                            else:
+                                if gen_path_year.exists():
+                                    gen_path = gen_path_year
+                                elif gen_path.exists():
+                                    continue
+                                gen = pd.read_csv(gen_path).loc[:, "month":]
+                                # append additional index info as extra col
+                                info_dict = {
+                                    "dataset":dataset.name,
+                                    "month":chunk2month(int(month.name), self.hour_per_year),
+                                    "chunk":chunk.name,
+                                    "model_type":model.name
+                                    }
+                                gen = gen.assign(**info_dict)
+                                gen_all = pd.concat([gen_all, gen])
+
+        gen_all.to_csv(self.gen_dir / self.filename)
+        print(f"Saving the concatenated generation to {self.gen_dir / self.filename}")
+        return gen_all,info_dict
+
+
+    def concat_files(self) -> pd.DataFrame:
+        gen_all = pd.DataFrame()
+        info_dict = {}
+        for dataset in self.gen_dir.iterdir():
+            if dataset.is_dir():
+                for month in (dataset / "by_month" / self.lang).iterdir():
+                    for chunk in month.iterdir():
+                        for model in chunk.iterdir():
+                            gen_path_year = model / f"{self.hour_per_year}_hour_per_year.csv"
+                            gen_path = model / self.filename
+
+                            # Fix 1: Reversed logic for gen_path existence check
+                            if gen_path_year.exists():
+                                gen_path = gen_path_year
+                            elif gen_path.exists():
+                                gen_path = gen_path  # Use regular gen_path
+                            else:
+                                print(f"No generated file in {model}. Skip")
+                                continue
+
+                            # Fix 2: Move gen reading and concatenation inside the loop
                             gen = pd.read_csv(gen_path).loc[:, "month":]
-                            # append additional index info as extra col
                             info_dict = {
-                                "dataset":dataset.name,
-                                "month":chunk2month(int(month.name), self.hour_per_year),
-                                "chunk":chunk.name,
-                                "model_type":model.name
-                                }
+                                "dataset": dataset.name,
+                                "month": chunk2month(int(month.name), self.hour_per_year),
+                                "chunk": chunk.name,
+                                "model_type": model.name
+                            }
                             gen = gen.assign(**info_dict)
                             gen_all = pd.concat([gen_all, gen])
-
-        gen_all.to_csv(self.out_dir / self.filename)
-        return gen_all
+        # Fix 3: Move save operation outside the loop
+        if not gen_all.empty:
+            gen_all.to_csv(self.gen_dir / self.filename)
+            print(f"Saving the concatenated generation to {self.gen_dir / self.filename}")
+        return gen_all, info_dict
 
     def save_grouped_files(self, df: pd.DataFrame,info_dict:dict)-> None:
         """Save the monthly gen."""
         for group, gen_group in df.groupby(list(info_dict.keys())):
-            file_dir = self.gen_dir / group[0] / str(self.hour_per_year) / self.lang / f"{group[1]:02d}" / f"{group[2]:02d}" / group[3]
+            file_dir = self.gen_dir / group[0] / f"{self.hour_per_year}_hour_per_year" / self.lang / f"{group[1]:02d}" / group[2] / group[3]
             file_dir.mkdir(parents=True, exist_ok=True)
             # pop the info headers
-
-            gen_group[self.headers].to_csv(file_dir / "gen.csv")
+            gen_group = gen_group.drop(list(info_dict.keys()), axis=1)
+            gen_group.to_csv(file_dir / self.filename)
+            print(f"Saving the monthly generation to {file_dir / self.filename}")
 
     def process(self)-> None:
         """Concatenate and redistribute by months."""
-        gen_all = self.concat_files()
-        self.save_grouped_files(gen_all)
+        gen_all,info_dict = self.concat_files()
+        self.save_grouped_files(gen_all,info_dict)
 
 
 
