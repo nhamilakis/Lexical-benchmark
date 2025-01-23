@@ -2,7 +2,6 @@ import logging
 import random
 import string
 from pathlib import Path
-from typing import Dict, List
 
 import pandas as pd
 import torch
@@ -75,7 +74,7 @@ class TextGenerator:
             self.tokenizer.add_tokens(special_token)
         print(f"Added {len(special_token_lst)} special tokens to the tokenizer")
 
-    def generate_text(self, word_num: int, temp_lst: List[float]) -> Dict[str, str]:
+    def generate_text(self, word_num: int, temp_lst: list[float]) -> dict[str, str]:
         """Generate text with different temperatures."""
         results = {}
         # Use a valid token ID from the tokenizer's vocabulary
@@ -148,7 +147,7 @@ class BatchProcessor:
         batch[temp_columns] = pd.DataFrame(results, index=batch.index)
         return batch
 
-    def process_dataframe(self, df: pd.DataFrame, temp_lst: List[float], resume: bool = False) -> pd.DataFrame:
+    def process_dataframe(self, df: pd.DataFrame, temp_lst: list[float], resume: bool = False) -> pd.DataFrame:
         """Process entire dataframe with save intervals."""
         gen = pd.DataFrame()
         resume_file = self.save_path / "gen_intermediate.csv"

@@ -71,7 +71,6 @@ class GenerationMerger:
                             gen_path_year = model / f"{self.hour_per_year}_hour_per_year.csv"
                             gen_path = model / self.filename
 
-                            # Fix 1: Reversed logic for gen_path existence check
                             if gen_path_year.exists():
                                 gen_path = gen_path_year
                             elif gen_path.exists():
@@ -80,7 +79,6 @@ class GenerationMerger:
                                 print(f"No generated file in {model}. Skip")
                                 continue
 
-                            # Fix 2: Move gen reading and concatenation inside the loop
                             gen = pd.read_csv(gen_path).loc[:, "month":]
                             info_dict = {
                                 "dataset": dataset.name,
@@ -90,7 +88,7 @@ class GenerationMerger:
                             }
                             gen = gen.assign(**info_dict)
                             gen_all = pd.concat([gen_all, gen])
-        # Fix 3: Move save operation outside the loop
+
         if not gen_all.empty:
             gen_all.to_csv(self.gen_dir / self.filename)
             print(f"Saving the concatenated generation to {self.gen_dir / self.filename}")

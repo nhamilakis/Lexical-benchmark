@@ -6,6 +6,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
+
+from lexical_benchmark.settings import chunk2month
 from lexical_benchmark.utils.gen_util import BatchProcessor, Logger, TextGenerator
 
 
@@ -32,7 +34,7 @@ def parse_args():
         help="Path to the generated texts",
     )
     parser.add_argument("--temp_lst", type=list, default=[0.3, 0.6, 1.0, 1.5], help="target month model")
-    parser.add_argument("--gen_name", type=str, default="gen.csv", help="gen file name")
+    parser.add_argument("--hour_per_year", default=1000, type=int, help="Estimated yearly exposure hours")
     parser.add_argument("--seed", type=int, default=42, help="random seed")
     parser.add_argument("--added_tokens", default=["'", "|"], help="A list of added special tokens")
     parser.add_argument("--save_interval", default=2, type=int, help="The number of rows to save")
@@ -46,12 +48,15 @@ def main(args):
     # Setup paths
     generation_path = Path(args.generation_path)
     generation_path.mkdir(parents=True, exist_ok=True)
-    gen_name = args.gen_name
+    gen_name = f"{args.hour_per_year}_hour_per_year.csv"
     model_type = Path(args.generation_path).name
 
     # Get month from path
     try:
-        month = int(Path(args.generation_path).parents[1].name)
+        # convert the chunk_num to month
+        chunk_num = int(Path(args.generation_path).parents[1].name)
+        month = chunk2month(chunk_num,args.hour_per_year)
+
     except ValueError as e:
         raise ValueError(f"Parent folder of {args.generation_path} does not contain month info!") from e
     print(f"{month=}")
