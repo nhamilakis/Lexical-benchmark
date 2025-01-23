@@ -6,6 +6,7 @@ To avoid angering the type gods a stub file has been added : stubs/pathlib.piy t
 import json
 import pathlib
 import typing as t
+import pandas as pd
 
 try:
     import tomli_w  # type: ignore[import-not-found, import-untyped]
@@ -103,6 +104,12 @@ def read_yaml(self: pathlib.Path) -> t.Any:
     raise OSError("Failed to find tomllib library !!")
 
 
+def read_csv(self: pathlib.Path, columns: list[str] | None = None, sep: str | None = None, **kwargs) -> pd.DataFrame:
+    """Read a CSV file."""
+    return pd.read_csv(self, columns=columns, sep=sep, **kwargs)
+
+
+
 def extend(self: pathlib.Path, parts: tuple[str, ...]) -> pathlib.Path:
     """Extend a part with a set of parts."""
     for p in parts:
@@ -127,3 +134,5 @@ pathlib.Path.load_toml = read_toml  # type: ignore[method-assign]
 # YAML IO
 pathlib.Path.dump_yaml = write_yaml  # type: ignore[method-assign]
 pathlib.Path.load_yaml = read_yaml  # type: ignore[method-assign]
+# CSV IO
+pathlib.Path.read_csv = read_csv # type: ignore[method-assign]

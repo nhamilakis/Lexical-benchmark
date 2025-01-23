@@ -138,6 +138,10 @@ class _MyPathSettings:
         return self.dataset_root / "STELATranscriptions2"
 
     @property
+    def word_stats(self) -> _Path:
+        return self.dataset_root / "wordstats"
+
+    @property
     def code_root(self) -> _Path:
         import lexical_benchmark
 

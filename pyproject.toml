@@ -68,6 +68,7 @@ select = ["ALL"] # Be brave use all rules
 fixable = ["ALL"]
 # remove the ones that make no sense
 ignore = [
+    "ARG001",  # No need to type kwargs as they are dynamicly set.
     "NPY002",  # Allow numpy unsafe generations
     "S105",    # ignore hardcoded stuff
     "S107",    # falsely detects hardcoded passwords in code

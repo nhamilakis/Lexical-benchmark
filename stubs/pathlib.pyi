@@ -2,6 +2,7 @@ import typing as t
 from pathlib import Path as _Path # type: ignore[attr-defined]
 import os
 import io
+import pandas as pd
 
 
 OPEN_MODES = t.Literal[
@@ -168,3 +169,5 @@ class Path(_Path): # type: ignore
     def dump_yaml(self: "Path", data: t.Any) -> None: ...
 
     def load_yaml(self: "Path") -> t.Any: ...
+
+    def read_csv(self: "Path", columns: list[str] | None = None, sep: str | None = None, **kwargs) -> pd.DataFrame: ...

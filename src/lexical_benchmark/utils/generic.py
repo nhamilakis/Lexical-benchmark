@@ -84,9 +84,13 @@ class PathNamespace:
     def __init__(self, **kwargs: t.Unpack[dict[str, Path]]) -> None:
         self._paths: dict[str, Path] = {}
         for name, path in kwargs.items():
-            if not isinstance(path, Path):
+            if isinstance(path, str):
+                cast_p = Path(path)
+            elif isinstance(path, Path):
+                cast_p = path
+            else:
                 raise TypeError(f"Value for {name} must be a Path object")
-            self._paths[name] = path
+            self._paths[name] = cast_p
 
     def __getattr__(self, name: str) -> Path:
         """Access paths as attributes.
