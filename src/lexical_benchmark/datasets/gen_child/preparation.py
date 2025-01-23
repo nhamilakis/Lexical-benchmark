@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 from tqdm import tqdm
-
+from lexical_benchmark.settings import chunk2month
 
 class GenerationMerger:
     """Merge model generations and re-distribute by actual months."""
@@ -22,20 +22,10 @@ class GenerationMerger:
         self.out_dir = out_dir
         self.lang = lang
         self.filename = filename
-        self.headers = ["file_id", "text", "sent_len", "gen_raw", "gen"]
         self.out_dir.mkdir(parents=True, exist_ok=True)
 
 
-    def save_grouped_files(self, df: pd.DataFrame)-> None:
-        """Save the monthly gen."""
-        col_lst = ["estimation", "month", "chunk", "model_type"]
-        for group, gen_group in df.groupby(col_lst):
-            file_dir = self.gen_dir / str(self.hour_per_year) / self.lang / group[0] / f"{group[1]:02d}" / f"{group[2]:02d}" / group[3]
-            file_dir.mkdir(parents=True, exist_ok=True)
-            gen_group[self.headers].to_csv(file_dir / "gen.csv")
-
-    def process(self)-> None:
-        """Concatenate and redistribute by months."""
+    def concat_files(self)->pd.DataFrame:
         gen_all = pd.DataFrame()
         info_dict = {}
         # loop over dataset in the path like: ChildRealistic/by_month/EN/10/00/LSTM
@@ -48,11 +38,33 @@ class GenerationMerger:
                                 gen_path = model / self.filename
                             gen = pd.read_csv(gen_path).loc[:, "month":]
                             # append additional index info as extra col
-                            info_dict{'month':}
-                            df = df.assign(**your_dict)
+                            info_dict = {
+                                "dataset":dataset.name,
+                                "month":chunk2month(int(month.name), self.hour_per_year),
+                                "chunk":chunk.name,
+                                "model_type":model.name
+                                }
+                            gen = gen.assign(**info_dict)
                             gen_all = pd.concat([gen_all, gen])
+
         gen_all.to_csv(self.out_dir / self.filename)
+        return gen_all
+
+    def save_grouped_files(self, df: pd.DataFrame,info_dict:dict)-> None:
+        """Save the monthly gen."""
+        for group, gen_group in df.groupby(list(info_dict.keys())):
+            file_dir = self.gen_dir / group[0] / str(self.hour_per_year) / self.lang / f"{group[1]:02d}" / f"{group[2]:02d}" / group[3]
+            file_dir.mkdir(parents=True, exist_ok=True)
+            # pop the info headers
+
+            gen_group[self.headers].to_csv(file_dir / "gen.csv")
+
+    def process(self)-> None:
+        """Concatenate and redistribute by months."""
+        gen_all = self.concat_files()
         self.save_grouped_files(gen_all)
+
+
 
 
 class ModelMonth:
@@ -72,6 +84,7 @@ class ModelMonth:
         self.month_dict = self._get_prop()
 
     def _get_prop(self) -> dict:
+        """Get prop of different pseudo months."""
         month_dict = {}
         for n, target in enumerate(self.target_months):
             if n == 0:
