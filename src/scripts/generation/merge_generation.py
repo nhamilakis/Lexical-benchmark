@@ -4,10 +4,7 @@ import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
 from lexical_benchmark import settings
-#from lexical_benchmark.utils.analysis_util import split_df_col
 from lexical_benchmark.datasets.utils.text_cleaning import char2word
-
-
 
 def parse_args():
     # Run parameters
@@ -100,7 +97,7 @@ def main():
                             if (model/args.filename).exists():
                                 # load file
                                 gen = pd.read_csv(model/args.filename).loc[:, 'month':]
-                                ''''''
+                                
                                 val_lst = [estimation.name,model.name,chunk.name]
                                 colname_lst = ['estimation','model_type','chunk']
                                 converted_gen = concat_gen(gen,val_lst,colname_lst)
@@ -127,7 +124,7 @@ def main():
         print(f'Saving the result to {file_dir}')
 
 
-        
+
 
 if __name__ == "__main__":
     main()
