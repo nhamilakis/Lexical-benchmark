@@ -4,6 +4,13 @@ import logging
 import os
 from pathlib import Path
 
+import wandb
+from transformers import (
+    DataCollatorForLanguageModeling,
+    EarlyStoppingCallback,
+    Trainer,
+)
+
 from lexical_benchmark.settings import dataset_name_dict
 from lexical_benchmark.utils import hf_util
 from lexical_benchmark.utils.train_util import (
@@ -11,13 +18,6 @@ from lexical_benchmark.utils.train_util import (
     LSTMForLanguageModeling,
     setup_training_arguments,
 )
-from transformers import (
-    DataCollatorForLanguageModeling,
-    EarlyStoppingCallback,
-    Trainer,
-)
-
-import wandb
 
 
 def parse_args() -> argparse.Namespace:
