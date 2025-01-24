@@ -10,18 +10,6 @@ KAIKI_ENGLISH_WORD_DICT_URL = "https://kaikki.org/dictionary/raw-wiktextract-dat
 LEXICON_ITEMS = ("kaikki", "SCOWLv2", "yawl")
 # Placeholder string for empty rows
 PLACEHOLDER_MONTH = "placeholder"
-# Model list
-model_dict = {
-    "50h": [1],
-    "100h": [1],
-    "200h": [2, 3],
-    "400h": [4, 8],
-    "800h": [9, 18],
-    "1600h": [19, 28],
-    "3200h": [29, 36],
-    "4500h": [46, 54],
-    "7100h": [66, 74],
-}
 
 
 #######################################################

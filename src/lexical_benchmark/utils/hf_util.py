@@ -1,4 +1,4 @@
-from transformers import LineByLineTextDataset, PreTrainedTokenizer
+from transformers import PreTrainedTokenizer
 import string
 
 class CharacterTokenizer(PreTrainedTokenizer):
