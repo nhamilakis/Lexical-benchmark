@@ -37,7 +37,7 @@ def parse_args():
     parser.add_argument("--hour_per_year", default=1000, type=int, help="Estimated yearly exposure hours")
     parser.add_argument("--seed", type=int, default=42, help="random seed")
     parser.add_argument("--added_tokens", default=["'", "|"], help="A list of added special tokens")
-    parser.add_argument("--save_interval", default=2, type=int, help="The number of rows to save")
+    parser.add_argument("--save_interval", default=100, type=int, help="The number of rows to save")
     parser.add_argument("--resume", action="store_true", help="if true, resume from intermediate generation")
     parser.add_argument("--debug", action="store_true", help="if debug, generate first 10 sentences")
     return parser.parse_args()

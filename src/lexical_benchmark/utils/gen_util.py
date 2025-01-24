@@ -154,7 +154,7 @@ class BatchProcessor:
         generated_df = pd.DataFrame()
         gen_mat_df = pd.DataFrame()
         # Group by sentence length
-        for sent_len, ref_df_group in source_df.groupby("sent_len"):
+        for sent_len, ref_df_group in ref_df.groupby("sent_len"):
             # Filter source rows matching current length
             source_gen = source_df[source_df["sent_len"] == sent_len]
             row_num = min(source_gen.shape[0], ref_df_group.shape[0])
@@ -200,7 +200,7 @@ class BatchProcessor:
                 source_df = pd.concat([source_df, processed_df])
                 # Save intermediate results
                 source_df.to_csv(self.save_path / "gen_intermediate.csv")
-                self.logger.info(f"Saved intermediate results. Total rows processed: {len(gen)}")
+            self.logger.info(f"Saved intermediate results. Total rows processed: {len(gen)}")
         # return the generated dataset matched in quantity and sent length
         return gen
 
