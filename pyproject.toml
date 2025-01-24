@@ -28,6 +28,7 @@ repository = "https://github.com/Jing-L97/Lexical-benchmark"
 dev = ["ruff", "mypy", "ipython", "jupyter"]
 polyglot = ["polyglot", "pyicu", "pycld2", "morfessor"]
 asr = ["openai-whisper"]
+optimised = ["polars", "spacy[cuda12x]"]
 train = [
     "accelerate==1.3.0",
     "tokenizers==0.21.0",
@@ -85,7 +86,7 @@ ignore = [
     "ANN003",  # allow **kwargs to be without type-hints
     "D107",    # allow __init__ without docstring
     "ANN101", "ANN102",  # "self" & "cls" need no typing (rule is Deprecated)
-    "T201",    # allow 'print' statements
+    "T201", "T203",    # allow 'print' & 'pprint' statements
     "FIX002",  # allow todos
     "TD003",   # not all todos require a issue
     "TD002",   # allow todos without author

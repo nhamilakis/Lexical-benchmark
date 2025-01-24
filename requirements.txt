@@ -16,8 +16,7 @@ psutil
 librosa
 typed-argument-parser
 openpyxl
-pyarrow==15.0.2
-python-dateutil==2.9.0.post0
-PyYAML==6.0.1
+python-dateutil
+PyYAML
 tqdm
-
+pyarrow

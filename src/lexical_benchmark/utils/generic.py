@@ -81,7 +81,7 @@ def timed_status(
 class PathNamespace:
     """A Namespace holding a variety of paths."""
 
-    def __init__(self, **kwargs: t.Unpack[dict[str, Path]]) -> None:
+    def __init__(self, **kwargs) -> None:
         self._paths: dict[str, Path] = {}
         for name, path in kwargs.items():
             if isinstance(path, str):

@@ -1,14 +1,21 @@
 jupyter_port := "9998"
 compute_node := "puck1"
 current_dir := justfile_directory()
-remote := "oberon2"
-remote2 := "jean-zay"
-remote_asr_path := "workspace/src/LexicalBenchmark2/data-v2/asr-test/"
-remote_notebook_path := "workspace/src/LexicalBenchmark2/notebooks/"
-remote_experiment_path := "workspace/src/LexicalBenchmark2/experiments/"
-remote_source_path := "workspace/src/LexicalBenchmark2/source/"
+COML_CLUSTER := "oberon2"
+JZ_CLUSTER := "jean-zay"
 scratch1_deploy_folder := "/scratch1/projects/lexical-benchmark/v2/jean-zay-code/Lexical_benchmark"
-jean_zay_deploy_folder := "/lustre/fswork/projects/rech/hhb/ucx81cx/code/Lexical_benchmark"
+jean_zay_deploy_folder_prod := "/lustre/fswork/projects/rech/hhb/ucx81cx/code/Lexical_benchmark"
+jean_zay_deploy_folder_dev := "/lustre/fsn1/projects/rech/hhb/ucx81cx/code"
+
+hostname := `hostname`
+COML_WORKSPACE := if hostname == "Nicolass-MBP.lan" {
+    "workspace/src/LexicalBenchmark2"
+} else if hostname == "other-person" {
+    "projects/LexicalBenchmark"
+} else {
+    "code/LexicalBenchmark"
+}
+
 
 _default:
   @just --choose
@@ -22,34 +29,32 @@ notebook-tunnel node=compute_node port=jupyter_port:
 [doc("Fetch notebooks from Oberon")]
 fetch-notebooks:
     echo "Fetching notebooks..."
-    rsync -azP --delete --exclude=".ipynb_checkpoints" "{{remote}}:{{remote_notebook_path}}" "{{current_dir}}/notebooks/"
-
-fetch-asr:
-    echo "Fetching asr results..."
-    rsync -azP --delete "{{remote}}:{{remote_asr_path}}" "{{current_dir}}/data/asr"
+    rsync -azP --delete --exclude=".ipynb_checkpoints" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/notebooks/" "{{current_dir}}/notebooks/"
 
 [doc("Deploy experiment code to remote")]
 deploy-experiments:
     echo "Syncing experiment directory..."
-    rsync -azP --delete --exclude=".mypy_cache" --exclude="notebooks"  --exclude="experiments" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/experiments/" "{{remote}}:{{remote_experiment_path}}"
+    rsync -azP --delete --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/experiments/" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/experiments/"
 
 [doc("Deploy source code to remote")]
 deploy-source: 
     echo "Syncing source-code directory..."
-    rsync -azP --delete --exclude=".mypy_cache" --exclude="notebooks"  --exclude="experiments" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{remote}}:{{remote_source_path}}"
+    rsync -azP --delete --exclude=".mypy_cache" --exclude="notebooks"  --exclude="experiments" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/source/"
 
 [doc("Deploy source code to remote")]
-deploy-scratch1: 
+deploy-source-coml-prod: 
     echo "Syncing source-code directory..."
-    rsync -azP --delete --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{remote}}:{{scratch1_deploy_folder}}"
+    rsync -azP --delete --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{COML_CLUSTER}}:{{scratch1_deploy_folder}}"
 
-[doc("Deploy source code to remote")]
-deploy-jean-zay: 
+[doc("Deploy source code to jean-folder in production")]
+deploy-jean-zay-prod: 
     echo "Syncing source-code directory..."
-    rsync -azP --delete --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{remote2}}:{{jean_zay_deploy_folder}}"
+    rsync -azP --delete --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{jean_zay_deploy_folder_prod}}"
 
-[doc("Deploying all elements to remote")]
-deploy: deploy-source deploy-experiments
+[doc("Deploy source code to jean-folder in debug mode")]
+deploy-jean-zay-dev: 
+    echo "Syncing source-code directory..."
+    rsync -azP --delete --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{jean_zay_deploy_folder_dev}}"
 
 [doc("Install module & dependencies")]
 install:
