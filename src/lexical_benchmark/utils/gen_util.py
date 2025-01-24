@@ -129,7 +129,7 @@ class BatchProcessor:
         self.chunk_size = chunk_size
         self.logger = Logger.setup(self.save_path)
 
-    def process_batch(self, batch: pd.DataFrame, temp_lst: List[float]) -> pd.DataFrame:
+    def process_batch(self, batch: pd.DataFrame, temp_lst: list[float]) -> pd.DataFrame:
         """Process a single batch of data."""
         temp_columns = [f"unprompted_{temp}" for temp in temp_lst]
         results = []
@@ -147,19 +147,44 @@ class BatchProcessor:
         batch[temp_columns] = pd.DataFrame(results, index=batch.index)
         return batch
 
+    def segment_df(self,source_df: pd.DataFrame, ref_df: pd.DataFrame) -> pd.DataFrame:
+        """Select rows to be generated and match source/ref dataframes."""
+        # Get columns after 'model' column
+        gen_cols = source_df.columns.tolist()[source_df.columns.get_loc("model") + 1 :]
+        generated_df = pd.DataFrame()
+        gen_mat_df = pd.DataFrame()
+        # Group by sentence length
+        for sent_len, ref_df_group in source_df.groupby("sent_len"):
+            # Filter source rows matching current length
+            source_gen = source_df[source_df["sent_len"] == sent_len]
+            row_num = min(source_gen.shape[0], ref_df_group.shape[0])
+            # Combine matched rows from ref and source
+            generated_df = pd.concat(
+                [generated_df, pd.concat([ref_df_group.head(row_num), source_gen[gen_cols].head(row_num)], axis=1)]
+            )
+            # Store unmatched ref rows for generation
+            if source_gen.shape[0] < ref_df_group.shape[0]:
+                gen_mat_df = pd.concat([gen_mat_df, ref_df_group.tail(len(ref_df_group) - len(source_gen))])
+        return generated_df, gen_mat_df
+
     def process_dataframe(self, df: pd.DataFrame, temp_lst: list[float], resume: bool = False) -> pd.DataFrame:
-        """Process entire dataframe with save intervals."""
+        """Process entire dataframe with save intermediate generations and updated databases."""
         gen = pd.DataFrame()
         resume_file = self.save_path / "gen_intermediate.csv"
 
         if resume and resume_file.is_file():
-            gen = pd.read_csv(resume_file).loc[:, "month":]
-            df = df.iloc[gen.shape[0] :]
-            self.logger.info(f"Resuming from previous generation. Rows processed: {len(gen)}")
+            source_df = pd.read_csv(resume_file).loc[:, "month":]
+            # select the rows to be generated
+            gen, df = self.segment_df(source_df, df)
+            self.logger.info(
+                f"Resuming from previous generation. Rows processed: {len(gen)} \
+                    Generating {len(df)} of sentences"
+            )
 
         total_rows = len(df)
         chunks = [df.iloc[i : i + self.chunk_size] for i in range(0, total_rows, self.chunk_size)]
 
+        # generate the rest of the marterials
         for chunk in tqdm(chunks, desc="Processing chunks"):
             processed_chunks = []
 
@@ -171,11 +196,12 @@ class BatchProcessor:
 
             processed_df = pd.concat(processed_chunks)
             gen = pd.concat([gen, processed_df])
-
-            # Save intermediate results
-            gen.to_csv(self.save_path / "gen_intermediate.csv")
-            self.logger.info(f"Saved intermediate results. Total rows processed: {len(gen)}")
-
+            if resume and resume_file.is_file():
+                source_df = pd.concat([source_df, processed_df])
+                # Save intermediate results
+                source_df.to_csv(self.save_path / "gen_intermediate.csv")
+                self.logger.info(f"Saved intermediate results. Total rows processed: {len(gen)}")
+        # return the generated dataset matched in quantity and sent length
         return gen
 
 
@@ -245,7 +271,7 @@ class LSTMForLanguageModeling(PreTrainedModel):
             return self._generate_greedy(input_ids, max_length, num_return_sequences)
 
     def _generate_with_sampling(self, input_ids, max_length, temperature, top_k, top_p, num_return_sequences):
-        batch_size = input_ids.shape[0]
+        """Temperature sampling for LM generations."""
         generated = input_ids.clone()
 
         for _ in range(max_length - input_ids.shape[1]):

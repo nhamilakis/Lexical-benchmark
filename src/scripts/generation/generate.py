@@ -18,13 +18,13 @@ def parse_args():
     parser.add_argument(
         "--model_path",
         type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/models/STELATranscriptions2/by_month/EN/15/00/trans",
+        default="/scratch1/projects/lexical-benchmark/v2/models/STELATranscriptions2/by_month/EN/10/00/trans",
         help="Path to the base LM",
     )
     parser.add_argument(
         "--generation_path",
         type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/gen/merged/STELATranscriptions2/by_month/EN/15/00/trans",
+        default="/scratch1/projects/lexical-benchmark/v2/gen/merged/STELATranscriptions2/by_month/EN/10/00/trans",
         help="Path to the generated texts",
     )
     parser.add_argument(
@@ -43,7 +43,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def main(args):
+def main(args):  
     """Main function to run the generation process with the specified arguments."""
     # Setup paths
     generation_path = Path(args.generation_path)
