@@ -18,8 +18,9 @@ class ChunkStats:
 
     def type_token_ratio(self) -> float:
         """Get type/token per chunk."""
-        all_words = len(set(self.rejected_words).union(set(self.accepted_words)))
-        return all_words / self.total_words
+        total_types = len(set(self.rejected_tokens).union(set(self.accepted_tokens)))
+        all_tokens = len(self.total_tokens)
+        return total_types / all_tokens if all_tokens > 0 else 0.0
 
     def token_rejection_rate(self) -> float:
         """Compute token rejection rate of chunk."""

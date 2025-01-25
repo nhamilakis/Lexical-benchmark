@@ -24,42 +24,6 @@ class GenerationMerger:
         self.filename = filename
 
 
-    def concat_files1(self)->pd.DataFrame:
-        gen_all = pd.DataFrame()
-        info_dict = {}
-        # loop over dataset in the path like: ChildRealistic/by_month/EN/10/00/LSTM
-        for dataset in self.gen_dir.iterdir():
-            if dataset.is_dir():
-                for month in (dataset / "by_month" / self.lang).iterdir():
-                    for chunk in month.iterdir():
-                        for model in chunk.iterdir():
-                            gen_path_year = model / f"{self.hour_per_year}_hour_per_year.csv"
-                            gen_path = model / self.filename
-                            if not gen_path_year.exists() and not gen_path.exists():
-                                # pass if there is not genrated file
-                                print(f"No generated file in {model}. Skip")
-                                continue
-                            else:
-                                if gen_path_year.exists():
-                                    gen_path = gen_path_year
-                                elif gen_path.exists():
-                                    continue
-                                gen = pd.read_csv(gen_path).loc[:, "month":]
-                                # append additional index info as extra col
-                                info_dict = {
-                                    "dataset":dataset.name,
-                                    "month":chunk2month(int(month.name), self.hour_per_year),
-                                    "chunk":chunk.name,
-                                    "model_type":model.name
-                                    }
-                                gen = gen.assign(**info_dict)
-                                gen_all = pd.concat([gen_all, gen])
-
-        gen_all.to_csv(self.gen_dir / self.filename)
-        print(f"Saving the concatenated generation to {self.gen_dir / self.filename}")
-        return gen_all,info_dict
-
-
     def concat_files(self) -> pd.DataFrame:
         gen_all = pd.DataFrame()
         info_dict = {}

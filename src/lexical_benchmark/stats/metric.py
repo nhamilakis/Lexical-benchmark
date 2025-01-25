@@ -55,6 +55,7 @@ class Metric:
 
     def compute_CDI(self, threshold: int, CDI_words: list) -> float:
         """Get average CDI scores of the given word list."""
+        # adjust counts by coefficients
 
         return None
 
