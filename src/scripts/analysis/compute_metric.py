@@ -7,10 +7,8 @@ import pandas as pd
 from tqdm import tqdm
 
 from lexical_benchmark import settings
-from lexical_benchmark.datasets import childes
-from lexical_benchmark.datasets import utils as dataset_utils
 from lexical_benchmark.datasets.utils.text_cleaning import char2word
-from lexical_benchmark.stats.metric import Metric
+from lexical_benchmark.stats.metric import Metric, load_dict
 
 
 def parse_args():
@@ -51,85 +49,38 @@ def parse_args():
 
 
 
-def load_dict(dataset_name:str):
-    """Load dictionary based on different datasets."""
-    if dataset_name=='child':
-        print("Append en_dict with adult input")
-        dataset = childes.CHILDESDataset()
-        childes_adult_extras_lexique = childes.CHILDESExtrasLexicon(dataset)
-        childes_adult_extras_lexique.add_lang("Eng-NA", "adult")
-        childes_adult_extras_lexique.add_lang("Eng-UK", "adult")
-        dict_hash_id = childes_adult_extras_lexique.cache_current()
-        en_dict = dataset_utils.DictionairyCleaner(lang="EN", childes_extra_id=dict_hash_id)
-    else:
-        en_dict = dataset_utils.DictionairyCleaner(lang="EN")
-    print("Dictionary has been loaded!")
-    return en_dict
+def append_model_metric(gen: pd.DataFrame, temp_lst: list, info_dict: dict, metric_lst: list, threshold: int, CDI_words: list, chunk_size: int, word_dict: dict):
+   scores = []
+   for temp in temp_lst:
+       sent_lst = gen[f"unprompted_{temp}"].apply(char2word).tolist()
+       metric = Metric(data=sent_lst, temp=temp, metric_lst=metric_lst, threshold=threshold, 
+                      CDI_words=CDI_words, chunk_size=chunk_size, word_dict=word_dict)
+       scores.append([x for x in metric.compute_metrics() if x is not None])
 
+   score = pd.DataFrame(scores, columns=["temp", *metric_lst])
+   score = score.assign(**info_dict)
+   ordered_cols = [col for col in score.columns if col not in metric_lst] + metric_lst
+   score = score[ordered_cols]
+   score['word_num'] = gen['sent_len'].sum()
+   return score
 
+def append_human_metric(ref_data: pd.DataFrame, metric_lst: list, threshold: int, CDI_words: list, chunk_size: int, word_dict: dict):
+   gen_grouped = ref_data.groupby('month')
+   scores = []
+   for month, gen in gen_grouped:
+       sent_lst = gen["text"].tolist()
+       metric = Metric(data=sent_lst, temp=month, metric_lst=metric_lst, threshold=threshold,
+                      CDI_words=CDI_words, chunk_size=chunk_size, word_dict=word_dict)
+       row = metric.compute_metrics()
+       row.append(gen['sent_len'].sum())
+       scores.append([x for x in row if x is not None])
 
-def compute_metric(sent_lst:list,temp:str,metric_lst:list,threshold:int,CDI_words:list,chunk_size:int,word_dict:dict)->list:
-    """Compute metric scores for a list of texts."""
-    data = [word 
-        for sentence in sent_lst 
-        if isinstance(sentence, (str, bytes))
-        for word in str(sentence).split()]
-    metric = Metric(data=data, chunk_size=chunk_size, word_dict=word_dict)
-    row = [temp]
-    row.extend([
-           metric.compute_ttr() if "type_token_ratio" in metric_lst else None,
-           metric.compute_type_rej_rate() if "rej_type_rate" in metric_lst else None,
-           metric.compute_CDI(threshold, CDI_words) if "CDI" in metric_lst else None
-       ])
-    return row
-
-
-
-def append_model_metric(gen: pd.DataFrame,temp_lst:list,info_dict:dict,metric_lst:list,threshold:int,CDI_words:list,chunk_size:int, word_dict:dict):
-    """Compute metric scores for generated text."""
-    scores = []
-    for temp in temp_lst:
-        sent_lst = gen[f"unprompted_{temp}"].apply(char2word).tolist()
-        row = compute_metric(sent_lst,temp,metric_lst,threshold,CDI_words,chunk_size,word_dict)
-        scores.append([x for x in row if x is not None])
-    # append info frame
-    score = pd.DataFrame(scores, columns=["temp", *metric_lst])
-    score = score.assign(**info_dict)
-    # move the scores on the right
-    ordered_cols = [col for col in score.columns if col not in metric_lst] + metric_lst
-    score = score[ordered_cols]
-    # append the total word num
-    score['word_num'] = gen['sent_len'].sum()
-    return score
-
-
-def append_human_metric(ref_data: pd.DataFrame,metric_lst:list,threshold:int,CDI_words:list,chunk_size:int, word_dict:dict):
-    """Compute metric scores for human reference data."""
-    # temp,dataset,month,chunk,model_type,type_token_ratio,rej_type_rate,word_num
-    gen_grouped = ref_data.groupby('month')
-    scores = []
-    for month, gen in gen_grouped:
-        sent_lst = gen["text"].tolist()
-        row = compute_metric(sent_lst,month,metric_lst,threshold,CDI_words,chunk_size,word_dict)
-        # append the total word num
-        row.append(gen['sent_len'].sum())
-        scores.append([x for x in row if x is not None])
-    # append info frame
-    score = pd.DataFrame(scores, columns=["month", *metric_lst,'word_num'])
-
-    # append additional info_dictionary
-    info_dict = {
-                "dataset": "CHILDES",
-                "chunk": "00",
-                "model_type": "human"
-                }
-    score = score.assign(**info_dict)
-    # move the scores on the right
-    ordered_cols = [col for col in score.columns if col not in metric_lst] + metric_lst
-    score = score[ordered_cols]
-    return score
-
-
+   score = pd.DataFrame(scores, columns=["month", *metric_lst, 'word_num'])
+   info_dict = {"dataset": "CHILDES", "chunk": "00", "model_type": "human"}
+   score = score.assign(**info_dict)
+   ordered_cols = [col for col in score.columns if col not in metric_lst] + metric_lst
+   score = score[ordered_cols]
+   return score
 
 
 def main():

@@ -3,8 +3,26 @@ import functools
 import numpy as np
 from scipy.optimize import curve_fit
 
+from lexical_benchmark.datasets import childes
 from lexical_benchmark.datasets import utils as dataset_utils
 from lexical_benchmark.stats import normalised_rejection_rates
+
+
+def load_dict(dataset_name:str):
+    """Load dictionary based on different datasets."""
+    if dataset_name=='child':
+        print("Append en_dict with adult input")
+        dataset = childes.CHILDESDataset()
+        childes_adult_extras_lexique = childes.CHILDESExtrasLexicon(dataset)
+        childes_adult_extras_lexique.add_lang("Eng-NA", "adult")
+        childes_adult_extras_lexique.add_lang("Eng-UK", "adult")
+        dict_hash_id = childes_adult_extras_lexique.cache_current()
+        en_dict = dataset_utils.DictionairyCleaner(lang="EN", childes_extra_id=dict_hash_id)
+    else:
+        en_dict = dataset_utils.DictionairyCleaner(lang="EN")
+    print("Dictionary has been loaded!")
+    return en_dict
+
 
 
 def word_clean_fn(word: str, word_dict: dataset_utils.DictionairyCleaner) -> bool:
