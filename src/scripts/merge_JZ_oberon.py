@@ -14,6 +14,7 @@ def parseargs():
     parser.add_argument("--source1", type=str, default="gen/oberon", help="Source Directory1")
     parser.add_argument("--source2", type=str, default="gen/jz", help="Directory to save path file")
     parser.add_argument("--dest", type=str, default="gen/merged", help="Destination Directory to save path file")
+    parser.add_argument("--strategy", type=str, default="size", help="Merging strategy")
     return parser.parse_args()
 
 
@@ -33,9 +34,15 @@ def merge_folders(src_folder1, src_folder2, dst_folder, strategy="overwrite"):
 
     def resolve_conflict(file1, file2, rel_path):
         if strategy == "newest":
+            # get the newest file
             info1 = get_file_info(file1)
             info2 = get_file_info(file2)
             return file2 if info2["mtime"] > info1["mtime"] else file1
+        elif strategy == "largest":
+            # get the largest file
+            info1 = get_file_info(file1)
+            info2 = get_file_info(file2)
+            return file2 if info2["size"] > info1["size"] else file1
         elif strategy == "skip":
             return None
         elif strategy == "overwrite":

@@ -1,28 +1,18 @@
 """Tools to collect and use transcriptions from the Geenration dataset."""
-
 from pathlib import Path
 
 import pandas as pd
 from tqdm import tqdm
 
-from lexical_benchmark.settings import chunk2month
-
 
 class GenerationMerger:
     """Merge model generations and re-distribute by actual months."""
-    def __init__(
-        self,
-        hour_per_year: int,
-        gen_dir: Path,
-        lang: str = "EN",
-        filename: str = "gen.csv"
-        )-> None:
 
+    def __init__(self, hour_per_year: int, gen_dir: Path, lang: str = "EN", filename: str = "gen.csv") -> None:
         self.hour_per_year = hour_per_year
         self.gen_dir = gen_dir
         self.lang = lang
         self.filename = filename
-
 
     def concat_files(self) -> pd.DataFrame:
         gen_all = pd.DataFrame()
@@ -45,50 +35,57 @@ class GenerationMerger:
                                 continue
 
                             gen = pd.read_csv(gen_path).loc[:, "month":]
-                            info_dict = {
-                                "dataset": dataset.name,
-                                #"month": chunk2month(int(month.name), self.hour_per_year),
-                                "chunk": chunk.name,
-                                "model_type": model.name
-                            }
+                            info_dict = {"dataset": dataset.name, "chunk": chunk.name, "model_type": model.name}
                             gen = gen.assign(**info_dict)
                             gen_all = pd.concat([gen_all, gen])
+
+                            if month.name == '24':    # note here we hard_coded the generatin!
+                                print("Duplicating the generation from month 24")
+                                gen = pd.read_csv(gen_path).loc[:, "month":]
+                                # remove the code that is higher than 24 (included)
+                                print(f"before removing the additional rows {gen.shape[0]}")
+                                gen = gen[gen['month']<24]
+                                print(f"after removing the additional rows {gen.shape[0]}")
+
+                                info_dict = {"dataset": dataset.name, "chunk": "01", "model_type": model.name}
+                                gen = gen.assign(**info_dict)
+                                gen_all = pd.concat([gen_all, gen])
 
         if not gen_all.empty:
             gen_all.to_csv(self.gen_dir / self.filename)
             print(f"Saving the concatenated generation to {self.gen_dir / self.filename}")
         return gen_all, info_dict
 
-    def save_grouped_files(self, df: pd.DataFrame,info_dict:dict)-> None:
+
+    def save_grouped_files(self, df: pd.DataFrame, info_dict: dict) -> None:
         """Save the monthly gen."""
-        col_header = list(info_dict.keys()) + ['month']
-        print(col_header)
+        col_header = list(info_dict.keys()) + ["month"]
         for group, gen_group in df.groupby(col_header):
-            file_dir = self.gen_dir / group[0] / f"{self.hour_per_year}_hour_per_year" / self.lang / f"{group[3]:02d}" / group[1] / group[2]
+            file_dir = (
+                self.gen_dir
+                / group[0]
+                / f"{self.hour_per_year}_hour_per_year"
+                / self.lang
+                / f"{group[3]:02d}"
+                / group[1]
+                / group[2]
+            )
             file_dir.mkdir(parents=True, exist_ok=True)
             # pop the info headers
             gen_group = gen_group.drop(col_header, axis=1)
             gen_group.to_csv(file_dir / self.filename)
             print(f"Saving the monthly generation to {file_dir / self.filename}")
 
-    def process(self)-> None:
+    def process(self) -> None:
         """Concatenate and redistribute by months."""
-        gen_all,info_dict = self.concat_files()
-        self.save_grouped_files(gen_all,info_dict)
-
-
+        gen_all, info_dict = self.concat_files()
+        self.save_grouped_files(gen_all, info_dict)
 
 
 class ModelMonth:
     """Annotate model info."""
 
-    def __init__(
-        self, 
-        child_df: Path, 
-        out_dir: Path, 
-        target_months: list[int] = [6, 12, 18, 24, 30, 36]
-        ) -> None:
-
+    def __init__(self, child_df: Path, out_dir: Path, target_months: list[int] = [6, 12, 18, 24, 30, 36]) -> None:
         self.child_df = child_df
         self.out_dir = out_dir
         self.out_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -116,7 +113,6 @@ class ModelMonth:
         word_count_column: str = "sent_len",
         target_column: str = "model",
     ) -> pd.DataFrame:
-
         """Map model months with human month."""
         if word_count_column not in df.columns:
             raise ValueError(f"Column '{word_count_column}' not found")
@@ -213,7 +209,6 @@ class CHILDESMonth:
 
     def process(self) -> None:
         """Concatenate all the data."""
-
         for accent in self.accent_lst:
             meta_df = pd.read_csv(self.root_dir / "metadata" / f"metadata_{accent}.csv")
             meta_df["month"] = meta_df["child_age"].apply(self.convert_to_months)

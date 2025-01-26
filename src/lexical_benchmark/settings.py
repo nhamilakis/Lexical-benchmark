@@ -14,7 +14,11 @@ PLACEHOLDER_MONTH = "placeholder"
 
 #######################################################
 # Dataset abbreviation dict
-dataset_name_dict = {"ChildRealistic": "child", "STELATranscriptions2": "stela"}
+dataset_name_dict = {
+    "ChildRealistic": "child", 
+    "CHILDES": "child",
+    "STELATranscriptions2": "stela",
+    }
 
 
 def chunk2month(chunk_num: int, hour_per_year: int, hour_per_chunk: int = 50) -> int:

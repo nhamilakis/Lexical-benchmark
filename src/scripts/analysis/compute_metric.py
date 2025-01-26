@@ -24,6 +24,12 @@ def parse_args():
         help="Path to the generated texts",
     )
     parser.add_argument(
+        "--ref_path",
+        type=str,
+        default="gen/merged/CHILDES_model.csv",
+        help="Path to the human reference data",
+    )
+    parser.add_argument(
         "--metric_path",
         type=str,
         default="gen/metrics.csv",
@@ -46,9 +52,9 @@ def parse_args():
 
 
 def load_dict(dataset_name:str):
-    """Load dictionary based on different datasets"""
+    """Load dictionary based on different datasets."""
     if dataset_name=='child':
-        print("Append en dict with adult input")
+        print("Append en_dict with adult input")
         dataset = childes.CHILDESDataset()
         childes_adult_extras_lexique = childes.CHILDESExtrasLexicon(dataset)
         childes_adult_extras_lexique.add_lang("Eng-NA", "adult")
@@ -64,7 +70,10 @@ def load_dict(dataset_name:str):
 
 def compute_metric(sent_lst:list,temp:str,metric_lst:list,threshold:int,CDI_words:list,chunk_size:int,word_dict:dict)->list:
     """Compute metric scores for a list of texts."""
-    data = [word for sentence in sent_lst for word in sentence.split()]
+    data = [word 
+        for sentence in sent_lst 
+        if isinstance(sentence, (str, bytes))
+        for word in str(sentence).split()]
     metric = Metric(data=data, chunk_size=chunk_size, word_dict=word_dict)
     row = [temp]
     row.extend([
@@ -89,7 +98,37 @@ def append_model_metric(gen: pd.DataFrame,temp_lst:list,info_dict:dict,metric_ls
     # move the scores on the right
     ordered_cols = [col for col in score.columns if col not in metric_lst] + metric_lst
     score = score[ordered_cols]
+    # append the total word num
+    score['word_num'] = gen['sent_len'].sum()
     return score
+
+
+def append_human_metric(ref_data: pd.DataFrame,metric_lst:list,threshold:int,CDI_words:list,chunk_size:int, word_dict:dict):
+    """Compute metric scores for human reference data."""
+    # temp,dataset,month,chunk,model_type,type_token_ratio,rej_type_rate,word_num
+    gen_grouped = ref_data.groupby('month')
+    scores = []
+    for month, gen in gen_grouped:
+        sent_lst = gen["text"].tolist()
+        row = compute_metric(sent_lst,month,metric_lst,threshold,CDI_words,chunk_size,word_dict)
+        # append the total word num
+        row.append(gen['sent_len'].sum())
+        scores.append([x for x in row if x is not None])
+    # append info frame
+    score = pd.DataFrame(scores, columns=["month", *metric_lst,'word_num'])
+
+    # append additional info_dictionary
+    info_dict = {
+                "dataset": "CHILDES",
+                "chunk": "00",
+                "model_type": "human"
+                }
+    score = score.assign(**info_dict)
+    # move the scores on the right
+    ordered_cols = [col for col in score.columns if col not in metric_lst] + metric_lst
+    score = score[ordered_cols]
+    return score
+
 
 
 
@@ -98,6 +137,7 @@ def main():
     args = parse_args()
     gen_dir: Path = settings.PATH.DATA_DIR / args.gen_path
     metric_dir: Path = settings.PATH.DATA_DIR / args.metric_path
+    ref_dir: Path = settings.PATH.DATA_DIR / args.ref_path
 
     score_all = pd.DataFrame()
     CDI_words = []
@@ -121,14 +161,21 @@ def main():
                                     "model_type": model.name
                                 }
                             # compute the metric here sent_lst:list,temp_lst:list,info_dict:dict,
-                            score = append_model_metric(gen,args.temp_lst,info_dict,args.metric_lst,args.
-                                                    threshold,CDI_words,args.chunk_size, word_dict)
+                            score = append_model_metric(gen,args.temp_lst,info_dict,args.metric_lst,
+                                                args.threshold,CDI_words,args.chunk_size, word_dict)
                             score_all = pd.concat([score_all, score])
                             print(f"Finish computing metrics from {model.relative_to(gen_dir)}")
 
-
     score_all.to_csv(metric_dir)
     print(f"Saving the metric to {metric_dir}")
+
+    # compute human production
+    ref_data = pd.read_csv(ref_dir)
+    # load word_dict
+    word_dict = load_dict("CHILDES")
+    score_human = append_human_metric(ref_data,args.metric_lst,args.threshold,CDI_words,args.chunk_size, word_dict)
+    score_human.to_csv(metric_dir.parent/"human_metric.csv")
+    print(f"Saving the metric to {metric_dir.parent}/human_metric.csv")
 
 
 if __name__ == "__main__":
