@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument(
         "--metric_path",
         type=str,
-        default="gen/metrics.csv",
+        default="gen/merged/metrics.csv",
         help="Path to save metrics",
     )
     parser.add_argument(
@@ -76,7 +76,7 @@ def append_human_metric(ref_data: pd.DataFrame, metric_lst: list, threshold: int
        scores.append([x for x in row if x is not None])
 
    score = pd.DataFrame(scores, columns=["month", *metric_lst, 'word_num'])
-   info_dict = {"dataset": "CHILDES", "chunk": "00", "model_type": "human"}
+   info_dict = {"dataset": "CHILDES", "chunk": "00", "model_type": "human","temp":"1.0"}
    score = score.assign(**info_dict)
    ordered_cols = [col for col in score.columns if col not in metric_lst] + metric_lst
    score = score[ordered_cols]
@@ -117,17 +117,16 @@ def main():
                             score_all = pd.concat([score_all, score])
                             print(f"Finish computing metrics from {model.relative_to(gen_dir)}")
 
-    score_all.to_csv(metric_dir)
-    print(f"Saving the metric to {metric_dir}")
-
     # compute human production
     ref_data = pd.read_csv(ref_dir)
     # load word_dict
     word_dict = load_dict("CHILDES")
     score_human = append_human_metric(ref_data,args.metric_lst,args.threshold,CDI_words,args.chunk_size, word_dict)
-    score_human.to_csv(metric_dir.parent/"human_metric.csv")
-    print(f"Saving the metric to {metric_dir.parent}/human_metric.csv")
-
+    # Reorder columns based on given list
+    score_human = score_human[score_all.columns]
+    score_all = pd.concat([score_human,score_all])
+    score_all.to_csv(metric_dir)
+    print(f"Saving the metric to {metric_dir}")
 
 if __name__ == "__main__":
     main()
