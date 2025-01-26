@@ -32,6 +32,7 @@ class GenerationMerger:
                 for month in (dataset / "by_month" / self.lang).iterdir():
                     for chunk in month.iterdir():
                         for model in chunk.iterdir():
+                            # load the target file to make sure we have the corresponding file
                             gen_path_year = model / f"{self.hour_per_year}_hour_per_year.csv"
                             gen_path = model / self.filename
 
@@ -46,7 +47,7 @@ class GenerationMerger:
                             gen = pd.read_csv(gen_path).loc[:, "month":]
                             info_dict = {
                                 "dataset": dataset.name,
-                                "month": chunk2month(int(month.name), self.hour_per_year),
+                                #"month": chunk2month(int(month.name), self.hour_per_year),
                                 "chunk": chunk.name,
                                 "model_type": model.name
                             }
@@ -60,11 +61,13 @@ class GenerationMerger:
 
     def save_grouped_files(self, df: pd.DataFrame,info_dict:dict)-> None:
         """Save the monthly gen."""
-        for group, gen_group in df.groupby(list(info_dict.keys())):
-            file_dir = self.gen_dir / group[0] / f"{self.hour_per_year}_hour_per_year" / self.lang / f"{group[1]:02d}" / group[2] / group[3]
+        col_header = list(info_dict.keys()) + ['month']
+        print(col_header)
+        for group, gen_group in df.groupby(col_header):
+            file_dir = self.gen_dir / group[0] / f"{self.hour_per_year}_hour_per_year" / self.lang / f"{group[3]:02d}" / group[1] / group[2]
             file_dir.mkdir(parents=True, exist_ok=True)
             # pop the info headers
-            gen_group = gen_group.drop(list(info_dict.keys()), axis=1)
+            gen_group = gen_group.drop(col_header, axis=1)
             gen_group.to_csv(file_dir / self.filename)
             print(f"Saving the monthly generation to {file_dir / self.filename}")
 

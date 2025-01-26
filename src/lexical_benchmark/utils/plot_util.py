@@ -27,7 +27,7 @@ class PlotSettings:
 
         plt.xticks(fontsize=18)
         plt.yticks(fontsize=18)
-        plt.grid(True, linestyle=":", linewidth=1, color="#bbbbbb")
+        plt.grid(True, linestyle=":", linewidth=2.5, color="#bbbbbb")
 
     @classmethod
     def configure_legend(cls):

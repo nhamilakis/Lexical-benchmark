@@ -60,11 +60,7 @@ class Metric:
         return None
 
 
-"""
-USAGE:
-word_dict = dataset_utils.DictionairyCleaner(lang="EN")
 
-m1 = Metric(..., word_dict=word_dict)
-m2 = Metric(..., word_dict=word_dict)
-m3 = Metric(..., word_dict=word_dict)
-"""
+
+# compute the extrapolated months
+
