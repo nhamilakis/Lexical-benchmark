@@ -89,7 +89,7 @@ def main(args):
         # convert back to true month fir further selection
         true_month = chunk2month(chunk_num,args.hour_per_year)
         df = df[df["model"] == true_month]
-        logger.info(f"Loaded input file with {len(df)} rows for month {month}")
+        logger.info(f"Loaded input file with {len(df)} rows for month {true_month}")
 
         # Debug mode handling
         if args.debug:
