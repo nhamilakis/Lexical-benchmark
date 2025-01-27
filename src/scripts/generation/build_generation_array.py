@@ -1,12 +1,12 @@
 # generate the filedir for bash array
 import argparse
-import sys
 from pathlib import Path
 
 import pandas as pd
+from tqdm import tqdm
+
 from lexical_benchmark import settings
 from lexical_benchmark.utils import format_util
-from tqdm import tqdm
 
 
 def parseargs():

@@ -198,43 +198,47 @@ class BatchProcessor:
             results = []
 
             # Handle different model types
-            # Get available GPUs for LSTM processing
-            num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 1
+            if isinstance(self.generator.model, LSTMForLanguageModeling):
+                # Get available GPUs for LSTM processing
+                num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 1
 
                 # Split batch for multi-GPU processing
-            if num_gpus > 1:
-                sub_batches = np.array_split(batch, num_gpus)
-                self.logger.info(f"Split batch into {len(sub_batches)} sub-batches for {num_gpus} GPUs")
+                if num_gpus > 1:
+                    sub_batches = np.array_split(batch, num_gpus)
+                    self.logger.info(f"Split batch into {len(sub_batches)} sub-batches for {num_gpus} GPUs")
 
                     # Process each sub-batch with error handling
-                for gpu_idx, sub_batch in enumerate(sub_batches):
-                    try:
-                        # Set device for this sub-batch and update generator's device
-                        if torch.cuda.is_available():
-                            torch.cuda.set_device(gpu_idx)
-                            self.generator.device = f"cuda:{gpu_idx}"
-                            # Move model to current GPU if not using DDP
-                            if not isinstance(self.generator.model, torch.nn.parallel.DistributedDataParallel):
+                    for gpu_idx, sub_batch in enumerate(sub_batches):
+                        try:
+                            # Set device for this sub-batch and update generator's device
+                            if torch.cuda.is_available():
+                                torch.cuda.set_device(gpu_idx)
+                                self.generator.device = f"cuda:{gpu_idx}"
+                                # Move model to current GPU if not using DDP
+                                if not isinstance(self.generator.model, torch.nn.parallel.DistributedDataParallel):
                                     self.generator.model = self.generator.model.to(self.generator.device)
 
-                        with torch.cuda.amp.autocast():
-                            sub_results = self._process_subbatch(
+                            with torch.cuda.amp.autocast():
+                                sub_results = self._process_subbatch(
                                     sub_batch, temp_lst, temp_columns, device_idx=gpu_idx
                                 )
-                            results.extend(sub_results)
+                                results.extend(sub_results)
 
-                    except Exception as e:
-                        self.logger.error(f"Error processing sub-batch on GPU {gpu_idx}: {str(e)}")
-                        empty_results = [pd.Series({col: "" for col in temp_columns})] * len(sub_batch)
-                        results.extend(empty_results)
+                        except Exception as e:
+                            self.logger.error(f"Error processing sub-batch on GPU {gpu_idx}: {str(e)}")
+                            empty_results = [pd.Series({col: "" for col in temp_columns})] * len(sub_batch)
+                            results.extend(empty_results)
 
-                    finally:
+                        finally:
                             # Cleanup after each sub-batch
-                        if torch.cuda.is_available():
-                            torch.cuda.empty_cache()
-                            torch.cuda.synchronize(gpu_idx)
+                            if torch.cuda.is_available():
+                                torch.cuda.empty_cache()
+                                torch.cuda.synchronize(gpu_idx)
+                else:
+                    # Single GPU/CPU processing
+                    results.extend(self._process_subbatch(batch, temp_lst, temp_columns))
             else:
-                # Single GPU/CPU processing
+                # Non-LSTM model processing (e.g., Transformer, vLLM)
                 results.extend(self._process_subbatch(batch, temp_lst, temp_columns))
 
             # Convert results to DataFrame

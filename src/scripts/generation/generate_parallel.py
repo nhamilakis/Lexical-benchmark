@@ -18,13 +18,13 @@ def parse_args():
     parser.add_argument(
         "--model_path",
         type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/models/STELATranscriptions2/by_month/EN/10/00/LSTM",
+        default="/scratch1/projects/lexical-benchmark/v2/models/STELATranscriptions2/by_month/EN/10/00/trans",
         help="Path to the base LM",
     )
     parser.add_argument(
         "--generation_path",
         type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/gen/merged/STELATranscriptions2/by_month/EN/6/00/LSTM",
+        default="/scratch1/projects/lexical-benchmark/v2/gen/merged/STELATranscriptions2/by_month/EN/6/00/trans",
         help="Path to the generated texts",
     )
     parser.add_argument(
@@ -34,9 +34,10 @@ def parse_args():
         help="Path to the generated texts",
     )
     parser.add_argument("--temp_lst", type=list, default=[0.3, 0.6, 1.0, 1.5], help="target month model")
-    parser.add_argument("--hour_per_year", default=100, type=int, help="Estimated yearly exposure hours")
+    parser.add_argument("--hour_per_year", default=1000, type=int, help="Estimated yearly exposure hours")
     parser.add_argument("--seed", type=int, default=42, help="random seed")
     parser.add_argument("--added_tokens", default=["'", "|"], help="A list of added special tokens")
+    parser.add_argument("--use_vllm",  action="store_true", help="if true, apply vllm for transformer model")
     parser.add_argument("--save_interval", default=100, type=int, help="The number of rows to save")
     parser.add_argument("--resume", action="store_true", help="if true, resume from intermediate generation")
     parser.add_argument("--debug", action="store_true", help="if debug, generate first 10 sentences")
@@ -52,14 +53,13 @@ def main(args):
         gen_name = f"{args.hour_per_year}_hour_per_year.csv"
         model_type = Path(args.generation_path).name
         # automaitically enable vllm if there is transformer model
-        use_vllm = "trans" in args.model_path.lower()
-
+        use_vllm = "trans" in args.model_path.lower() if args.use_vllm else False
         # Get month from path
         try:
             # convert the chunk_num to month
             chunk_num = int(Path(args.generation_path).parents[1].name)
-            month = chunk2month(chunk_num,args.hour_per_year)
-
+            #month = chunk2month(chunk_num,args.hour_per_year)
+            month=chunk_num     # Enable this as we didn't modify the directory naming convention for JZ;
         except ValueError as e:
             raise ValueError(f"Parent folder of {args.generation_path} does not contain month info!") from e
         print(f"{month=}")
@@ -86,7 +86,9 @@ def main(args):
 
         # Load and filter data by month
         df = pd.read_csv(args.gen_file).loc[:, "month":]
-        df = df[df["model"] == month]
+        # convert back to true month fir further selection
+        true_month = chunk2month(chunk_num,args.hour_per_year)
+        df = df[df["model"] == true_month]
         logger.info(f"Loaded input file with {len(df)} rows for month {month}")
 
         # Debug mode handling
