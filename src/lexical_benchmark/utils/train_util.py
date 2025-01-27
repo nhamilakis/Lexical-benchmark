@@ -105,10 +105,10 @@ class LSTMForLanguageModeling(PreTrainedModel):
 
 
 
-def setup_training_arguments(args) -> TrainingArguments:
+def setup_training_arguments(model_path: Path) -> TrainingArguments:
     """Configure training arguments to match Fairseq settings."""
     return TrainingArguments(
-        output_dir=args.OutPath,
+        output_dir=str(model_path),
         overwrite_output_dir=True,
         # Batch size and optimization
         per_device_train_batch_size=32,  # Increase batch size
@@ -126,7 +126,7 @@ def setup_training_arguments(args) -> TrainingArguments:
         weight_decay=0.01,
         max_grad_norm=0.0,
         # Logging and saving
-        logging_dir=args.OutPath,
+        logging_dir=str(model_path),
         logging_steps=10,
         save_strategy="steps",
         save_steps=10,
