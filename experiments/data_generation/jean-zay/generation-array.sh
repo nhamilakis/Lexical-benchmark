@@ -1,16 +1,16 @@
 #!/bin/bash
-#SBATCH --job-name=lb-generation
+#SBATCH --job-name=lb-pgeneration
 #SBATCH --account=hhb@a100
 # Partition (A100)
 #SBATCH -C a100
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 # Number of GPUs per task (On a100 8 GPUs per node are available.)
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:2
 # Number of cores per task for gpu_p5 (1/8 of 8-GPUs A100 node)
 # A100 nodes have 64 cores, should use proportional to GPU number (1 gpu 1/8 of the CPUs)
 # For 4 GPUs use 32 cores per task
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=16
 # Only run this when testing
 ##SBATCH --qos=qos_gpu_a100-dev
 #SBATCH --time=20:00:00
@@ -25,10 +25,10 @@ if [[ -z "${_LM_ENV}" ]]; then
     source $WORK/load.sh
 fi
 
-export MODEL_ROOT="$WORK/model_light"
+export MODEL_ROOT="$WORK/models"
 export GEN_ROOT="$WORK/jz-gen"
 export DATASET_ROOT="$WORK/datasets"
-export CODE="$WORK/code"
+export CODE="$SCRATCH/code"
 export _LM_ENV="active"
 export JZ=1
 
@@ -99,6 +99,8 @@ echo "Running Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
 # Grab parameters from index file
 read model output <<< "$(get_line "${JOB_INDEX_FILE}" $SLURM_ARRAY_TASK_ID)"
 
-python $CODE/Lexical_benchmark/src/scripts/generation/generate.py --gen_file "$GEN_ROOT/CHILDES_model.csv" --model_path "$MODEL_ROOT/$model" --generation_path "$GEN_ROOT/$output" --save_interval 100 --resume
+
+python $CODE/src/scripts/generation/generate.py --gen_file "$GEN_ROOT/CHILDES_model.csv" --model_path "$MODEL_ROOT/$model" --generation_path "$GEN_ROOT/$output" --save_interval 100
+
 
 echo "Completed Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
