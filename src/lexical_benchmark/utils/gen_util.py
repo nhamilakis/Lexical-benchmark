@@ -40,6 +40,7 @@ class TextGenerator:
     def __init__(
         self,
         model_path: str,
+        tokenizer_path: str = None,
         model_max_length: int = 1024,
         model_type: str = "transformer",
         local_rank: int = -1,
@@ -49,7 +50,7 @@ class TextGenerator:
         self.use_vllm = use_vllm and model_type.lower() != "lstm"
         self.model_type = model_type
         self.local_rank = local_rank
-
+        self.max_length = model_max_length
         # Distributed setup with sync
         if local_rank != -1:
             if not dist.is_initialized():
@@ -65,8 +66,16 @@ class TextGenerator:
 
         # Model initialization with distributed support
         if self.use_vllm:
-            self.model = LLM(model=model_path, tokenizer=self.tokenizer)
-
+            # Use tokenizer_path if provided, else fall back to model_path
+            tokenizer_to_use = tokenizer_path if tokenizer_path else model_path
+            self.model = LLM(
+                    model=model_path,
+                    tokenizer=tokenizer_to_use,
+                    trust_remote_code=True,
+                    max_model_len=model_max_length,
+                    dtype="auto",
+                    gpu_memory_utilization=0.9,
+                )
         else:
             self.model = self._load_model(model_path)
             if local_rank != -1:
@@ -76,7 +85,6 @@ class TextGenerator:
         if local_rank != -1:
             dist.barrier()  # Sync after initialization
 
-        self.max_length = min(model_max_length, getattr(self.model.config, "n_positions", model_max_length))
 
     def _load_model(self, model_path: str) -> PreTrainedModel:
         """Load the model from path."""
@@ -104,17 +112,39 @@ class TextGenerator:
 
             for temp in temp_lst:
                 if self.use_vllm:
-                    # vLLM generation path - handles multi-GPU automatically
-                    sampling_params = SamplingParams(
-                        temperature=temp,
-                        max_tokens=word_num,
-                        frequency_penalty=0.0,
-                        presence_penalty=0.0,
-                    )
-                    outputs = self.model.generate(self.tokenizer.decode([random_token_id]), sampling_params)
-                    if not outputs or not outputs[0].outputs:
-                        raise ValueError("vLLM generated empty output")
-                    gen = outputs[0].outputs[0].text
+                    gen = self.tokenizer.decode([random_token_id])
+                    bar_count = 0
+                    max_attempts = 1000  # Increased for longer sequences
+                    attempts = 0
+                    while bar_count < word_num and attempts < max_attempts:
+                        sampling_params = SamplingParams(
+                            temperature=temp,
+                            max_tokens=1,  # Generate one token at a time
+                            stop=None,
+                            top_p=1.0,
+                            frequency_penalty=0.0,
+                            presence_penalty=0.0,
+                        )
+
+                        try:
+                            outputs = self.model.generate(gen, sampling_params)
+                            if not outputs or not outputs[0].outputs:
+                                raise ValueError("vLLM generated empty output")
+                            new_token = outputs[0].outputs[0].text
+                            # Handle the case where no new token is generated
+                            if not new_token:
+                                continue
+
+                            gen += new_token
+                            if new_token == "|":
+                                bar_count += 1
+                            attempts += 1
+                            # Reset context if too long while preserving the first token
+                            if len(gen) >= self.max_length - 2:
+                                gen = gen[:1]
+                        except Exception as e:
+                            logging.warning(f"Error during vLLM generation: {e}")
+                            continue
 
                 else:
                     # Traditional generation path
@@ -198,29 +228,30 @@ class BatchProcessor:
             results = []
 
             # Handle different model types
-            # Get available GPUs for LSTM processing
+            # Get available GPUs for processing
             num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 1
 
-                # Split batch for multi-GPU processing
-            if num_gpus > 1:
+            # Split batch for multi-GPU processing if not using vLLM
+            if num_gpus > 1 and not self.generator.use_vllm:
                 sub_batches = np.array_split(batch, num_gpus)
                 self.logger.info(f"Split batch into {len(sub_batches)} sub-batches for {num_gpus} GPUs")
 
-                    # Process each sub-batch with error handling
+                # Process each sub-batch with error handling
                 for gpu_idx, sub_batch in enumerate(sub_batches):
                     try:
                         # Set device for this sub-batch and update generator's device
                         if torch.cuda.is_available():
                             torch.cuda.set_device(gpu_idx)
                             self.generator.device = f"cuda:{gpu_idx}"
-                            # Move model to current GPU if not using DDP
-                            if not isinstance(self.generator.model, torch.nn.parallel.DistributedDataParallel):
-                                    self.generator.model = self.generator.model.to(self.generator.device)
+                            # Move model to current GPU if not using DDP and not using vLLM
+                            if (not isinstance(self.generator.model, torch.nn.parallel.DistributedDataParallel) 
+                                and not self.generator.use_vllm):
+                                self.generator.model = self.generator.model.to(self.generator.device)
 
                         with torch.cuda.amp.autocast():
                             sub_results = self._process_subbatch(
-                                    sub_batch, temp_lst, temp_columns, device_idx=gpu_idx
-                                )
+                                sub_batch, temp_lst, temp_columns, device_idx=gpu_idx
+                            )
                             results.extend(sub_results)
 
                     except Exception as e:
@@ -229,12 +260,12 @@ class BatchProcessor:
                         results.extend(empty_results)
 
                     finally:
-                            # Cleanup after each sub-batch
+                        # Cleanup after each sub-batch
                         if torch.cuda.is_available():
                             torch.cuda.empty_cache()
                             torch.cuda.synchronize(gpu_idx)
             else:
-                # Single GPU/CPU processing
+                # Single GPU/CPU processing or vLLM mode
                 results.extend(self._process_subbatch(batch, temp_lst, temp_columns))
 
             # Convert results to DataFrame
@@ -255,10 +286,11 @@ class BatchProcessor:
             self.logger.exception(f"Critical error in batch processing: {str(e)}")
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            if hasattr(self.generator.model, "module"):
-                self.generator.model.module.zero_grad(set_to_none=True)
-            else:
-                self.generator.model.zero_grad(set_to_none=True)
+            if not self.generator.use_vllm:
+                if hasattr(self.generator.model, "module"):
+                    self.generator.model.module.zero_grad(set_to_none=True)
+                else:
+                    self.generator.model.zero_grad(set_to_none=True)
             raise RuntimeError(f"Batch processing failed: {str(e)}")
 
         finally:

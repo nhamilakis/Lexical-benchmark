@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
+
 from lexical_benchmark.settings import chunk2month
 from lexical_benchmark.utils.gen_util import BatchProcessor, Logger, TextGenerator
 
@@ -32,6 +33,12 @@ def parse_args():
         default="/scratch1/projects/lexical-benchmark/v2/gen/merged/CHILDES_model.csv",
         help="Path to the generated texts",
     )
+    parser.add_argument(
+        "--tokenizer_path",
+        type=str,
+        default="/scratch1/projects/lexical-benchmark/v2/models/tokenizer",
+        help="Path to the generated texts",
+    )
     parser.add_argument("--temp_lst", type=list, default=[0.3, 0.6, 1.0, 1.5], help="target month model")
     parser.add_argument("--hour_per_year", default=1000, type=int, help="Estimated yearly exposure hours")
     parser.add_argument("--seed", type=int, default=42, help="random seed")
@@ -56,9 +63,8 @@ def main(args):
         # Get month from path
         try:
             # convert the chunk_num to month
-            chunk_num = int(Path(args.generation_path).parents[1].name)
+            chunk_num = int(Path(args.model_path).parents[1].name)
             month = chunk2month(chunk_num,args.hour_per_year)
-            #month=chunk_num     # Enable this as we didn't modify the directory naming convention for JZ;
         except ValueError as e:
             raise ValueError(f"Parent folder of {args.generation_path} does not contain month info!") from e
         print(f"{month=}")
@@ -85,8 +91,6 @@ def main(args):
 
         # Load and filter data by month
         df = pd.read_csv(args.gen_file).loc[:, "month":]
-        # convert back to true month fir further selection
-        #true_month = chunk2month(chunk_num,args.hour_per_year)
         df = df[df["model"] == month]
         logger.info(f"Loaded input file with {len(df)} rows for month {month}")
 
@@ -100,7 +104,8 @@ def main(args):
         generator = TextGenerator(
             model_path=args.model_path,
             model_type=model_type,
-            use_vllm=use_vllm
+            use_vllm=use_vllm,
+            tokenizer_path=args.tokenizer_path
         )
 
         # Add special tokens

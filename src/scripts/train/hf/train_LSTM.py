@@ -1,8 +1,14 @@
 #!/usr/bin/env python
 import argparse
 import logging
-import os
 from pathlib import Path
+
+import wandb
+from transformers import (
+    DataCollatorForLanguageModeling,
+    EarlyStoppingCallback,
+    Trainer,
+)
 
 from lexical_benchmark import settings
 from lexical_benchmark.utils import hf_util, train_util
@@ -11,13 +17,6 @@ from lexical_benchmark.utils.train_util import (
     LSTMForLanguageModeling,
     setup_training_arguments,
 )
-from transformers import (
-    DataCollatorForLanguageModeling,
-    EarlyStoppingCallback,
-    Trainer,
-)
-
-import wandb
 
 
 def parseargs() -> argparse.Namespace:
@@ -44,31 +43,6 @@ def parseargs() -> argparse.Namespace:
 # largest size of each block
 block_size = 128
 model_max_length = 2048
-
-#TODO: modify the trainer in train_util to put LSTMConfig here
-'''     
-class LSTMConfig(PretrainedConfig):
-    """Configuration class for LSTM language model."""
-
-    model_type = "lstm"
-
-    def __init__(
-        self,
-        vocab_size: int = 58,
-        embedding_dim: int = 200,
-        hidden_size: int = 1024,
-        num_layers: int = 3,
-        dropout: float = 0.1,
-        **kwargs,
-    ):
-        """Initialize LSTM Config."""
-        super().__init__(**kwargs)
-        self.vocab_size = vocab_size
-        self.embedding_dim = embedding_dim
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        self.dropout = dropout
-'''
 
 
 def build_path(args: argparse.Namespace, folder: str) -> Path:

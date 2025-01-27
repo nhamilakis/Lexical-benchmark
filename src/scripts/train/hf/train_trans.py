@@ -1,11 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python  # noqa: EXE001
 import argparse
 import logging
 from pathlib import Path
 
-from lexical_benchmark import settings
-from lexical_benchmark.utils.hf_util import load_char_tokenizer
-from lexical_benchmark.utils.train_util import setup_training_arguments, tokenize_data
+import wandb
 from transformers import (
     DataCollatorForLanguageModeling,
     EarlyStoppingCallback,
@@ -14,7 +12,9 @@ from transformers import (
     Trainer,
 )
 
-import wandb
+from lexical_benchmark import settings
+from lexical_benchmark.utils.hf_util import load_char_tokenizer
+from lexical_benchmark.utils.train_util import setup_training_arguments, tokenize_data
 
 
 def parseargs() -> argparse.Namespace:
