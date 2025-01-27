@@ -118,6 +118,10 @@ class _MyPathSettings:
         return self.dataset_root / "CHILDES"
 
     @property
+    def child_realistic(self) -> _Path:
+        return self.dataset_root / "ChildRealistic"
+
+    @property
     def wordbank_cdi(self) -> _Path:
         return self.dataset_root / "wordbank-cdi"
 

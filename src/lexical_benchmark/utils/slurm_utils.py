@@ -12,7 +12,10 @@ from threading import Thread
 import humanize
 import psutil
 import tap
-import torch
+try:
+    import torch
+except ImportError:
+    torch = None
 
 
 class ProgressTask:
@@ -188,6 +191,10 @@ def info_header() -> None:
     if os.environ.get("SLURM_JOB_ID") is None:
         return
 
+    torch_info = "Torch was not installed !!"
+    if torch:
+        torch_info = f"""GPU Info: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'No GPU'}"""
+
     print(
         f"""
 -----------------------------------------------------------
@@ -206,7 +213,7 @@ Working Directory: {Path.cwd()}
 System Details:
 CPU Count: {os.cpu_count()}
 Memory Info: {psutil.virtual_memory().total / (1024**3):.2f} GB
-GPU Info: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'No GPU'}
+{torch_info}
 
 Python Environment:
 Python: {sys.version} - {sys.executable}

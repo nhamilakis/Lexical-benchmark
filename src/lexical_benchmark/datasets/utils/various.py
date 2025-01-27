@@ -1,11 +1,29 @@
+
+import typing as t
+
 import pandas as pd
-import spacy
 
-
-def spacy_model(model_name: str) -> spacy.Language:  # type: ignore[private-import-usage]
-    """Safely load spacy Language Model."""
+if t.TYPE_CHECKING:
     try:
-        spacy.prefer_gpu()  # type: ignore[private-import-usage]
+        from spacy import Language
+    except ImportError:
+        Language = t.Any
+
+# Cache variable to avoid recomputing POS for words more than once.
+_POS_CACHE = {}
+
+def spacy_model(model_name: str, *, require_gpu: bool = True) -> "Language":  # type: ignore[private-import-usage]
+    """Safely load spacy Language Model."""
+    if require_gpu:
+        import spacy
+
+        spacy.require_gpu()
+    else:
+        import spacy
+
+        spacy.prefer_gpu()
+
+    try:
         return spacy.load(model_name)
     except OSError:
         from spacy.cli.download import download
@@ -15,13 +33,25 @@ def spacy_model(model_name: str) -> spacy.Language:  # type: ignore[private-impo
         return spacy.load(model_name)
 
 
-def word_to_pos(word: str, pos_model: spacy.Language) -> str | None:  # type: ignore[private-import-usage]
+def word_to_pos(word: str, pos_model: "Language") -> str | None:  # type: ignore[private-import-usage]
     """Infer Part of Speech from a given word."""
+    if word in _POS_CACHE:
+        return _POS_CACHE[word]
+
     doc = pos_model(word)
     first_token = next(iter(doc), None)
     if first_token:
-        return first_token.pos_
+        pos = first_token.pos_
+        _POS_CACHE[word] = pos
+        return pos
     return None
+
+
+def batch_word_to_pos(words: list[str], pos_model: "Language", batch_size: int = 32) -> list[str | None]:
+    """Infer Part of Speech from a given list of words."""
+    docs = pos_model.pipe(words, batch_size=batch_size)
+    # POS tag list
+    return [next(iter(doc), None).pos_ if len(doc) > 0 else None for doc in docs]
 
 
 def segment_synonym(df: pd.DataFrame, header: str) -> pd.DataFrame:

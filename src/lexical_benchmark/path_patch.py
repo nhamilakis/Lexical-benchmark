@@ -7,6 +7,7 @@ import json
 import pathlib
 import typing as t
 import pandas as pd
+from pandas import DataFrame
 
 try:
     import tomli_w  # type: ignore[import-not-found, import-untyped]
@@ -23,11 +24,16 @@ try:
 except ImportError:
     tomllib = None  # type: ignore[assignment]
 
+try:
+    import polars as pl  # type: ignore[import-not-found, import-untyped]
+except ImportError:
+    pl = None # type: ignore[assignment]
+
 
 def mk_parent(self: pathlib.Path) -> None:
     """Make parent folders if they do not exist."""
     if not self.parent.is_dir():
-        self.parent.mkdir(parents=True)
+        self.parent.mkdir(exist_ok=True, parents=True)
 
 
 def safe_write_text(self: pathlib.Path, text: str) -> None:
@@ -104,9 +110,38 @@ def read_yaml(self: pathlib.Path) -> t.Any:
     raise OSError("Failed to find tomllib library !!")
 
 
-def read_csv(self: pathlib.Path, columns: list[str] | None = None, sep: str | None = None, **kwargs) -> pd.DataFrame:
-    """Read a CSV file."""
-    return pd.read_csv(self, columns=columns, sep=sep, **kwargs)
+if pl:
+    def read_csv(
+        self: pathlib.Path,
+        columns: list[str] | None = None,
+        sep: str | None = ",",
+        *,
+        use_pandas: bool = False,
+        **kwargs,
+    ) -> pd.DataFrame | pl.DataFrame:
+        """Read a CSV file."""
+        if not self.is_file() or self.suffix != ".csv":
+            raise ValueError(f"{self}: Given file does not exist or is not a CSV.")
+        if use_pandas:
+            return pd.read_csv(self, columns=columns, sep=sep, **kwargs)
+        return pl.read_csv(self, columns=columns, separator=sep, **kwargs)
+else:
+    def read_csv(
+        self: pathlib.Path,
+        columns: list[str] | None = None,
+        sep: str | None = ",",
+        *,
+        use_pandas: bool = True,
+        **kwargs,
+    ) -> pd.DataFrame:
+        """Read a CSV file."""
+        if not self.is_file() or self.suffix != ".csv":
+            raise ValueError(f"{self}: Given file does not exist or is not a CSV.")
+
+        if use_pandas is False:
+            raise OSError("polars library not installed, can only use pandas !!")
+
+        return pd.read_csv(self, columns=columns, sep=sep, **kwargs)
 
 
 
@@ -135,4 +170,4 @@ pathlib.Path.load_toml = read_toml  # type: ignore[method-assign]
 pathlib.Path.dump_yaml = write_yaml  # type: ignore[method-assign]
 pathlib.Path.load_yaml = read_yaml  # type: ignore[method-assign]
 # CSV IO
-pathlib.Path.read_csv = read_csv # type: ignore[method-assign]
+pathlib.Path.read_csv = read_csv  # type: ignore[method-assign]

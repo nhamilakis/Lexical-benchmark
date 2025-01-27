@@ -12,6 +12,7 @@ from .frequency_measures import (
 )
 from .lexicon import DictionairyCleaner, Lexicon
 from .various import (
+    batch_word_to_pos,
     merge_word,
     remove_exp,
     segment_synonym,
@@ -37,4 +38,5 @@ __all__ = [
     "DatasetCleaner",
     "open_wf",
     "extend_wf_pos",
+    "batch_word_to_pos"
 ]

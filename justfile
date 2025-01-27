@@ -8,14 +8,13 @@ jean_zay_deploy_folder_prod := "/lustre/fswork/projects/rech/hhb/ucx81cx/code/Le
 jean_zay_deploy_folder_dev := "/lustre/fsn1/projects/rech/hhb/ucx81cx/code"
 
 hostname := `hostname`
-COML_WORKSPACE := if hostname == "Nicolass-MBP.lan" {
+COML_WORKSPACE := if hostname == "NicolasMBP.local" {
     "workspace/src/LexicalBenchmark2"
 } else if hostname == "other-person" {
     "projects/LexicalBenchmark"
 } else {
     "code/LexicalBenchmark"
 }
-
 
 _default:
   @just --choose

@@ -107,3 +107,7 @@ notebooks/**/*.csv
 notebooks/tmp
 notebooks/img
 notebooks/**/*.xlsx
+
+# W&B 
+wandb/
+LD_FLAGS

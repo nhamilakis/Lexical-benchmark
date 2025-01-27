@@ -2,6 +2,7 @@
 from pathlib import Path
 
 from lexical_benchmark import settings, utils
+from lexical_benchmark.datasets.stella import data
 
 
 class WordStatsDataset:
@@ -21,21 +22,10 @@ class WordStatsDataset:
     def word_frequencies(self) -> utils.PathNamespace:
         """Word Frequency mapping filenames."""
         return utils.PathNamespace(
-            stela_by_month_36_00=self.root_dir / "word_frequencies" / self.lang / "stela_bm_60_00.csv",
-            childes_adult_by_month=self.root_dir / "word_frequencies" / self.lang / "childes_adult.csv",
-            child_realistic_by_month=self.root_dir / "word_frequencies" / self.lang / "childrealistic_bm_60_00.csv",
-            cdi_childlike=self.root_dir / "word_frequencies" / self.lang / "cdi_childlike.csv",
-            cdi_childes=self.root_dir / "word_frequencies" / self.lang / "cdi_childes.csv",
-        )
-
-    @property
-    def word_frequency_pos(self) -> utils.PathNamespace:
-         """Word Frequency filenames with POS tagging."""
-         return utils.PathNamespace(
-            stela_by_month_36_00=self.root_dir / "word_frequencies" / self.lang / "stela_bm_36_00.csv",
-            childes_adult_by_month=self.root_dir / "word_frequencies" / self.lang / "childes_adult.csv",
-            child_realistic_by_month=self.root_dir / "word_frequencies" / self.lang / "childrealistic.csv",
-            cdi_childlike=self.root_dir / "word_frequencies" / self.lang / "cdi_childlike.csv",
+            stela_by_month_60_00=self.root_dir / "word_frequencies" / self.lang / "stela_bm_60_00.csv",
+            childes_adult=self.root_dir / "word_frequencies" / self.lang / "childes_adult.csv",
+            child_realistic_by_month_60_00=self.root_dir / "word_frequencies" / self.lang / "childrealistic_bm_60_00.csv",
+            cdi_childrealistic=self.root_dir / "word_frequencies" / self.lang / "cdi_childlike.csv",
             cdi_childes=self.root_dir / "word_frequencies" / self.lang / "cdi_childes.csv",
         )
 
@@ -43,3 +33,9 @@ class WordStatsDataset:
         self.root_dir = root_dir
         self.lang = lang
 
+
+
+
+if __name__ == "__main__":
+    dataset = WordStatsDataset()
+    wf = dataset.word_frequencies.stela_by_month_36_00.read_csv(columns=dataset.wf_column_names)
