@@ -8,7 +8,7 @@ import pandas as pd
 import torch
 
 from lexical_benchmark.settings import chunk2month
-from lexical_benchmark.utils.gen_util import BatchProcessor, Logger, TextGenerator
+from lexical_benchmark.utils.gen_parallel_util import BatchProcessor, Logger, TextGenerator
 
 
 def parse_args():
@@ -18,13 +18,13 @@ def parse_args():
     parser.add_argument(
         "--model_path",
         type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/models/STELATranscriptions2/by_month/EN/10/00/trans",
+        default="/scratch1/projects/lexical-benchmark/v2/models/STELATranscriptions2/by_month/EN/10/00/LSTM",
         help="Path to the base LM",
     )
     parser.add_argument(
         "--generation_path",
         type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/gen/merged/STELATranscriptions2/by_month/EN/10/00/trans",
+        default="/scratch1/projects/lexical-benchmark/v2/gen/merged/STELATranscriptions2/by_month/EN/6/00/LSTM",
         help="Path to the generated texts",
     )
     parser.add_argument(
@@ -43,44 +43,47 @@ def parse_args():
     return parser.parse_args()
 
 
-def main(args):  
+def main(args):
     """Main function to run the generation process with the specified arguments."""
-    # Setup paths
-    generation_path = Path(args.generation_path)
-    generation_path.mkdir(parents=True, exist_ok=True)
-    gen_name = f"{args.hour_per_year}_hour_per_year.csv"
-    model_type = Path(args.generation_path).name
-
-    # Get month from path
     try:
-        # convert the chunk_num to month
-        chunk_num = int(Path(args.generation_path).parents[1].name)
-        month = chunk2month(chunk_num,args.hour_per_year)
+        # Setup paths
+        generation_path = Path(args.generation_path)
+        generation_path.mkdir(parents=True, exist_ok=True)
+        gen_name = f"{args.hour_per_year}_hour_per_year.csv"
+        model_type = Path(args.generation_path).name
+        # automaitically enable vllm if there is transformer model
+        use_vllm = "trans" in args.model_path.lower()
 
-    except ValueError as e:
-        raise ValueError(f"Parent folder of {args.generation_path} does not contain month info!") from e
-    print(f"{month=}")
+        # Get month from path
+        try:
+            # convert the chunk_num to month
+            chunk_num = int(Path(args.generation_path).parents[1].name)
+            month = chunk2month(chunk_num,args.hour_per_year)
 
-    # Check if target file already exists
-    target_file = generation_path / gen_name
-    if target_file.exists():
-        print(f"Target file {target_file} already exists. Skipping generation.")
-        return
+        except ValueError as e:
+            raise ValueError(f"Parent folder of {args.generation_path} does not contain month info!") from e
+        print(f"{month=}")
 
-    # Setup logger
-    logger = Logger.setup(generation_path)
-    logger.info(f"Starting generation with arguments: {args}")
+        # Check if target file already exists
+        target_file = generation_path / gen_name
+        if target_file.exists():
+            print(f"Target file {target_file} already exists. Skipping generation.")
+            return
 
-    # Set random seed
-    random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(args.seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+        # Setup logger
+        logger = Logger.setup(generation_path)
+        logger.info(f"Starting generation with arguments: {args}")
+        logger.info(f"Detected model type: {model_type}, vLLM enabled: {use_vllm}")
 
-    try:
+        # Determine if we're using multiple GPUs
+        random.seed(args.seed)
+        torch.manual_seed(args.seed)
+        np.random.seed(args.seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(args.seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
         # Load and filter data by month
         df = pd.read_csv(args.gen_file).loc[:, "month":]
         df = df[df["model"] == month]
@@ -93,22 +96,36 @@ def main(args):
             logger.info("Debug mode: using first 20 rows only")
 
         # Create generator
-        generator = TextGenerator(model_path=args.model_path, model_type=model_type, model_max_length=1024)
+        generator = TextGenerator(
+            model_path=args.model_path,
+            model_type=model_type,
+            use_vllm=use_vllm
+        )
 
         # Add special tokens
         if len(args.added_tokens) > 0:
             generator.add_special_tokens(args.added_tokens)
 
         # Create processor
-        processor = BatchProcessor(generator=generator, save_path=generation_path, chunk_size=args.save_interval)
+        processor = BatchProcessor(
+            generator=generator,
+            save_path=generation_path,
+            chunk_size=args.save_interval
+        )
+
 
         # Process data using BatchProcessor
-        result_df = processor.process_dataframe(df=df, temp_lst=args.temp_lst, resume=args.resume)
+        result_df = processor.process_dataframe(
+            df=df,
+            temp_lst=args.temp_lst,
+            resume=args.resume
+        )
 
-        # Save final results
+        # Save results
         final_path = generation_path / gen_name
         result_df.to_csv(final_path)
         logger.info(f"Generation completed. Final results saved to {final_path}")
+
 
     except Exception as e:
         logger.error(f"Error during processing: {str(e)}")
@@ -116,6 +133,8 @@ def main(args):
 
     finally:
         torch.cuda.empty_cache()
+
+
 
 
 if __name__ == "__main__":

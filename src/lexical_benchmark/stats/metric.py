@@ -79,8 +79,13 @@ class Metric:
         return self.stats.token_rejection_rate()
 
     def compute_CDI(self) -> float:
+
+        # get word count of the given dataset
+
         # adjust counts by coefficients
-        
+
+
+        # binary 
         return None
 
     def compute_metrics(self) -> list:
