@@ -57,8 +57,8 @@ def main(args):
         try:
             # convert the chunk_num to month
             chunk_num = int(Path(args.generation_path).parents[1].name)
-            #month = chunk2month(chunk_num,args.hour_per_year)
-            month=chunk_num     # Enable this as we didn't modify the directory naming convention for JZ;
+            month = chunk2month(chunk_num,args.hour_per_year)
+            #month=chunk_num     # Enable this as we didn't modify the directory naming convention for JZ;
         except ValueError as e:
             raise ValueError(f"Parent folder of {args.generation_path} does not contain month info!") from e
         print(f"{month=}")
@@ -86,9 +86,9 @@ def main(args):
         # Load and filter data by month
         df = pd.read_csv(args.gen_file).loc[:, "month":]
         # convert back to true month fir further selection
-        true_month = chunk2month(chunk_num,args.hour_per_year)
-        df = df[df["model"] == true_month]
-        logger.info(f"Loaded input file with {len(df)} rows for month {true_month}")
+        #true_month = chunk2month(chunk_num,args.hour_per_year)
+        df = df[df["model"] == month]
+        logger.info(f"Loaded input file with {len(df)} rows for month {month}")
 
         # Debug mode handling
         if args.debug:
