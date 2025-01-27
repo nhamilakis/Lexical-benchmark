@@ -76,7 +76,8 @@ def main() -> None:
                     if not (original_path / "training_args.bin").exists():
                         print(f"Skip due to untrained model: {original_path}")
                         continue
-                    transformed_path = Path(str(original_path).replace("models", "gen/merged"))
+
+                    transformed_path = Path(str(original_path).replace("models", args.GenPath))
                     if format_util.str_to_bool(args.Resume):
                         if not (transformed_path / "gen.csv").exists():
                             data_dirs.append(original_path.relative_to(root_dir))

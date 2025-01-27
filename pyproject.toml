@@ -40,9 +40,6 @@ train = [
     "torchtyping==0.1.4",
     "transformers==4.48.0",
     "wandb",
-]
-
-inference = [
     "vllm==0.6.6",
 ]
 
