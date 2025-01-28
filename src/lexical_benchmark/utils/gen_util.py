@@ -475,8 +475,8 @@ class BatchProcessor:
                     processed_df = pd.concat(processed_chunks)
                     generated_df = pd.concat([generated_df, processed_df])
 
-                    # Save intermediate results if resuming
-                    if resume and resume_file.is_file():
+                    # Save intermediate results regardless of whether we resume it
+                    if resume_file.is_file():
                         generated_df.to_csv(resume_file, index=False)
                         self.logger.info(f"Saved intermediate results - Total rows processed: {len(generated_df)}")
             else:
