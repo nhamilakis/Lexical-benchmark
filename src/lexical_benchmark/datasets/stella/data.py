@@ -403,7 +403,7 @@ class STELATranscriptDataset:
             text_cleaning.TextNormalization(),  # Fix accents
             text_cleaning.NumberFixer(keep_as_text=True),  # Convert Numbers into text
             text_cleaning.RomanNumerals(),  # Remove Roman Numerals
-            text_cleaning.AZFilter(),  # Removes any special character & punctuation
+            text_cleaning.AZFilter(allow_basic_punctuation=True),  # Removes any special character
             text_cleaning.PrefixSuffixFixer(stem="'"),  # Remove prefix or suffix char(')
         ]
 

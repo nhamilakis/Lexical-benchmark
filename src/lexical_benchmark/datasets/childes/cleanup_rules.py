@@ -324,7 +324,7 @@ cleaning_child_speech_rules: list[txt.CleanerFN] = [
     NUMBER_CLEANER,
     WORD_COMPLETION_FIXER,
     LEFTOVERCHARS_CLEANER,
-    txt.AZFilter(),
+    txt.AZFilter(allow_basic_punctuation=True),
 ]
 
 cleaning_adult_speech_rules: list[txt.CleanerFN] = [
@@ -349,5 +349,5 @@ cleaning_adult_speech_rules: list[txt.CleanerFN] = [
     NUMBER_CLEANER,
     WORD_COMPLETION_FIXER,
     LEFTOVERCHARS_CLEANER,
-    txt.AZFilter(),
+    txt.AZFilter(allow_basic_punctuation=True),
 ]

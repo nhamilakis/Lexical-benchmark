@@ -309,10 +309,12 @@ class AZFilter(TextActionFN):
 
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, allow_basic_punctuation: bool = False) -> None:
         super().__init__(label="AlphabeticFilter")
         # Append apostrophe & space to the allowed chars as to not break words
         self.allowed_chars = string.ascii_lowercase + "-' "
+        if allow_basic_punctuation:
+            self.allowed_chars += ".!?;,:"
 
     def __call__(self, line: str) -> str:
         """Clean current line to keep only pure text."""
