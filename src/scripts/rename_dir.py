@@ -9,7 +9,12 @@ from lexical_benchmark.settings import PATH, month2chunk
 def parseargs():
     # Run parameters
     parser = argparse.ArgumentParser(description="rename folders")
-    parser.add_argument("--source_dir", type=str, default="rename_test/by_month/EN", help="Source Directory1")
+    parser.add_argument(
+        "--source_dir",
+        type=str,
+        default="rename_test/by_month/EN",
+        help="relative path to the root dir"
+        )
     return parser.parse_args()
 
 
