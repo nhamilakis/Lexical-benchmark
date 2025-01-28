@@ -1,3 +1,4 @@
+# generate the filedir for bash array
 import argparse
 from pathlib import Path
 
@@ -9,18 +10,13 @@ from lexical_benchmark.utils import format_util
 
 
 def parseargs():
+    # Run parameters
     parser = argparse.ArgumentParser(description="Get the array script for model training")
     parser.add_argument(
         "--OutPath",
         type=str,
         default="/scratch1/projects/lexical-benchmark/v2/datasets/script_arg",
         help="Directory to save path file",
-    )
-    parser.add_argument(
-        "--ModelPath",
-        type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/datasets/script_arg",
-        help="Directory to model path",
     )
     parser.add_argument("--resume", action="store_true", help="Whether to resume from previous ckpt: True or False")
     parser.add_argument(
@@ -37,90 +33,80 @@ def parseargs():
     return parser.parse_args()
 
 
-def process_target_model_dir(target_month_dir, target_model_dir, args, root_dir, model_dir, dev_dir):
-    """Process a target model directory and return data, model, and dev directories."""
-    datasets, splits, chunks,dev_dirs = [], [], [], [], []
-
-    if not target_model_dir.exists():
-        # Add new model paths
-        for model in args.target_model_lst:
-            datasets.append(target_model_dir.name)
-            splits.append(target_model_dir.parent)
-            chunks.append(target_model_dir.parent[-1])
-            dev_dirs.append(dev_dir.relative_to(root_dir))
-    else:
-        # Handle existing model directories
-        month_filter = format_util.DirectoryFilter(target_model_dir)
-        sub_month_dirs = []
-        for model in args.target_model_lst:
-            sub_month_dirs.extend(month_filter.filter_subdirs_by_name(model))
-
-        for model_path in sub_month_dirs:
-            if args.resume:
-                if not (model_path / "pytorch_model.bin").exists():
-                    datasets.append(target_model_dir.name)
-                    splits.append(target_model_dir.parent)
-                    chunks.append(target_model_dir.parent[-1])
-                    dev_dirs.append(dev_dir.relative_to(root_dir))
-                else:
-                    print(f"The target model already exists: {model_path}")
-            else:
-                print("Ignore the trained model, train from scratch")
-                datasets.append(target_model_dir.name)
-                splits.append(target_model_dir.parent)
-                chunks.append(target_model_dir.parent[-1])
-                dev_dirs.append(dev_dir.relative_to(root_dir))
-
-    return datasets, splits, chunks,dev_dirs
-
-
 def main():
+    # Args parser
     args = parseargs()
+
     root_dir: Path = settings.PATH.dataset_root
     model_dir: Path = settings.PATH.DATA_DIR / "models"
 
-    datasets, splits, chunks,dev_dirs  = [], [], [], [], []
+    data_dirs = []
+    months = []
+    dev_dirs = []
 
-    # Filter datasets
+    print("Filter by the given dataset")
     dir_filter = format_util.DirectoryFilter(root_dir)
     dataset_dirs = dir_filter.filter_subdirs_by_name(args.target_dataset)
 
     for parent_folder in tqdm(dataset_dirs):
         dev_dir = parent_folder / "dev" / args.lang / args.dev_file
         monthly_path = parent_folder / "by_month" / args.lang
-
         if not monthly_path.exists():
             print(f"Monthly path does not exist: {monthly_path}")
             continue
 
-        # Filter months
+        # Filter by target month
+        print("Filter by the target month")
         model_filter = format_util.DirectoryFilter(monthly_path)
         target_month = [str(num) for num in args.target_month]
         month_dirs = model_filter.filter_subdirs_by_name(target_month)
 
         for month_dir in month_dirs:
-            # Filter chunks
+            # Filter by chunk numbers
+            print("Filter by the chunk numbers")
             chunk_filter = format_util.DirectoryFilter(month_dir)
             target_month_dirs = chunk_filter.filter_subdirs_by_count(args.max_num)
 
+            # check whether the target model has been trained in the MODEL directory
             for target_month_dir in target_month_dirs:
                 target_model_dir = Path(str(target_month_dir).replace("datasets", "models"))
 
-                # Process the target directory
-                dataset, split, chunk,dev_dir = process_target_model_dir(
-                    target_month_dir, target_model_dir, args, root_dir, model_dir, dev_dir
-                )
+                # check whether the month exists, add them directly to the model_dir
+                if not target_model_dir.exists():
+                    # loop over the target model
+                    for model in args.target_model_lst:
+                        data_dirs.append((target_month_dir / args.train_file).relative_to(root_dir))
+                        model_dirs.append((target_model_dir / model).relative_to(model_dir))
+                        dev_dirs.append(dev_dir.relative_to(root_dir))
 
-                datasets.extend(dataset)
-                splits.extend(split)
-                chunks.extend(chunk)
-                dev_dirs.extend(dev_dir)
+                else:
+                    # check whether the model has been trained
+                    month_filter = format_util.DirectoryFilter(target_model_dir)
+                    sub_month_dirs = []
+                    for model in args.target_model_lst:
+                        sub_month_dir = month_filter.filter_subdirs_by_name(model)
+                        sub_month_dirs.extend(sub_month_dir)
 
-    # Save results
+                    for model_path in sub_month_dirs:
+                        data_path = Path(str(model_path).replace("models", "datasets"))
+                        if args.resume:
+                            if not (model_path / "pytorch_model.bin").exists():
+                                data_dirs.append(parent_folder)
+                                months.append(month_dir)
+                                dev_dirs.append(dev_dir.relative_to(root_dir))
+                            else:
+                                print(f"The target model already exists: {model_path}")
+                        else:
+                            print("Ignore the trained model, train from scratch")
+                            data_dirs.append((target_month_dir / args.train_file).relative_to(root_dir))
+                            model_dirs.append(model_path.relative_to(model_dir))
+                            dev_dirs.append(dev_dir.relative_to(root_dir))
+
+    # if multiple model, name it in the comprehensive convention; otherwise after the model name
     filename = "train-args.index" if len(args.target_model_lst) > 1 else f"{args.target_model_lst[0]}_train-args.index"
 
-    if data_dirs: # revise the code later
-        file_df = pd.DataFrame([datasets, splits, chunks,dev_dirs]).T
+    if data_dirs:  # Only save if we have results
+        file_df = pd.DataFrame([data_dirs, months, dev_dirs]).T
         file_df.to_csv(Path(args.OutPath) / filename, index=False, header=False, sep=" ")
         print(f"Write the result to {args.OutPath}/{filename}")
     else:

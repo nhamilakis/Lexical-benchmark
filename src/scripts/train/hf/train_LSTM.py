@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import contextlib
 import logging
 from pathlib import Path
 
@@ -128,10 +129,8 @@ def main():
         ckpt_lst = []
         for ckpt in model_path.iterdir():
             if ckpt.is_dir():
-                try:
+                with contextlib.suppress(Exception):
                     ckpt_lst.append(int(ckpt.name.split("-")[1]))
-                except:
-                    pass
         try:
             resume_path = f"{model_path}/checkpoint-{str(max(ckpt_lst))}"
             trainer.train(resume_from_checkpoint=resume_path)
