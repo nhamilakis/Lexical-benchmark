@@ -33,12 +33,6 @@ def parse_args():
         default="/scratch1/projects/lexical-benchmark/v2/gen/merged/CHILDES_model.csv",
         help="Path to the generated texts",
     )
-    parser.add_argument(
-        "--tokenizer_path",
-        type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/models/tokenizer",
-        help="Path to the generated texts",
-    )
     parser.add_argument("--temp_lst", type=list, default=[0.3, 0.6, 1.0, 1.5], help="target month model")
     parser.add_argument("--hour_per_year", default=1000, type=int, help="Estimated yearly exposure hours")
     parser.add_argument("--seed", type=int, default=42, help="random seed")
@@ -104,8 +98,7 @@ def main(args):
         generator = TextGenerator(
             model_path=args.model_path,
             model_type=model_type,
-            use_vllm=use_vllm,
-            tokenizer_path=args.tokenizer_path
+            use_vllm=use_vllm
         )
 
         # Add special tokens

@@ -1,11 +1,6 @@
-import json
-import os
 import string
-from typing import Dict, List, Tuple, Union
 
-from transformers import AutoTokenizer, PreTrainedTokenizer
-from transformers.models.auto.configuration_auto import AutoConfig
-from transformers.models.auto.tokenization_auto import TOKENIZER_MAPPING
+from transformers import PreTrainedTokenizer
 
 
 class CharacterTokenizer(PreTrainedTokenizer):
@@ -79,4 +74,3 @@ def load_char_tokenizer(model_max_length: int = 2048, special_token_lst: list[st
     for special_token in special_token_lst:
         tokenizer.add_tokens(special_token)
     return tokenizer
-

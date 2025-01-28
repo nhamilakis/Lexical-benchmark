@@ -44,12 +44,13 @@ class TextGenerator:
         model_type: str = "transformer",
         local_rank: int = -1,
         use_vllm: bool = True,
+        token_range: list = [0, 25],
     ):
         # Prevent vLLM for LSTM
         self.use_vllm = use_vllm and model_type.lower() != "lstm"
         self.model_type = model_type
         self.local_rank = local_rank
-
+        self.token_range = token_range
         # Distributed setup with sync
         if local_rank != -1:
             if not dist.is_initialized():
@@ -65,7 +66,14 @@ class TextGenerator:
 
         # Model initialization with distributed support
         if self.use_vllm:
-            self.model = LLM(model=model_path)
+            # For vLLM, we don't need to handle device placement manually
+            tensor_parallel_size = torch.cuda.device_count() if local_rank != -1 else 1
+            self.model = LLM(
+                model=model_path,
+                skip_tokenizer_init=True,
+                tensor_parallel_size=tensor_parallel_size,
+                gpu_memory_utilization=0.9,
+            )
 
         else:
             self.model = self._load_model(model_path)
@@ -76,7 +84,7 @@ class TextGenerator:
         if local_rank != -1:
             dist.barrier()  # Sync after initialization
 
-        self.max_length = min(model_max_length, getattr(self.model.config, "n_positions", model_max_length))
+        self.max_length = model_max_length
 
     def _load_model(self, model_path: str) -> PreTrainedModel:
         """Load the model from path."""
@@ -91,86 +99,159 @@ class TextGenerator:
         except Exception as e:
             raise RuntimeError(f"Failed to load model from {model_path}: {e}")
 
+    def add_special_tokens(self, special_token_lst: list[str] = ["'", "|"]):
+        for special_token in special_token_lst:
+            self.tokenizer.add_tokens(special_token)
+        print(f"Added {len(special_token_lst)} special tokens to the tokenizer")
 
+    def generate_next_token_vllm(self, input_ids, sampling_params):
+        """Generate next token using vLLM."""
+        try:
+            if not isinstance(input_ids, list):
+                input_ids = list(input_ids)
+            outputs = self.model.generate(prompt_token_ids=input_ids, sampling_params=sampling_params)
+
+            if not outputs or not outputs[0].outputs:
+                raise ValueError("vLLM generated empty output")
+
+            token_ids = list(outputs[0].outputs[0].token_ids)
+            return token_ids, outputs
+
+        except RuntimeError as e:
+            if "out of memory" in str(e):
+                self._handle_oom()
+                return None, None
+            raise
+        except Exception as e:
+            raise RuntimeError(f"vLLM token generation failed: {str(e)}")
+
+    def generate_next_token_vanilla(self, input_ids, temperature):
+        """Generate next token using vanilla generation."""
+        try:
+            curr_length = input_ids.shape[1]
+            position_ids = torch.arange(curr_length, device=self.device).unsqueeze(0)
+
+            outputs = self.model.generate(
+                input_ids=input_ids,
+                max_length=curr_length + 1,
+                do_sample=True,
+                temperature=temperature,
+                num_beams=1,
+                num_return_sequences=1,
+                pad_token_id=self.tokenizer.eos_token_id,
+                position_ids=position_ids,
+                use_cache=True,
+            )
+
+            new_token = outputs[0, -1].item()
+            return new_token, outputs
+        except RuntimeError as e:
+            if "out of memory" in str(e):
+                self._handle_oom()
+                return None, None
+            raise
+        except Exception as e:
+            raise RuntimeError(f"Vanilla token generation failed: {str(e)}")
+
+    def _handle_oom(self):
+        """Handle out of memory errors."""
+        torch.cuda.empty_cache()
+        if self.use_vllm:
+            # For vLLM, we might need additional cleanup
+            if hasattr(self.model, "engine"):
+                self.model.engine.empty_cache()
+        # Traditional model cleanup
+        elif hasattr(self.model, "module"):
+            self.model.module.zero_grad(set_to_none=True)
+        else:
+            self.model.zero_grad(set_to_none=True)
+
+    def _initialize_generation(self):
+        """Initialize generation parameters."""
+        random_token_id = random.randint(self.token_range[0], self.token_range[1])
+        if self.use_vllm:
+            input_ids = [random_token_id]
+            gen = self.tokenizer.decode([random_token_id])
+        else:
+            input_ids = torch.tensor([[random_token_id]], device=self.device)
+            gen = self.tokenizer.decode([random_token_id])
+        return input_ids, gen
+
+    def _should_reset_context(self, input_ids):
+        """Check if context window should be reset."""
+        if self.use_vllm:
+            return len(input_ids) >= self.max_length - 2
+        return input_ids.shape[1] >= self.max_length - 2
+
+    def _reset_context(self, input_ids):
+        """Reset context window."""
+        if self.use_vllm:
+            return input_ids[:-1]
+        return input_ids[:, :1]
 
     def generate_text(self, word_num: int, temp_lst: list[float]) -> dict[str, str]:
         """Generate text with different temperatures."""
         try:
             results = {}
-            # generate random token index
-            random_token_id = random.randint(0, 25)
+            max_retries = 10
 
             for temp in temp_lst:
+                input_ids, gen = self._initialize_generation()
+                bar_count = 0
+                retry_count = 0
+
                 if self.use_vllm:
-                    bar_count = 0
-                    input_ids = [random_token_id]
-                    gen = tokenizer.decode([random_token_id])
-                    # vLLM generation path - handles multi-GPU automatically
                     sampling_params = SamplingParams(
-                            temperature=temp,
-                            max_tokens=word_num,
-                            frequency_penalty=0.0,
-                            presence_penalty=0.0,
-                        )
-                    while bar_count < word_num and input_ids.shape[1] < self.max_length:
-                        outputs = model.generate(prompt_token_ids = input_ids,sampling_params = sampling_params)
-                        # decode the generations
-                        decoded_token = tokenizer.decode(list(outputs[0].outputs[0].token_ids))
+                        temperature=temp,
+                        max_tokens=word_num,
+                        frequency_penalty=0.0,
+                        presence_penalty=0.0,
+                    )
+
+                while bar_count < word_num:
+                    if self._should_reset_context(input_ids):
+                        input_ids = self._reset_context(input_ids)
+                        continue
+
+                    try:
+                        if self.use_vllm:
+                            # Pass the full context, not just the last token
+                            token_ids, outputs = self.generate_next_token_vllm(input_ids, sampling_params)
+                            if token_ids is None:
+                                retry_count += 1
+                                if retry_count >= max_retries:
+                                    raise RuntimeError("Maximum retries exceeded for OOM recovery")
+                                continue
+                            # generate the next token directly
+                            print(gen)
+                            decoded_token = self.tokenizer.decode([token_ids[-1]])
+                            # Update context with the full sequence
+                            input_ids.extend(token_ids)
+                        else:
+                            with torch.no_grad():
+                                new_token, outputs = self.generate_next_token_vanilla(input_ids, temp)
+                                if new_token is None:
+                                    retry_count += 1
+                                    if retry_count >= max_retries:
+                                        raise RuntimeError("Maximum retries exceeded for OOM recovery")
+                                    continue
+                                decoded_token = self.tokenizer.decode([new_token])
+                                input_ids = outputs
+
+                        # Reset retry count on successful generation
+                        retry_count = 0
+
+                        # Update generation state
                         if decoded_token == "|":
                             bar_count += 1
                         gen += decoded_token
-                        input_ids = outputs
 
-                        # Reset context window if near max length
-                        if len(input_ids) >= self.max_length - 2:
-                            input_ids = input_ids[:-1]
-
-                else:
-                    # Traditional generation for transformer and lstm
-                    with torch.no_grad():
-                        # Ensure input_ids is on the correct device
-                        input_ids = torch.tensor([[random_token_id]], device=self.device)
-                        gen = self.tokenizer.decode([random_token_id])
-                        bar_count = 0
-
-                        while bar_count < word_num and input_ids.shape[1] < self.max_length:
-                            try:
-                                curr_length = input_ids.shape[1]
-                                position_ids = torch.arange(curr_length, device=self.device).unsqueeze(0)
-
-                                outputs = self.model.generate(
-                                    input_ids=input_ids,
-                                    max_length=curr_length + 1,
-                                    do_sample=True,
-                                    temperature=temp,
-                                    num_beams=1,
-                                    num_return_sequences=1,
-                                    pad_token_id=self.tokenizer.eos_token_id,
-                                    position_ids=position_ids,
-                                    use_cache=True,
-                                )
-
-                                new_token = outputs[0, -1].item()
-                                decoded_token = self.tokenizer.decode([new_token])
-
-                                if decoded_token == "|":
-                                    bar_count += 1
-                                gen += decoded_token
-                                input_ids = outputs
-
-                                # Reset context window if near max length
-                                if input_ids.shape[1] >= self.max_length - 2:
-                                    input_ids = input_ids[:, :1]
-
-                            except RuntimeError as e:
-                                if "out of memory" in str(e):
-                                    torch.cuda.empty_cache()
-                                    if hasattr(self.model, "module"):
-                                        self.model.module.zero_grad(set_to_none=True)
-                                    else:
-                                        self.model.zero_grad(set_to_none=True)
-                                    continue
-                                raise
+                    except Exception as e:
+                        logging.warning(f"Error during token generation: {str(e)}")
+                        retry_count += 1
+                        if retry_count >= max_retries:
+                            raise RuntimeError(f"Maximum retries exceeded: {str(e)}")
+                        continue
 
                 results[f"unprompted_{temp}"] = gen
 
@@ -178,15 +259,13 @@ class TextGenerator:
 
         except Exception as e:
             logging.error(f"Fatal error in generate_text: {str(e)}")
-            torch.cuda.empty_cache()
-            if hasattr(self.model, "module"):
-                self.model.module.zero_grad(set_to_none=True)
-            else:
-                self.model.zero_grad(set_to_none=True)
+            self._handle_oom()
             raise RuntimeError(f"Text generation failed: {str(e)}")
 
         finally:
             torch.cuda.empty_cache()
+            if self.use_vllm and hasattr(self.model, "engine"):
+                self.model.engine.empty_cache()
 
 
 class BatchProcessor:
@@ -206,47 +285,51 @@ class BatchProcessor:
             temp_columns = [f"unprompted_{temp}" for temp in temp_lst]
             results = []
 
-            # Handle different model types
-            # Get available GPUs for LSTM processing
-            num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 1
+            if self.generator.use_vllm:
+                # For vLLM, we don't split batches or manage devices manually
+                self.logger.info("Using vLLM for generation - processing full batch")
+                try:
+                    results.extend(self._process_subbatch(batch, temp_lst, temp_columns))
+                except Exception as e:
+                    self.logger.error(f"Error in vLLM batch processing: {str(e)}")
+                    empty_results = [pd.Series({col: "" for col in temp_columns})] * len(batch)
+                    results.extend(empty_results)
+            else:
+                num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 1
+                if num_gpus > 1:
+                    # Split batch only for traditional models
+                    sub_batches = np.array_split(batch, num_gpus)
+                    self.logger.info(f"Split batch into {len(sub_batches)} sub-batches for {num_gpus} GPUs")
 
-                # Split batch for multi-GPU processing
-            if num_gpus > 1:
-                sub_batches = np.array_split(batch, num_gpus)
-                self.logger.info(f"Split batch into {len(sub_batches)} sub-batches for {num_gpus} GPUs")
-
-                    # Process each sub-batch with error handling
-                for gpu_idx, sub_batch in enumerate(sub_batches):
-                    try:
-                        # Set device for this sub-batch and update generator's device
-                        if torch.cuda.is_available():
-                            torch.cuda.set_device(gpu_idx)
-                            self.generator.device = f"cuda:{gpu_idx}"
-                            # Move model to current GPU if not using DDP
-                            if not isinstance(self.generator.model, torch.nn.parallel.DistributedDataParallel):
+                    for gpu_idx, sub_batch in enumerate(sub_batches):
+                        try:
+                            if torch.cuda.is_available():
+                                torch.cuda.set_device(gpu_idx)
+                                self.generator.device = f"cuda:{gpu_idx}"
+                                # Move model to device only for traditional models
+                                if not isinstance(self.generator.model, torch.nn.parallel.DistributedDataParallel):
                                     self.generator.model = self.generator.model.to(self.generator.device)
 
-                        with torch.cuda.amp.autocast():
-                            sub_results = self._process_subbatch(
+                            with torch.cuda.amp.autocast():
+                                sub_results = self._process_subbatch(
                                     sub_batch, temp_lst, temp_columns, device_idx=gpu_idx
                                 )
-                            results.extend(sub_results)
+                                results.extend(sub_results)
 
-                    except Exception as e:
-                        self.logger.error(f"Error processing sub-batch on GPU {gpu_idx}: {str(e)}")
-                        empty_results = [pd.Series({col: "" for col in temp_columns})] * len(sub_batch)
-                        results.extend(empty_results)
+                        except Exception as e:
+                            self.logger.error(f"Error processing sub-batch on GPU {gpu_idx}: {str(e)}")
+                            empty_results = [pd.Series({col: "" for col in temp_columns})] * len(sub_batch)
+                            results.extend(empty_results)
 
-                    finally:
-                            # Cleanup after each sub-batch
-                        if torch.cuda.is_available():
-                            torch.cuda.empty_cache()
-                            torch.cuda.synchronize(gpu_idx)
-            else:
-                # Single GPU/CPU processing
-                results.extend(self._process_subbatch(batch, temp_lst, temp_columns))
+                        finally:
+                            if torch.cuda.is_available():
+                                torch.cuda.empty_cache()
+                                torch.cuda.synchronize(gpu_idx)
+                else:
+                    # Single GPU/CPU processing
+                    results.extend(self._process_subbatch(batch, temp_lst, temp_columns))
 
-            # Convert results to DataFrame
+            # CHANGE 4: Unified results processing
             try:
                 result_df = pd.DataFrame(results, index=batch.index)
                 missing_cols = set(temp_columns) - set(result_df.columns)
@@ -264,10 +347,12 @@ class BatchProcessor:
             self.logger.exception(f"Critical error in batch processing: {str(e)}")
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            if hasattr(self.generator.model, "module"):
-                self.generator.model.module.zero_grad(set_to_none=True)
-            else:
-                self.generator.model.zero_grad(set_to_none=True)
+
+            if not self.generator.use_vllm:  # Only for traditional models
+                if hasattr(self.generator.model, "module"):
+                    self.generator.model.module.zero_grad(set_to_none=True)
+                else:
+                    self.generator.model.zero_grad(set_to_none=True)
             raise RuntimeError(f"Batch processing failed: {str(e)}")
 
         finally:
