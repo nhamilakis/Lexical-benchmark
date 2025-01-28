@@ -39,7 +39,7 @@ class GenerationMerger:
                             gen = gen.assign(**info_dict)
                             gen_all = pd.concat([gen_all, gen])
 
-                            if month.name == '24':    # note here we hard_coded the generatin!
+                            if month.name == '24' and self.hour_per_year == 1000:    # note here we hard_coded the generatin!
                                 print("Duplicating the generation from month 24")
                                 gen = pd.read_csv(gen_path).loc[:, "month":]
                                 # remove the code that is higher than 24 (included)
@@ -52,8 +52,10 @@ class GenerationMerger:
                                 gen_all = pd.concat([gen_all, gen])
 
         if not gen_all.empty:
-            gen_all.to_csv(self.gen_dir / self.filename)
-            print(f"Saving the concatenated generation to {self.gen_dir / self.filename}")
+            filename_prefix, filename_suffix = self.filename.split('.')[:-1], self.filename.split('.')[-1]
+            out_path = self.gen_dir / f"{filename_prefix}_hour_per_year.{filename_suffix}"
+            gen_all.to_csv(out_path)
+            print(f"Saving the concatenated generation to {out_path}")
         return gen_all, info_dict
 
 
@@ -66,7 +68,7 @@ class GenerationMerger:
                 / group[0]
                 / f"{self.hour_per_year}_hour_per_year"
                 / self.lang
-                / f"{group[3]:02d}"
+                / f"{int(group[3]):02d}"
                 / group[1]
                 / group[2]
             )
