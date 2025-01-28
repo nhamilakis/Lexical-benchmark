@@ -12,9 +12,11 @@ from lexical_benchmark.utils import format_util
 def parseargs():
     # Run parameters
     parser = argparse.ArgumentParser(description="Get the array script for generation")
-    parser.add_argument("--GenPath", type=str, default="gen/merged", help="Generation root directory")
+    parser.add_argument("--GenPath", type=str, default="gen/merged", help="relative generation directory")
+    parser.add_argument("--ModelPath", type=str, default="models", help="relative model directory")
     parser.add_argument("--OutPath", type=str, default="datasets/script_arg/generation-args.index", help="Directory to save path file")
-    parser.add_argument("--Resume", default="True", help="whether to check there exists the finished job")
+    parser.add_argument("--hour_per_year", default=1000, type=int, help="Estimated yearly exposure hours")
+    parser.add_argument("--resume", action="store_true", help="Whether to resume from previous ckpt: True or False")
     parser.add_argument(
         "--target_model", default="", help="the target model to be trained; used to check and specify the model dir"
     )
@@ -35,7 +37,7 @@ def main() -> None:
     """Build Generation."""
     # Args parser
     args = parseargs()
-    root_dir: Path = settings.PATH.DATA_DIR / "models"
+    root_dir: Path = settings.PATH.DATA_DIR / args.ModelPath
     gen_root = settings.PATH.DATA_DIR / args.GenPath
     OutPath = settings.PATH.DATA_DIR / args.OutPath
 
@@ -77,9 +79,9 @@ def main() -> None:
                         print(f"Skip due to untrained model: {original_path}")
                         continue
 
-                    transformed_path = Path(str(original_path).replace("models", args.GenPath))
+                    transformed_path = Path(str(original_path).replace(args.ModelPath, args.GenPath))
                     if format_util.str_to_bool(args.Resume):
-                        if not (transformed_path / "gen.csv").exists():
+                        if not (transformed_path / f"{args.hour_per_year}_hour_per_year.csv").exists():
                             data_dirs.append(original_path.relative_to(root_dir))
                             model_dirs.append(transformed_path.relative_to(gen_root))
                         else:

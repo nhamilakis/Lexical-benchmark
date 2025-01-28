@@ -28,8 +28,6 @@ class GenerationMerger:
 
                             if gen_path_year.exists():
                                 gen_path = gen_path_year
-                            elif gen_path.exists() and self.hour_per_year == 1000:
-                                gen_path = gen_path  # Use regular gen_path
                             else:
                                 print(f"No generated file in {model}. Skip")
                                 continue
