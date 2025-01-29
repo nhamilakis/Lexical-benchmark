@@ -19,12 +19,12 @@ def parseargs():
     parser.add_argument(
         "--ModelPath",
         type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/datasets/script_arg",
-        help="Directory to model path",
+        default="models",
+        help="relative model path",
     )
     parser.add_argument("--resume", action="store_true", help="Whether to resume from previous ckpt: True or False")
     parser.add_argument(
-        "--target_model_lst", default=[], help="the target model to be trained; used to check and specify the model dir"
+        "--target_model", default=[], help="the target model to be trained; used to check and specify the model dir"
     )
     parser.add_argument("--target_dataset", default=[], help="only load the target dataset; if empty include all")
     parser.add_argument(
@@ -39,7 +39,7 @@ def parseargs():
 
 def process_target_model_dir(target_month_dir, target_model_dir, args, root_dir, model_dir, dev_dir):
     """Process a target model directory and return data, model, and dev directories."""
-    datasets, splits, chunks,dev_dirs = [], [], [], [], []
+    datasets, splits, chunks,dev_dirs = [], [], [], []
 
     if not target_model_dir.exists():
         # Add new model paths
@@ -57,7 +57,7 @@ def process_target_model_dir(target_month_dir, target_model_dir, args, root_dir,
 
         for model_path in sub_month_dirs:
             if args.resume:
-                if not (model_path / "pytorch_model.bin").exists():
+                if not (model_path / "training_args.bin").exists():
                     datasets.append(target_model_dir.name)
                     splits.append(target_model_dir.parent)
                     chunks.append(target_model_dir.parent[-1])
@@ -77,49 +77,17 @@ def process_target_model_dir(target_month_dir, target_model_dir, args, root_dir,
 def main():
     args = parseargs()
     root_dir: Path = settings.PATH.dataset_root
-    model_dir: Path = settings.PATH.DATA_DIR / "models"
+    model_dir: Path = settings.PATH.DATA_DIR / args.ModelPath
 
-    datasets, splits, chunks,dev_dirs  = [], [], [], [], []
+    datasets, splits, chunks,dev_dirs  = [], [], [], []
 
     # Filter datasets
-    dir_filter = format_util.DirectoryFilter(root_dir)
-    dataset_dirs = dir_filter.filter_subdirs_by_name(args.target_dataset)
+    for dataset 
+    # check model directoyr; whether there exists the model 
 
-    for parent_folder in tqdm(dataset_dirs):
-        dev_dir = parent_folder / "dev" / args.lang / args.dev_file
-        monthly_path = parent_folder / "by_month" / args.lang
-
-        if not monthly_path.exists():
-            print(f"Monthly path does not exist: {monthly_path}")
-            continue
-
-        # Filter months
-        model_filter = format_util.DirectoryFilter(monthly_path)
-        target_month = [str(num) for num in args.target_month]
-        month_dirs = model_filter.filter_subdirs_by_name(target_month)
-
-        for month_dir in month_dirs:
-            # Filter chunks
-            chunk_filter = format_util.DirectoryFilter(month_dir)
-            target_month_dirs = chunk_filter.filter_subdirs_by_count(args.max_num)
-
-            for target_month_dir in target_month_dirs:
-                target_model_dir = Path(str(target_month_dir).replace("datasets", "models"))
-
-                # Process the target directory
-                dataset, split, chunk,dev_dir = process_target_model_dir(
-                    target_month_dir, target_model_dir, args, root_dir, model_dir, dev_dir
-                )
-
-                datasets.extend(dataset)
-                splits.extend(split)
-                chunks.extend(chunk)
-                dev_dirs.extend(dev_dir)
-
-    # Save results
-    filename = "train-args.index" if len(args.target_model_lst) > 1 else f"{args.target_model_lst[0]}_train-args.index"
-
-    if data_dirs: # revise the code later
+    # Only save if we have results
+    filename = "train-args.index"
+    if datasets:
         file_df = pd.DataFrame([datasets, splits, chunks,dev_dirs]).T
         file_df.to_csv(Path(args.OutPath) / filename, index=False, header=False, sep=" ")
         print(f"Write the result to {args.OutPath}/{filename}")
