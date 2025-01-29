@@ -10,10 +10,10 @@ from lexical_benchmark import settings
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Get array script for generation")
-    parser.add_argument("--gen_path", type=str, default="gen/merged", help="Generation directory")
-    parser.add_argument("--model_path", type=str, default="models", help="Model directory")
-    parser.add_argument("--output_path", type=str, default="generation-args.index", help="Output file path")
-    parser.add_argument("--hour_per_year", type=int, default=1000, help="Yearly exposure hours")
+    parser.add_argument("-g","--gen_path", type=str, default="gen/merged", help="Generation directory")
+    parser.add_argument("-m","--model_path", type=str, default="models", help="Model directory")
+    parser.add_argument("-o","--output_path", type=str, default="generation-args.index", help="Output file path")
+    parser.add_argument("-hour","--hour_per_year", type=int, default=1000, help="Yearly exposure hours")
     parser.add_argument("--resume", action="store_true", help="Resume from previous generation")
     parser.add_argument(
         "--target_months", type=int, nargs="+", default=[6, 12, 18, 24, 30, 36], help="Target months for generation"
@@ -52,27 +52,16 @@ def collect_generation_paths(
 
         # Check monthly directory
         monthly_path = dataset_dir / "by_month" / lang
-        if not monthly_path.exists():
-            print(f"Monthly path does not exist: {monthly_path}")
-            continue
-
         # Process each month directory
         for month_dir in monthly_path.iterdir():
-            if not month_dir.is_dir():
+            if not month_dir.is_dir() or not is_target_month(int(month_dir.name), target_months, hour_per_year):
                 continue
 
             # Get and sort chunks
             chunks = sorted([d for d in month_dir.iterdir() if d.is_dir()], key=get_chunk_number)
 
             # Filter chunks by target months and max_num
-            valid_chunks = []
-            for chunk in chunks:
-                chunk_num = get_chunk_number(chunk)
-                if is_target_month(chunk_num, target_months, hour_per_year):
-                    valid_chunks.append(chunk)
-
-                    if max_num > 0 and len(valid_chunks) >= max_num:
-                        break
+            valid_chunks = chunks[:max_num] if len(chunks) > max_num else chunks
 
             # Process each valid chunk
             for chunk_dir in valid_chunks:
