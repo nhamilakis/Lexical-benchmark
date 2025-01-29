@@ -1,10 +1,13 @@
+#!/usr/bin/env python
 import argparse
-import typing as t
+import collections
 from pathlib import Path
 
 import pandas as pd
-
 from lexical_benchmark import settings
+from lexical_benchmark.datasets.utils import training_files
+
+TRAIN_CHUNKS = ("00", "01")
 
 
 def parse_args() -> argparse.Namespace:
@@ -13,71 +16,59 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "-o","--output_path",
         type=Path,
-        default=Path("/scratch1/projects/lexical-benchmark/v2/datasets/script_arg"),
+        default=Path.cwd(),
         help="Output directory for path file",
     )
     parser.add_argument("--model", type=str, default="LSTM", help="Target model name")
-    parser.add_argument("--resume", action="store_true", help="Resume from checkpoint if exists")
+    parser.add_argument("--override", action="store_true", help="Resume from checkpoint if exists")
     parser.add_argument("--lang", type=str, default="EN", help="Language to test")
     parser.add_argument("--max_num", type=int, default=2, help="Maximum number of chunks to train (0 for all)")
     return parser.parse_args()
 
 
-def get_chunk_number(chunk_dir: Path) -> int:
-    try:
-        return int(chunk_dir.name)
-    except ValueError:
-        return 0
+def needs_training(model_dir: Path, *, override: bool) -> bool:
+    """Check if a model path requires additional training."""
+    if not model_dir.is_dir():
+        return True
+    if override:
+        return True
+
+    return not (model_dir / "training_args.bin").is_file()
+
 
 
 def get_untrained_paths(
-    dataset_root: Path, model_root: Path, model_name: str, lang: str, resume: bool, max_num: int = 0
+    dataset_root: Path, model_root: Path, model_name: str, lang: str, *, override: bool, max_num: int = 0
 ) -> list[tuple[str, str, str, Path]]:
-    untrained_paths: list[tuple[str, str, str, Path]] = []
+    """Crawl Dataset folders and figure out if models have been trained."""
+    untrained_paths: dict[str, list[tuple[str, str, str, Path]]] = collections.defaultdict(list)
 
-    # Iterate through all datasets
-    for dataset_dir in dataset_root.iterdir():
-        if not dataset_dir.is_dir():
+    for dataset in ("ChildRealistic", "STELATranscriptions2"):
+        if not (dataset_root / dataset).is_dir():
             continue
 
-        # Get dev path
-        dev_path = dataset_dir / "dev" / lang / "char_hf.txt"
+        dev_path = dataset_root / dataset / "dev" / lang / "char_hf.txt"
         if not dev_path.exists():
             continue
 
-        # Check monthly data
-        monthly_path = dataset_dir / "by_month" / lang
-        if not monthly_path.exists():
-            continue
 
-        # Process each month
-        for month_dir in monthly_path.iterdir():
-            if not month_dir.is_dir():
-                continue
+        iter_items = training_files.iter_train_structure(
+            root_dir=dataset_root, dataset_name=dataset, lang=lang, model_type=model_name)
+        for item in iter_items:
+            model_path = item.get_model_path(model_root)
+            # Check if model needs training
+            if needs_training(model_path, override=override) and item.chunk in TRAIN_CHUNKS:
+                untrained_paths[f"{dataset}-{item.month}"].append(
+                    (item.dataset, item.month, item.chunk, dev_path.relative_to(dataset_root))
+                )
 
-            month_chunks: list[tuple[str, str, str, Path]] = []
 
-            # Get all chunks and sort them by number
-            chunk_dirs = sorted([d for d in month_dir.iterdir() if d.is_dir()], key=get_chunk_number)
-
-            # Process each chunk
-            for chunk_dir in chunk_dirs:
-                # Convert dataset path to model path
-                model_path = Path(str(chunk_dir).replace("datasets", "models")) / model_name
-
-                # Check if model needs training
-                needs_training = not model_path.exists() or (resume and not (model_path / "training_args.bin").exists())
-
-                if needs_training:
-                    month_chunks.append(
-                        (dataset_dir.name, month_dir.name, chunk_dir.name, dev_path.relative_to(dataset_root))
-                    )
-
-            # Apply max_num limit per month if specified
-            month_chunks = month_chunks[:max_num] if len(month_chunks) > max_num else month_chunks
-            untrained_paths.extend(month_chunks)
-
-    return untrained_paths
+    # Apply max_num limit per month if specified
+    final_items = []
+    for items in untrained_paths.values():
+            current_chunks = sorted(items, key=lambda x: x[2])[:max_num] if max_num > 0 else items
+            final_items.extend(current_chunks)
+    return final_items
 
 
 def main() -> None:
@@ -95,7 +86,7 @@ def main() -> None:
         model_root=model_root,
         model_name=args.model,
         lang=args.lang,
-        resume=args.resume,
+        override=args.override,
         max_num=args.max_num,
     )
 

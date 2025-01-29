@@ -98,6 +98,6 @@ echo "Running Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
 # Grab parameters from index file
 read DATASET SPLIT CHUNK VAL_PATH <<< "$(get_line "${JOB_INDEX_FILE}" $SLURM_ARRAY_TASK_ID)"
 
-python $CODE/Lexical_benchmark/src/scripts/train/hf/train_trans.py $DATASET $SPLIT $CHUNK "$DATASET_ROOT/$VAL_PATH"
+python $CODE/src/scripts/train/hf/train_trans.py $DATASET $SPLIT $CHUNK "$DATASET_ROOT/$VAL_PATH"
 
 echo "Completed Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"

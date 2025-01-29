@@ -49,13 +49,13 @@ model_max_length = 2048
 def build_path(args: argparse.Namespace, folder: str) -> Path:
     """Helps build a path to a given location."""
     return Path(args.data_root) / folder / args.dataset \
-            / args.data_type / args.lang / f"{args.split:02}" / f"{args.chunk:02}" / "LSTM"
+            / args.data_type / args.lang / f"{args.split:02}" / f"{args.chunk:02}"
 
 
 def main():
     """Main training function."""
     args = parseargs()
-    model_path = build_path(args, args.output_name)
+    model_path = build_path(args, args.output_name) / "LSTM"
     train_path = build_path(args, args.input_name) / "char_hf.txt"
     validation_path = Path(args.validation_path)
 

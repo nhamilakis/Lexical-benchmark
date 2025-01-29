@@ -57,14 +57,14 @@ config = GPT2Config(
 def build_path(args: argparse.Namespace, folder: str) -> Path:
     """Helps build a path to a given location."""
     return Path(args.data_root) / folder / args.dataset \
-            / args.data_type / args.lang / f"{args.split:02}" / f"{args.chunk:02}" / "trans"
+            / args.data_type / args.lang / f"{args.split:02}" / f"{args.chunk:02}"
 
 
 def main() -> None:
     # Args parser
     args = parseargs()
     # Path locations
-    model_path = build_path(args, args.output_name)
+    model_path = build_path(args, args.output_name) / "trans"
     train_path = build_path(args, args.input_name) / "char_hf.txt"
     validation_path = Path(args.validation_path)
 
