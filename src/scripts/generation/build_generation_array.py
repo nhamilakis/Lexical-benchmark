@@ -3,10 +3,9 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
-from tqdm import tqdm
-
 from lexical_benchmark import settings
 from lexical_benchmark.utils import format_util
+from tqdm import tqdm
 
 
 def parseargs():
@@ -14,7 +13,7 @@ def parseargs():
     parser = argparse.ArgumentParser(description="Get the array script for generation")
     parser.add_argument("--GenPath", type=str, default="gen/merged", help="relative generation directory")
     parser.add_argument("--ModelPath", type=str, default="models", help="relative model directory")
-    parser.add_argument("--OutPath", type=str, default="datasets/script_arg/generation-args.index", help="Directory to save path file")
+    parser.add_argument("--OutPath", type=str, default="generation-args.index", help="Directory to save path file")
     parser.add_argument("--hour_per_year", default=1000, type=int, help="Estimated yearly exposure hours")
     parser.add_argument("--resume", action="store_true", help="Whether to resume from previous ckpt: True or False")
     parser.add_argument(
@@ -39,7 +38,7 @@ def main() -> None:
     args = parseargs()
     root_dir: Path = settings.PATH.DATA_DIR / args.ModelPath
     gen_root = settings.PATH.DATA_DIR / args.GenPath
-    OutPath = settings.PATH.DATA_DIR / args.OutPath
+    OutPath = Path.cwd() / args.OutPath
 
     data_dirs = []
     model_dirs = []
@@ -80,7 +79,7 @@ def main() -> None:
                         continue
 
                     transformed_path = Path(str(original_path).replace(args.ModelPath, args.GenPath))
-                    if format_util.str_to_bool(args.Resume):
+                    if args.resume:
                         if not (transformed_path / f"{args.hour_per_year}_hour_per_year.csv").exists():
                             data_dirs.append(original_path.relative_to(root_dir))
                             model_dirs.append(transformed_path.relative_to(gen_root))
