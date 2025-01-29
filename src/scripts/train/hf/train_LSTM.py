@@ -62,7 +62,7 @@ def main():
     # Create output directory if it doesn't exist
     model_path.mkdir(exist_ok=True, parents=True)
 
-    # Setup logging   
+    # Setup logging 
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",

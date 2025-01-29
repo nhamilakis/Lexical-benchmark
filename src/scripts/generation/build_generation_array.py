@@ -22,7 +22,7 @@ def parseargs():
     )
     parser.add_argument(
         "--target_dataset",
-        default=[],
+        default=["ChildRealistic","STELATranscriptions2"],
         help="only load the target dataset; if empty include all"
     )
     parser.add_argument(
@@ -30,7 +30,7 @@ def parseargs():
         default=[6, 12, 18, 24, 30, 36],
         help="only load the target true month for training; if empty include all",
     )
-    parser.add_argument("--max_num", default=0, help="max number of models, if 0 include all")
+    parser.add_argument("--max_num", default=2, help="max number of models, if 0 include all")
     parser.add_argument("--lang", default="EN", help="language to test")
     return parser.parse_args()
 
@@ -61,7 +61,7 @@ def main() -> None:
         print("Filter by the target month")
         model_filter = format_util.DirectoryFilter(monthly_path)
         # conver the target month into the chunks
-        target_month = [str(settings.month2chunk(num, args.hour_per_year)) for num in args.target_month]
+        target_month = [str(settings.chunk2month(num, args.hour_per_year)) for num in args.target_month]
 
         month_dirs = model_filter.filter_subdirs_by_name(target_month)
         print(month_dirs)
