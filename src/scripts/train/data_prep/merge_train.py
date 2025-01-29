@@ -1,7 +1,5 @@
 
-"""
-
-"""
+"""Merge 50h chunks based on the given dictionary."""
 import os
 from tqdm import tqdm
 from lexical_benchmark import settings
