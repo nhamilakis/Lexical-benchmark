@@ -1,8 +1,9 @@
-#!/usr/bin/env python
 import argparse
+import typing as t
 from pathlib import Path
 
 import pandas as pd
+
 from lexical_benchmark import settings
 
 
@@ -12,7 +13,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "-o","--output_path",
         type=Path,
-        default=Path.cwd(),
+        default=Path("/scratch1/projects/lexical-benchmark/v2/datasets/script_arg"),
         help="Output directory for path file",
     )
     parser.add_argument("--model", type=str, default="LSTM", help="Target model name")
@@ -73,9 +74,7 @@ def get_untrained_paths(
                     )
 
             # Apply max_num limit per month if specified
-            if max_num > 0 and month_chunks:
-                month_chunks = month_chunks[:max_num]
-
+            month_chunks = month_chunks[:max_num] if len(month_chunks) > max_num else month_chunks
             untrained_paths.extend(month_chunks)
 
     return untrained_paths
