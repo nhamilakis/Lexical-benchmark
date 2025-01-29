@@ -1,118 +1,114 @@
-# generate the filedir for bash array
 import argparse
+import typing as t
 from pathlib import Path
 
 import pandas as pd
-from tqdm import tqdm
 
 from lexical_benchmark import settings
-from lexical_benchmark.utils import format_util
 
 
-def parseargs():
-    # Run parameters
-    parser = argparse.ArgumentParser(description="Get the array script for model training")
+def parse_args() -> argparse.Namespace:
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description="Generate model training array script")
     parser.add_argument(
-        "--OutPath",
-        type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/datasets/script_arg",
-        help="Directory to save path file",
+        "--output_path",
+        type=Path,
+        default=Path("/scratch1/projects/lexical-benchmark/v2/datasets/script_arg"),
+        help="Output directory for path file",
     )
-    parser.add_argument("--resume", action="store_true", help="Whether to resume from previous ckpt: True or False")
-    parser.add_argument(
-        "--model", default="LSTM", help="the target model to be trained"
-    )
-    parser.add_argument("--target_dataset", default=[], help="only load the target dataset; if empty include all")
-    parser.add_argument(
-        "--target_month", default=[], help="only load the target month for training; if empty include all"
-    )
-    parser.add_argument("--max_num", default=0, type=int, help="max number of models, if 0 include all")
-    parser.add_argument("--train_file", default="char_hf.txt", help="name of the train file")
-    parser.add_argument("--dev_file", default="char_hf.txt", help="name of the dev file")
-    parser.add_argument("--lang", default="EN", help="language to test")
+    parser.add_argument("--model", type=str, default="LSTM", help="Target model name")
+    parser.add_argument("--resume", action="store_true", help="Resume from checkpoint if exists")
+    parser.add_argument("--lang", type=str, default="EN", help="Language to test")
+    parser.add_argument("--max_num", type=int, default=2, help="Maximum number of chunks to train (0 for all)")
     return parser.parse_args()
 
 
-def main():
-    # Args parser
-    args = parseargs()
+def get_chunk_number(chunk_dir: Path) -> int:
+    try:
+        return int(chunk_dir.name)
+    except ValueError:
+        return 0
 
-    root_dir: Path = settings.PATH.dataset_root
-    model_dir: Path = settings.PATH.DATA_DIR / "models"
 
-    data_dirs = []
-    month_dirs = []
-    chunks = []
-    dev_dirs = []
+def get_untrained_paths(
+    dataset_root: Path, model_root: Path, model_name: str, lang: str, resume: bool, max_num: int = 0
+) -> list[tuple[str, str, str, Path]]:
+    untrained_paths: list[tuple[str, str, str, Path]] = []
 
-    print("Filter by the given dataset")
-    dir_filter = format_util.DirectoryFilter(root_dir)
-    dataset_dirs = dir_filter.filter_subdirs_by_name(args.target_dataset)
-
-    for parent_folder in tqdm(dataset_dirs):
-        dev_dir = parent_folder / "dev" / args.lang / args.dev_file
-        monthly_path = parent_folder / "by_month" / args.lang
-        if not monthly_path.exists():
-            print(f"Monthly path does not exist: {monthly_path}")
+    # Iterate through all datasets
+    for dataset_dir in dataset_root.iterdir():
+        if not dataset_dir.is_dir():
             continue
 
-        # Filter by target month
-        print("Filter by the target month")
-        model_filter = format_util.DirectoryFilter(monthly_path)
-        target_month = [str(num) for num in args.target_month]
-        month_dirs = model_filter.filter_subdirs_by_name(target_month)
+        # Get dev path
+        dev_path = dataset_dir / "dev" / lang / "char_hf.txt"
+        if not dev_path.exists():
+            continue
 
-        for month_dir in month_dirs:
-            # Filter by chunk numbers
-            print("Filter by the chunk numbers")
-            chunk_filter = format_util.DirectoryFilter(month_dir)
-            target_month_dirs = chunk_filter.filter_subdirs_by_count(args.max_num)
+        # Check monthly data
+        monthly_path = dataset_dir / "by_month" / lang
+        if not monthly_path.exists():
+            continue
 
-            # check whether the target model has been trained in the MODEL directory
-            for target_month_dir in target_month_dirs:
-                target_model_dir = Path(str(target_month_dir).replace("datasets", "models"))
+        # Process each month
+        for month_dir in monthly_path.iterdir():
+            if not month_dir.is_dir():
+                continue
 
-                # check whether the month exists, add them directly to the model_dir
-                if not target_model_dir.exists():
-                    # loop over the target model
-                    data_dirs.append(parent_folder.name)
-                    month_dirs.append(month_dir.name)
-                    chunks.append(target_month_dir.name)
-                    dev_dirs.append(dev_dir.relative_to(root_dir))
+            month_chunks: list[tuple[str, str, str, Path]] = []
 
-                else:
-                    # check whether the model has been trained
-                    month_filter = format_util.DirectoryFilter(target_model_dir)
-                    sub_month_dirs = []
-                    sub_month_dir = month_filter.filter_subdirs_by_name(args.model)
-                    sub_month_dirs.extend(sub_month_dir)
+            # Get all chunks and sort them by number
+            chunk_dirs = sorted([d for d in month_dir.iterdir() if d.is_dir()], key=get_chunk_number)
 
-                    for model_path in sub_month_dirs:
-                        data_path = Path(str(model_path).replace("models", "datasets"))
-                        if args.resume:
-                            if not (model_path / "training_args.bin").exists():
-                                data_dirs.append(parent_folder.name)
-                                month_dirs.append(month_dir.name)
-                                chunks.append(target_month_dir.name)
-                                dev_dirs.append(dev_dir.relative_to(root_dir))
-                            else:
-                                print(f"The target model already exists: {model_path}")
-                        else:
-                            print("Ignore the trained model, train from scratch")
-                            data_dirs.append(parent_folder.name)
-                            month_dirs.append(month_dir.name)
-                            chunks.append(target_month_dir.name)
-                            dev_dirs.append(dev_dir.relative_to(root_dir))
+            # Process each chunk
+            for chunk_dir in chunk_dirs:
+                # Convert dataset path to model path
+                model_path = Path(str(chunk_dir).replace("datasets", "models")) / model_name
 
-    # if multiple model, name it in the comprehensive convention; otherwise after the model name
-    filename = f"{args.model}_train-args.index"
+                # Check if model needs training
+                needs_training = not model_path.exists() or (resume and not (model_path / "training_args.bin").exists())
 
-    if data_dirs:  # Only save if we have results
-        file_df = pd.DataFrame([data_dirs, month_dirs, chunks, dev_dirs]).T
-        file_df.to_csv(Path(args.OutPath) / filename, index=False, header=False, sep=" ")
-        print(f"Write the result to {args.OutPath}/{filename}")
+                if needs_training:
+                    month_chunks.append(
+                        (dataset_dir.name, month_dir.name, chunk_dir.name, dev_path.relative_to(dataset_root))
+                    )
+
+            # Apply max_num limit per month if specified
+            if max_num > 0 and month_chunks:
+                month_chunks = month_chunks[:max_num]
+
+            untrained_paths.extend(month_chunks)
+
+    return untrained_paths
+
+
+def main() -> None:
+    """Main function to generate training paths."""
+    args = parse_args()
+
+    # Set up paths
+    dataset_root: Path = settings.PATH.dataset_root
+    model_root: Path = settings.PATH.DATA_DIR / "models"
+
+
+    # Get untrained paths
+    untrained = get_untrained_paths(
+        dataset_root=dataset_root,
+        model_root=model_root,
+        model_name=args.model,
+        lang=args.lang,
+        resume=args.resume,
+        max_num=args.max_num,
+    )
+
+    if untrained:
+        # Create output dataframe and save
+        filename = f"{args.model}_train-args.index"
+        df = pd.DataFrame(untrained)
+        df.to_csv(args.output_path / filename, index=False, header=False, sep=" ")
+        print(f"Wrote {len(untrained)} paths to {args.output_path}/{filename}")
     else:
-        print("No matching directories found based on the given criteria")
+        print("No untrained models found")
 
 
 if __name__ == "__main__":
