@@ -1,10 +1,11 @@
 """Build script for CHILDES-realistic variations.
-split out the dev set
-"""
+split out the dev set"""
 from pathlib import Path
-from lexical_benchmark import settings
+
 from tqdm import tqdm
 
+from lexical_benchmark import settings
+from lexical_benchmark.utils.format_util import format_text_with_boundaries
 
 file_mode = 'test'
 lang = "EN"
