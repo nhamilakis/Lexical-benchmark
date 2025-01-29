@@ -4,7 +4,7 @@ current_dir := justfile_directory()
 COML_CLUSTER := "oberon2"
 JZ_CLUSTER := "jean-zay"
 scratch1_deploy_folder := "/scratch1/projects/lexical-benchmark/v2/jean-zay-code/Lexical_benchmark"
-jean_zay_deploy_folder_prod := "/lustre/fswork/projects/rech/hhb/ucx81cx/code/Lexical_benchmark"
+jean_zay_deploy_folder_prod := "/lustre/fswork/projects/rech/hhb/ucx81cx/code"
 jean_zay_deploy_folder_dev := "/lustre/fsn1/projects/rech/hhb/ucx81cx/code"
 
 hostname := `hostname`

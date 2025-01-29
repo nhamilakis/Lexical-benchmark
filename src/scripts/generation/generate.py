@@ -6,7 +6,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
-
 from lexical_benchmark.settings import chunk2month
 from lexical_benchmark.utils.gen_util import BatchProcessor, Logger, TextGenerator
 
@@ -40,6 +39,7 @@ def parse_args():
     parser.add_argument("--use_vllm",  action="store_true", help="if true, apply vllm for transformer model")
     parser.add_argument("--save_interval", default=100, type=int, help="The number of rows to save")
     parser.add_argument("--resume", action="store_true", help="if true, resume from intermediate generation")
+    parser.add_argument("--override", action="store_true", help="if true, erase previous generation and replace it.")
     parser.add_argument("--debug", action="store_true", help="if debug, generate first 10 sentences")
     return parser.parse_args()
 
@@ -65,7 +65,9 @@ def main(args):
 
         # Check if target file already exists
         target_file = generation_path / gen_name
-        if target_file.exists():
+        if target_file.exists() and args.override:
+            target_file.unlink()
+        elif target_file.exists() and not args.override:
             print(f"Target file {target_file} already exists. Skipping generation.")
             return
 

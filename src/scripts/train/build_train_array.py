@@ -1,9 +1,8 @@
+#!/usr/bin/env python
 import argparse
-import typing as t
 from pathlib import Path
 
 import pandas as pd
-
 from lexical_benchmark import settings
 
 
@@ -13,7 +12,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "-o","--output_path",
         type=Path,
-        default=Path("/scratch1/projects/lexical-benchmark/v2/datasets/script_arg"),
+        default=Path.cwd(),
         help="Output directory for path file",
     )
     parser.add_argument("--model", type=str, default="LSTM", help="Target model name")

@@ -1,20 +1,22 @@
+#!/usr/bin/env python
 import argparse
 from pathlib import Path
 
 import pandas as pd
+from lexical_benchmark import settings
 from tqdm import tqdm
 
-from lexical_benchmark import settings
+from lexical_benchmark.datasets.stella import data
 
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Get array script for generation")
-    parser.add_argument("-g","--gen_path", type=str, default="gen/merged", help="Generation directory")
-    parser.add_argument("-m","--model_path", type=str, default="models", help="Model directory")
-    parser.add_argument("-o","--output_path", type=str, default="generation-args.index", help="Output file path")
-    parser.add_argument("-hour","--hour_per_year", type=int, default=1000, help="Yearly exposure hours")
-    parser.add_argument("--resume", action="store_true", help="Resume from previous generation")
+    parser.add_argument("-g","--gen-path", type=str, default="gen/merged", help="Generation directory")
+    parser.add_argument("-m","--model-path", type=str, default="models", help="Model directory")
+    parser.add_argument("-o","--output-path", type=str, default="generation-args.index", help="Output file path")
+    parser.add_argument("-e","--hour-per-year", type=int, default=1000, help="Yearly exposure hours")
+    parser.add_argument("--override", action="store_true", help="Override previous generation")
     parser.add_argument(
         "--target_months", type=int, nargs="+", default=[6, 12, 18, 24, 30, 36], help="Target months for generation"
     )
@@ -38,15 +40,26 @@ def is_target_month(chunk_num: int, target_months: list[int], hour_per_year: int
     return chunk_month in target_months
 
 
+def has_model_been_trained(model_root: Path, dataset: str, lang: str, month: str, chunk: str, model_type: str) -> bool:
+    """Check if a specific model has been trained."""
+    return (model_root / dataset / "by_month" / lang / month / chunk / model_type / "training_args.bin").is_file()
+
+
+def has_generation(gen_root: Path, dataset: str, lang: str, month: str, chunk: str, model_type: str, hour_per_year: str) -> bool:
+    """Check if model has been generated."""
+    return (gen_root / dataset / "by_month" / lang / month / chunk / model_type / f"{hour_per_year}_hour_per_year.csv").is_file()
+
+
 def collect_generation_paths(
-    root_dir: Path, gen_root: Path, target_months: list[int], hour_per_year: int, lang: str, max_num: int, resume: bool
+    root_model_dir: Path, gen_root: Path, target_months: list[int], hour_per_year: int, lang: str, max_num: int, override: bool
 ) -> tuple[list[Path], list[Path]]:
     """Collect paths for model generation."""
     data_dirs: list[Path] = []
     model_dirs: list[Path] = []
 
     # Process each dataset directory
-    for dataset_dir in tqdm(root_dir.iterdir()):
+    for dataset_name in ("ChildRealistic", "STELATranscriptions2"):
+        dataset_dir = root_model_dir / dataset_name
         if not dataset_dir.is_dir():
             continue
 
@@ -54,6 +67,7 @@ def collect_generation_paths(
         monthly_path = dataset_dir / "by_month" / lang
         # Process each month directory
         for month_dir in monthly_path.iterdir():
+            current_month = month_dir.name
             if not month_dir.is_dir() or not is_target_month(int(month_dir.name), target_months, hour_per_year):
                 continue
 
@@ -65,26 +79,23 @@ def collect_generation_paths(
 
             # Process each valid chunk
             for chunk_dir in valid_chunks:
+                current_chunk = chunk_dir.name
                 # Process each model in chunk
                 for model_dir in chunk_dir.iterdir():
-                    if not model_dir.is_dir():
-                        continue
+                    current_model = model_dir.name
 
                     # Check if model is trained
-                    if not (model_dir / "training_args.bin").exists():
+                    if not has_model_been_trained(root_model_dir, dataset_name, lang, current_month, current_chunk, current_model):
                         print(f"Skip untrained model: {model_dir}")
                         continue
 
-                    # Get generation path
-                    gen_path = Path(str(model_dir).replace(str(root_dir), str(gen_root)))
-                    gen_file = gen_path / f"{hour_per_year}_hour_per_year.csv"
-
                     # Check if generation needed
-                    if not resume or not gen_file.exists():
-                        data_dirs.append(model_dir.relative_to(root_dir))
-                        model_dirs.append(gen_path.relative_to(gen_root))
+                    has_gen = has_generation(gen_root, dataset_name, lang, current_month, current_chunk, current_model, hour_per_year)
+                    if override or not has_gen:
+                        data_dirs.append(Path(dataset_name) / "by_month" / lang / current_month / current_chunk /current_model)
+                        model_dirs.append(Path(dataset_name) / "by_month" / lang / current_month / current_chunk /current_model)
                     else:
-                        print(f"Generation exists: {gen_file}")
+                        print(f"Generation exists: {Path(dataset_name) / 'by_month' / lang / current_month / current_chunk /current_model}")
 
     return data_dirs, model_dirs
 
@@ -94,19 +105,19 @@ def main() -> None:
     args = parse_args()
 
     # Setup paths
-    root_dir = settings.PATH.DATA_DIR / args.model_path
+    root_model_dir = settings.PATH.DATA_DIR / args.model_path
     gen_root = settings.PATH.DATA_DIR / args.gen_path
     output_path = Path.cwd() / args.output_path
 
     # Collect paths
     data_dirs, model_dirs = collect_generation_paths(
-        root_dir=root_dir,
+        root_model_dir=root_model_dir,
         gen_root=gen_root,
         target_months=args.target_months,
         hour_per_year=args.hour_per_year,
         lang=args.lang,
         max_num=args.max_num,
-        resume=args.resume,
+        override=args.override,
     )
 
     if data_dirs:
