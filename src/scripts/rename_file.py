@@ -10,7 +10,7 @@ def parseargs() -> argparse.Namespace:
     parser.add_argument(
         "source_dir",
         type=str,
-        help="relative path to the root dir",
+        help="absolute path to the root dir",
     )
     parser.add_argument("-s", "--source_filename", type=str, default="gen.csv", help="source filename to be modified")
     parser.add_argument(

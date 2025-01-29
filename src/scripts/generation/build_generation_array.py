@@ -3,9 +3,10 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
+from tqdm import tqdm
+
 from lexical_benchmark import settings
 from lexical_benchmark.utils import format_util
-from tqdm import tqdm
 
 
 def parseargs():
@@ -20,12 +21,14 @@ def parseargs():
         "--target_model", default="", help="the target model to be trained; used to check and specify the model dir"
     )
     parser.add_argument(
-        "--target_dataset", default=[], help="only load the target dataset; if empty include all"
+        "--target_dataset",
+        default=[],
+        help="only load the target dataset; if empty include all"
     )
     parser.add_argument(
         "--target_month",
-        default=[],
-        help="only load the target month for training; if empty include all",
+        default=[6, 12, 18, 24, 30, 36],
+        help="only load the target true month for training; if empty include all",
     )
     parser.add_argument("--max_num", default=0, help="max number of models, if 0 include all")
     parser.add_argument("--lang", default="EN", help="language to test")
@@ -57,7 +60,9 @@ def main() -> None:
         # Filter by model type
         print("Filter by the target month")
         model_filter = format_util.DirectoryFilter(monthly_path)
-        target_month = [str(num) for num in args.target_month]
+        # conver the target month into the chunks
+        target_month = [str(settings.month2chunk(num, args.hour_per_year)) for num in args.target_month]
+
         month_dirs = model_filter.filter_subdirs_by_name(target_month)
         print(month_dirs)
         for month_dir in month_dirs:
