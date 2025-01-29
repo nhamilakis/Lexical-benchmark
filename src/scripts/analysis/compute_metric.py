@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument(
         "--metric_path",
         type=str,
-        default="gen/merged/metrics.csv",
+        default="gen/merged/",
         help="Path to save metrics",
     )
     parser.add_argument(
@@ -125,8 +125,8 @@ def main():
     # Reorder columns based on given list
     score_human = score_human[score_all.columns]
     score_all = pd.concat([score_human,score_all])
-    score_all.to_csv(metric_dir)
-    print(f"Saving the metric to {metric_dir}")
+    score_all.to_csv(metric_dir/f"metric_{args.hour_per_year}.csv")
+    print(f"Saving the metric to {metric_dir}/metric_{args.hour_per_year}.csv")
 
 if __name__ == "__main__":
     main()

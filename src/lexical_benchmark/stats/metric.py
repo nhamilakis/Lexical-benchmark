@@ -6,6 +6,7 @@ from scipy.optimize import curve_fit
 from lexical_benchmark.datasets import childes
 from lexical_benchmark.datasets import utils as dataset_utils
 from lexical_benchmark.stats import normalised_rejection_rates
+from lexical_benchmark.stats.CDI_scores import CDICalculator
 
 
 def load_dict(dataset_name: str):
@@ -35,8 +36,10 @@ class Metric:
         data: list[str],
         temp: str = None,
         metric_lst: list = None,
-        threshold: int = None,
-        CDI_words: list = None,
+        threshold: int = None,    # count_based threshold for CDI score
+        CDI_words: list = None,   # a list of selected CDI words
+        word_count: dict = None,  # word_dict from generation set
+        word_count_est: int = None,  # count estimation based on prior study
         chunk_size: int | None = None,
         word_dict: dataset_utils.DictionairyCleaner | None = None,
     ) -> None:
@@ -44,7 +47,9 @@ class Metric:
         self.metric_lst = metric_lst or []
         self.threshold = threshold
         self.CDI_words = CDI_words or []
+        self.word_count = word_count or []
         self.chunk_size = chunk_size
+        self.word_count_est = word_count_est
 
         if isinstance(data[0], (str, bytes)):
             self.data = [word for sent in data for word in str(sent).split()]
@@ -80,13 +85,16 @@ class Metric:
 
     def compute_CDI(self) -> float:
 
-        # get word count of the given dataset
-
-        # adjust counts by coefficients
-
-
-        # binary 
-        return None
+        # Create calculator instance
+        calculator = CDICalculator(
+            CDI_words=self.CDI_words,
+            word_dict=self.word_dict,
+            threshold=self.threshold,
+            word_count_est=self.word_count_est
+            )
+        # Calculate mean score
+        mean_score = calculator.compute_mean_cdi_score(self.word_count)
+        return mean_score
 
     def compute_metrics(self) -> list:
         row = [self.temp]
