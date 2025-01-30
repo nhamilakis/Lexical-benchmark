@@ -38,7 +38,6 @@ class Metric:
         metric_lst: list = None,
         threshold: int = None,    # count_based threshold for CDI score
         CDI_words: list = None,   # a list of selected CDI words
-        word_count: dict = None,  # word_dict from generation set
         word_count_est: int = None,  # count estimation based on prior study
         chunk_size: int | None = None,
         word_dict: dataset_utils.DictionairyCleaner | None = None,
@@ -47,7 +46,6 @@ class Metric:
         self.metric_lst = metric_lst or []
         self.threshold = threshold
         self.CDI_words = CDI_words or []
-        self.word_count = word_count or []
         self.chunk_size = chunk_size
         self.word_count_est = word_count_est
 
@@ -87,6 +85,7 @@ class Metric:
 
         # Create calculator instance
         calculator = CDICalculator(
+            word_list=self.data,
             CDI_words=self.CDI_words,
             word_dict=self.word_dict,
             threshold=self.threshold,
