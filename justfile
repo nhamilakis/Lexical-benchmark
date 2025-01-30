@@ -2,10 +2,12 @@ jupyter_port := "9998"
 compute_node := "puck1"
 current_dir := justfile_directory()
 COML_CLUSTER := "oberon2"
-JZ_CLUSTER := "jean-zay"
 scratch1_deploy_folder := "/scratch1/projects/lexical-benchmark/v2/jean-zay-code/Lexical_benchmark"
-jean_zay_deploy_folder_prod := "/lustre/fswork/projects/rech/hhb/ucx81cx/code"
-jean_zay_deploy_folder_dev := "/lustre/fsn1/projects/rech/hhb/ucx81cx/code"
+JZ_CLUSTER := "jean-zay"
+JZ_SCRATCH_WORK := "/lustre/fsn1/projects/rech/hhb/ucx81cx/work"
+JZ_SRC_DEV := JZ_SCRATCH_WORK + "/dev/code"
+JZ_SRC_TEST_1 := JZ_SCRATCH_WORK + "/test1/code"
+JZ_SRC_TEST_2 := JZ_SCRATCH_WORK + "/test2/code"
 
 hostname := `hostname`
 COML_WORKSPACE := if hostname == "NicolasMBP.local" {
@@ -41,19 +43,42 @@ deploy-source:
     rsync -azP --delete --exclude=".mypy_cache" --exclude="notebooks"  --exclude="experiments" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/source/"
 
 [doc("Deploy source code to remote")]
-deploy-source-coml-prod: 
+deploy-coml-prod: 
     echo "Syncing source-code directory..."
     rsync -azP --delete --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{COML_CLUSTER}}:{{scratch1_deploy_folder}}"
 
-[doc("Deploy source code to jean-folder in production")]
-deploy-jean-zay-prod: 
+[doc("Deploy source code to jean-folder test folder !!")]
+deploy-jz-dev:
+    #!/bin/bash
+    # SSHPASS not set
     echo "Syncing source-code directory..."
-    rsync -azP --delete --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{jean_zay_deploy_folder_prod}}"
+    if [ -z "${SSHPASS}" ]; then
+        rsync -azP --delete --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_DEV}}"
+    else
+        sshpass -e rsync -azP --delete --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_DEV}}"
+    fi
 
-[doc("Deploy source code to jean-folder in debug mode")]
-deploy-jean-zay-dev: 
+[doc("Deploy source code to jean-folder in test env 1")]
+deploy-jz-test1:
+    #!/bin/bash
+    # SSHPASS not set
     echo "Syncing source-code directory..."
-    rsync -azP --delete --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{jean_zay_deploy_folder_dev}}"
+    if [ -z "${SSHPASS}" ]; then
+        rsync -azP --delete --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_TEST_1}}"
+    else
+        sshpass -e rsync -azP --delete --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_TEST_1}}"
+    fi
+
+[doc("Deploy source code to jean-folder in test env 2")]
+deploy-jz-test2: 
+    #!/bin/bash
+    # SSHPASS not set
+    echo "Syncing source-code directory..."
+    if [ -z "${SSHPASS}" ]; then
+        rsync -azP --delete --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_TEST_2}}"
+    else
+        sshpass -e rsync -azP --delete --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_TEST_2}}"
+    fi
 
 [doc("Install module & dependencies")]
 install:
