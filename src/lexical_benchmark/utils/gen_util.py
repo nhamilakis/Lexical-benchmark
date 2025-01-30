@@ -1,5 +1,4 @@
 import logging
-import random
 import string
 from pathlib import Path
 
@@ -44,7 +43,7 @@ class TextGenerator:
         model_type: str = "transformer",
         local_rank: int = -1,
         use_vllm: bool = True,
-        max_word_len: int = 50
+        max_word_len: int = 50,
     ):
         # Prevent vLLM for LSTM
         self.use_vllm = use_vllm and model_type.lower() != "lstm"
@@ -189,16 +188,18 @@ class TextGenerator:
             return input_ids[:-1]
         return input_ids[:, :1]
 
+
     def generate_text(self, word_num: int, temp_lst: list[float]) -> dict[str, str]:
         """Generate text with different temperatures."""
         try:
             results = {}
             max_retries = 10
-            cur_word_len = 0
+
             for temp in temp_lst:
                 input_ids, gen = self._initialize_generation()
                 bar_count = 0
                 retry_count = 0
+                cur_word_len = 0
 
                 if self.use_vllm:
                     sampling_params = SamplingParams(
@@ -215,7 +216,6 @@ class TextGenerator:
 
                     try:
                         if self.use_vllm:
-                            # Pass the full context, not just the last token
                             token_ids, outputs = self.generate_next_token_vllm(input_ids, sampling_params)
                             if token_ids is None:
                                 retry_count += 1
@@ -223,8 +223,6 @@ class TextGenerator:
                                     raise RuntimeError("Maximum retries exceeded for OOM recovery")
                                 continue
                             decoded_token = self.tokenizer.decode([token_ids[-1]])
-                            # Update context with the full sequence
-                            input_ids.extend(token_ids)
                         else:
                             with torch.no_grad():
                                 new_token, outputs = self.generate_next_token_vanilla(input_ids, temp)
@@ -236,18 +234,29 @@ class TextGenerator:
                                 decoded_token = self.tokenizer.decode([new_token])
                                 input_ids = outputs
 
-                        # Reset retry count on successful generation
-                        retry_count = 0
-                        cur_word_len+=1
-                        # Update generation state
+                        # Handle consecutive bars
+                        if decoded_token == "|" and gen[-1] == "|":
+                            continue  # Skip this token and try again
+
+                        # Handle long words before adding new token
+                        if cur_word_len > self.max_word_len and decoded_token != "|":
+                            gen += "|"
+                            bar_count += 1
+                            cur_word_len = 0
+
+                        # Update generation
+                        gen += decoded_token
+                        if self.use_vllm:
+                            input_ids.extend(token_ids)
+
+                        # Update counters
                         if decoded_token == "|":
                             bar_count += 1
                             cur_word_len = 0
-                        gen += decoded_token
+                        else:
+                            cur_word_len += 1
 
-                        if cur_word_len>self.max_word_len:
-                            input_ids, _ = self._initialize_generation()
-                            gen += "|"
+                        retry_count = 0
 
                     except Exception as e:
                         logging.warning(f"Error during token generation: {str(e)}")

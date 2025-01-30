@@ -158,7 +158,7 @@ def main() -> None:
 
     cdi_stat_file = Path(args.CDI_path) / f"{args.lang}_{args.test_type}_stat.csv"
     stat.to_csv(cdi_stat_file)
-
-
+    #stat.write_csv(cdi_stat_file)
+    
 if __name__ == "__main__":
     main()
