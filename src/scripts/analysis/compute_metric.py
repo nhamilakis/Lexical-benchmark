@@ -84,7 +84,7 @@ def append_human_metric(ref_data: pd.DataFrame, metric_lst: list, threshold: int
    scores = []
    for month, gen in gen_grouped:
        sent_lst = gen["text"].tolist() 
-       word_count_est = load_word_count_est(word_est_dict,month.name,CDI)
+       word_count_est = load_word_count_est(word_est_dict,month,CDI)
        # note here the temp is just a placeholder
        metric = Metric(data=sent_lst, temp=month, metric_lst=metric_lst, threshold=threshold,
             CDI_words=CDI_words, word_count_est = word_count_est,chunk_size=chunk_size, word_dict=word_dict)
@@ -158,7 +158,7 @@ def main():
 
     # compute human production
     ref_data = pd.read_csv(ref_dir)
-    CDI_words = load_CDI_words(CDI_dir,"CHILDES")
+    CDI_words = load_CDI_words(CDI_dir,"CHILDES",CDI)
     # load word_dict
     word_dict = load_dict("CHILDES")
     score_human = append_human_metric(ref_data,args.metric_lst,args.threshold,CDI_words,args.chunk_size, 
