@@ -8,14 +8,19 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from lexical_benchmark import settings
-from lexical_benchmark.datasets import childes, stella
+from lexical_benchmark.datasets import childes, stella, wordstats
 from lexical_benchmark.utils import stat_tools
+
+try:
+    import polars as pl
+except ImportError:
+    print("Install polars for dataframe loading !")
+    raise
 
 
 def arguments() -> argparse.Namespace:
     """Build & Parse command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset-root")
     parser.add_argument("--CDI_path", default=f"{settings.PATH.dataset_root}/processed/CDI/")
     parser.add_argument("--human_freq", default=f"{settings.PATH.dataset_root}/CHILDES/")
     parser.add_argument("--machine_freq", default=f"{settings.PATH.dataset_root}/processed/freq/3200h.csv")
@@ -80,58 +85,73 @@ def match_sample(
     return pidx, lbest, stat
 
 
+def load_stella_60_00(lang: str = "EN") -> pl.DataFrame:
+    """Load Word-Count data for STELA/by_month/60/00."""
+    dataset = wordstats.WordStatsDataset(lang=lang)
+    return pl.read_csv(
+        dataset.word_frequencies.stela_by_month_60_00,
+        has_header=True,
+    )
 
 
-def load_chiles_adult(lang: str = "EN") -> pd.DataFrame:
-    """Load Word Frequencies for CHILDES."""
-    childes_dataset = childes.CHILDESDataset()
-    uk_freq_file = childes_dataset.wf.processed("Eng-UK", "adult")
-    na_freq_file = childes_dataset.wf.processed("Eng-NA", "adult")
+def load_cdi_childes_data(lang: str = "EN") -> pd.DataFrame:
+    """Load the CDI/CHILDES Word-Count data."""
+    dataset = wordstats.WordStatsDataset(lang=lang)
+    return pl.read_csv(
+        dataset.word_frequencies.cdi_childes,
+        has_header=True,
+    )
 
-    uk_freq = pd.read_csv(uk_freq_file, header=0)
-    na_freq = pd.read_csv(na_freq_file, header=0)
+def load_cdi_childrealistic_data(lang: str = "EN") -> pd.DataFrame:
+    """Load the CDI/CHILDRealistic Word-Count data."""
+    dataset = wordstats.WordStatsDataset(lang=lang)
+    return pl.read_csv(
+        dataset.word_frequencies.cdi_childrealistic,
+        has_header=True,
+    )
 
-    combined_df = pd.concat([uk_freq, na_freq])
-    return combined_df.groupby("word")["freq"].sum().reset_index()
+def load_childrealistic_60_00_data(lang: str = "EN") -> pd.DataFrame:
+    """Load the Childrealistic/EN Word-Count data."""
+    dataset = wordstats.WordStatsDataset(lang=lang)
+    return pl.read_csv(
+        dataset.word_frequencies.child_realistic_by_month_60_00,
+        has_header=True,
+    )
 
 
-def load_stella_3200h(lang: str = "EN") -> pd.DataFrame:
-    """Load Word Frequencies for STELA/EN/3200h."""
-    stella_dataset = stella.STELATranscriptDataset()
-    transcriptions = stella_dataset.by_month / f"by_month/{lang}/36/00/" / "transcriptions.txt"
-    freqs = collections.Counter(transcriptions.read_tokenized())
-    return pd.DataFrame(list(freqs.items()), columns=["word", "freq"])
-
-
-def load_cdi_data(test_type: str, lang: str = "EN") -> pd.DataFrame:
-    """Load the CDI data."""
-    cdi_data_file = Path(...) / f"{lang}_{test_type}_human.csv"
-
-    return pd.read_csv(cdi_data_file)
+def load_childes_adult_data(lang: str = "EN") -> pd.DataFrame:
+    """Load the CHILDES Word-Count data."""
+    dataset = wordstats.WordStatsDataset(lang=lang)
+    return pl.read_csv(
+        dataset.word_frequencies.childes_adult,
+        has_header=True,
+    )
 
 
 def main() -> None:
     """Run the GoldReference loader and write results to a file."""
     args = arguments()
 
+    wordstats_dataset = wordstats.WordStatsDataset()
+
+    wordstats_dataset.word_frequencies.stela_by_month_60_00.read_csv()
+
     ## Load Frequencies & other data
-    machine_freq = load_stella_3200h()
-    human_freq = load_chiles_adult()
-    cdi_data = load_cdi_data(lang=args.lang, test_type=args.test_type)
+    machine_freq = load_stella_60_00()
+    human_freq = load_childes_adult_data()
+    # NOTE: are we using this ??
+    human_realistic = load_childrealistic_60_00_data()
 
-    # match human-CDI and CHILDES
-    # TODO: this is already computed elsewhere
-    target = annotate_freq(cdi_data, human_freq)
-
-    # Why are we overwriting the cdi ??? should create a new childes annotated CDI file ???
-    # TODO: write this into a temp file to not overwrite source
-    target.to_csv(cdi_file)
+    # NOTE: these two already have the word frequencies loaded each from a corresponding dataset
+    cdi_data_childes = load_cdi_childes_data()
+    cdi_data_childrealistic = load_cdi_childrealistic_data()
 
 
-    # match files
+    # TODO: match files (target here is CDI ?
+    # TODO: maybe we should add an option to choose between the two CDI)
     pidx, _, stat = match_sample(target, machine_freq, args.sampling_ratio, args.nbins)
 
-    # save the files
+    # TODO: save what ?
     # Is this the target file ?? or does this exist before ?
     machine_cdi_file = Path(args.CDI_path) / f"{args.lang}_{args.test_type}_machine.csv"
     machine_freq.iloc[pidx].to_csv(machine_cdi_file)

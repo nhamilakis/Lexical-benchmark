@@ -11,7 +11,7 @@ class WordStatsDataset:
     @property
     def wf_column_names(self) -> list[str]:
         """Column names for word-frequency CSV files."""
-        return ["word", "freq"]
+        return ["word", "count"]
 
     @property
     def wfpos_column_names(self) -> list[str]:

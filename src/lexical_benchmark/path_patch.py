@@ -6,8 +6,8 @@ To avoid angering the type gods a stub file has been added : stubs/pathlib.piy t
 import json
 import pathlib
 import typing as t
+
 import pandas as pd
-from pandas import DataFrame
 
 try:
     import tomli_w  # type: ignore[import-not-found, import-untyped]
