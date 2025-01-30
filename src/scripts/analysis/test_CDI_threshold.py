@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Test CDI threhsolds."""
 import argparse
 from pathlib import Path
@@ -8,7 +7,7 @@ from tqdm import tqdm
 
 from lexical_benchmark import settings
 from lexical_benchmark.stats.CDI_scores import CDICalculator
-
+from lexical_benchmark.stats.metric import CDICalculator
 
 def parse_args():
     # Run parameters
@@ -45,12 +44,27 @@ def parse_args():
 def append_CDI(ref_data: pd.DataFrame, threshold: int, CDI_words: list,word_est_dict:dict,CDI:bool):
 
     gen_grouped = ref_data.groupby('month')
+    # load the selected CDI words
+    calculator = CDICalculator(
+        word_list=word_list,
+        CDI_words=CDI_words,
+        threshold=1,
+        word_count_est=1
+    )
+    selected_words = calculator.select_words()
+
     scores = []
     for month, gen in gen_grouped:
-        sent_lst = gen["text"].tolist() 
+        sent_lst = gen["text"].tolist()
+        word_lst = 
         word_count_est = load_word_count_est(word_est_dict,month,CDI)
         # initialize the CDI calculator class
-
+        calculator = CDICalculator(
+            word_list=word_list,
+            CDI_words=CDI_words,
+            threshold=1,
+            word_count_est=1
+        )
         metric = Metric(data=sent_lst, temp=month, metric_lst=metric_lst, threshold=threshold,
             CDI_words=CDI_words, word_count_est = word_count_est,chunk_size=chunk_size, word_dict=word_dict)
         row = metric.compute_metrics()
@@ -88,14 +102,7 @@ def main():
     CDI_frame = pd.read_csv(CDI_path)
     CDI_words = CDI_frame['word'].tolist()
 
-    # load the selected CDI words
-    calculator = CDICalculator(
-        word_list=word_list,
-        CDI_words=CDI_words,
-        threshold=1,
-        word_count_est=1
-    )
-    selected_words = calculator.select_words()
+    
     for threshold in args.threshold_list:
 
 
