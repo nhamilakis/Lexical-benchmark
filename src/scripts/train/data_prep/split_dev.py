@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """Build script for CHILDES-realistic variations.
 split out the dev set"""
 from pathlib import Path

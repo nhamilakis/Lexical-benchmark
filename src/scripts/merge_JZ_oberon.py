@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """merge gen from JZ and obeorn"""
 
 import argparse

@@ -81,11 +81,12 @@ class _MyPathSettings:
     KNOWN_HOSTS: tuple[str, ...] = (*COML_SERVERS, "nicolass-mbp")
 
     def __post_init__(self) -> None:
-        if _platform.node() in self.COML_SERVERS:
-            self.DATA_DIR = _Path("/scratch1/projects/lexical-benchmark/v2")
+        if "DATA_DIR" not in _os.environ:
+            if _platform.node() in self.COML_SERVERS:
+                self.DATA_DIR = _Path("/scratch1/projects/lexical-benchmark/v2")
 
-        elif self.is_jz():
-            self.DATA_DIR = _Path("/lustre/fswork/projects/rech/hhb/ucx81cx")
+            elif self.is_jz():
+                self.DATA_DIR = _Path("/lustre/fswork/projects/rech/hhb/ucx81cx/data")
 
         if not self.DATA_DIR.is_dir():
             _warnings.warn(

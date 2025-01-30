@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """Merge dev set"""
 
 from pathlib import Path

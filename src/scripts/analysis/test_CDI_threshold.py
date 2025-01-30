@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """Test CDI threhsolds."""
 import argparse
 from pathlib import Path

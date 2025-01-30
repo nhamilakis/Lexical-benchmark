@@ -1,4 +1,4 @@
-
+#!/usr/bin/env python
 """Merge 50h chunks based on the given dictionary."""
 import os
 from tqdm import tqdm

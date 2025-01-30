@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """Rename the month-based convention into chunk-based"""
 
 import argparse

@@ -20,16 +20,10 @@
 #SBATCH --output=/lustre/fswork/projects/rech/hhb/ucx81cx/logs/%x-%A-%a.log
 #SBATCH --hint=nomultithread        # hyperthreading is deactivated
 
-# ENV setup, if not set
-if [[ -z "${_LM_ENV}" ]]; then
-    source $WORK/load.sh
-fi
-
-export MODEL_ROOT="$WORK/models"
-export GEN_ROOT="$WORK/jz-gen"
-export DATASET_ROOT="$WORK/datasets"
-export CODE="$WORK/code"
-export _LM_ENV="active"
+export MODEL_ROOT="$WORK/data/models"
+export GEN_ROOT="$WORK/data/gen"
+export DATASET_ROOT="$WORK/data/datasets"
+export CODE="$(PWD)/code"
 export JZ=1
 
 if [[ -z "${SLURM_ARRAY_TASK_ID}" ]]; then
@@ -72,7 +66,6 @@ get_line() {
 }
 
 
-
 echo "=== SLURM Job Information ==="
 echo "Job ID: $SLURM_JOB_ID"
 echo "Node List: $SLURM_JOB_NODELIST"
@@ -88,15 +81,14 @@ echo "CPU Info: $(lscpu | grep 'Model name' | sed 's/Model name: *//')"
 echo "Memory Info: $(free -h | grep Mem)"
 
 echo -e "\n=== PYTHON ==="
-echo "python: $(which python)"
-echo "python-version $(python -V)"
-
+echo "python: $(uv run which python)"
+echo "python-version $(uv run python -V)"
 
 echo "Running Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
 
 # Grab parameters from index file
 read DATASET SPLIT CHUNK VAL_PATH <<< "$(get_line "${JOB_INDEX_FILE}" $SLURM_ARRAY_TASK_ID)"
 
-python $CODE/src/scripts/train/hf/train_LSTM.py $DATASET $SPLIT $CHUNK "$DATASET_ROOT/$VAL_PATH"
+uv run $CODE/src/scripts/train/hf/train_LSTM.py $DATASET $SPLIT $CHUNK "$DATASET_ROOT/$VAL_PATH"
 
-echo "Completed Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
+echo "Completed Training ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"

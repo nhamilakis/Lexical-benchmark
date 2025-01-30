@@ -20,16 +20,10 @@
 #SBATCH --output=/lustre/fswork/projects/rech/hhb/ucx81cx/logs/%x-%j-%a.log
 #SBATCH --hint=nomultithread        # hyperthreading is deactivated
 
-# ENV setup, if not set
-if [[ -z "${_LM_ENV}" ]]; then
-    source $WORK/load.sh
-fi
-
-export MODEL_ROOT="$WORK/models"
-export GEN_ROOT="$WORK/jz-gen"
-export DATASET_ROOT="$WORK/datasets"
-export CODE="$SCRATCH/code"
-export _LM_ENV="active"
+export MODEL_ROOT="$WORK/data/models"
+export GEN_ROOT="$WORK/data/gen"
+export DATASET_ROOT="$WORK/data/datasets"
+export CODE="$(PWD)/code"
 export JZ=1
 
 if [[ -z "${SLURM_ARRAY_TASK_ID}" ]]; then
@@ -99,8 +93,6 @@ echo "Running Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
 # Grab parameters from index file
 read model output <<< "$(get_line "${JOB_INDEX_FILE}" $SLURM_ARRAY_TASK_ID)"
 
-
-python $CODE/src/scripts/generation/generate.py --gen_file "$GEN_ROOT/CHILDES_model.csv" --model_path "$MODEL_ROOT/$model" --generation_path "$GEN_ROOT/$output" --save_interval 100 --hour_per_year 100 --use_vllm
-
+uv run $CODE/src/scripts/generation/generate.py --gen_file "$GEN_ROOT/CHILDES_model.csv" --model_path "$MODEL_ROOT/$model" --generation_path "$GEN_ROOT/$output" --save_interval 100 --hour_per_year 100 --use_vllm
 
 echo "Completed Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"

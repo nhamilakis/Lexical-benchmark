@@ -1,4 +1,4 @@
-#!/usr/bin/env python  # noqa: EXE001
+#!/usr/bin/env python
 import argparse
 import contextlib
 import logging

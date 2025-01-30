@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """Build script for CHILDES-realistic variations.
 
 This script helps build the `txt_merged` folder in the STELA dataset, which creates the same

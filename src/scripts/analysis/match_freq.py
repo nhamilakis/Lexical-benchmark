@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """match freq based on between human and machine cdi."""
 
 import argparse

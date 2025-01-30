@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """Compute core metrics from the generation directory"""
 
 import argparse

@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import argparse
 
 from lexical_benchmark import settings
