@@ -1,4 +1,4 @@
-#!/home/nhamilakis/envs/venvs/lbenchmark/bin/python3.11
+#!.venv/bin/python
 # fmt: off
 #SBATCH --partition=cpu
 #SBATCH --cpus-per-task=1
@@ -17,6 +17,6 @@ slurm_utils.info_header()
 
 if os.environ.get("SLURM_JOB_ID") is None:
     print("Why is JOB ID None ? when in slurm ?")
-
+print("HELLO???")
 # Job Done
 slurm_utils.info_footer()

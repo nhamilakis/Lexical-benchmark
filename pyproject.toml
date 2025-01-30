@@ -23,16 +23,20 @@ dynamic = ["dependencies", "version"]
 documentation = "https://github.com/Jing-L97/Lexical-benchmark"
 repository = "https://github.com/Jing-L97/Lexical-benchmark"
 
-
-[project.optional-dependencies]
+[dependency-groups]
 dev = ["ruff", "mypy", "ipython", "jupyter"]
-polyglot = ["polyglot", "pyicu", "pycld2", "morfessor"]
+# polyglot = ["polyglot", "pyicu", "pycld2", "morfessor"]
 asr = ["openai-whisper"]
 # This requires a cuda>12.1.1 to be available in the current env
 # Tested on cuda/12.4.1 on JZ it works
 # Failed on cuda/12.1.0
 # Worked on cuda/12.1.1 on Oberon (??)
-optimised = ["polars", "torch==2.5.1", "spacy[cuda12x]"]
+optimised = [
+    "polars",
+    "torch==2.5.1",
+    "spacy[cuda12x]; sys_platform == 'linux' or sys_platform == 'linux2'",
+    "spacy; sys_platform == 'darwin'",
+]
 train = [
     "accelerate==1.3.0",
     "tokenizers==0.21.0",
@@ -62,6 +66,9 @@ exclude = ["examples*", "tests*", "src/scripts*", "scripts*", "experiments*"]
 exclude = [
     'parser\.py$' # Exclude parser.py -> sly does not type-check
 ]
+[tool.uv]
+default-groups = ["train", "optimised"]
+
 
 [tool.ruff]
 target-version = "py311"

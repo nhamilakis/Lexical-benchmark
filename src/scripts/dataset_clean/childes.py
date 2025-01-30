@@ -1,14 +1,6 @@
-#!/home/nhamilakis/envs/venvs/lbenchmark/bin/python3.11
-# fmt: off
-#SBATCH --partition=gpu
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=16G
-#SBATCH --job-name=childes-cleanups
-#SBATCH --time=3:00:00
-#SBATCH --export=ALL
-#SBATCH --output childes-clean-%J.log
-# fmt: on
+#!/usr/bin/env/python
 import os
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -21,7 +13,7 @@ from lexical_benchmark.utils import slurm_utils
 slurm_utils.info_header()
 
 
-class STELACleanArgs(Tap):
+class CHILDESCleanArgs(Tap):
     """CMD args for STELA Cleanup PIPELINE."""
 
     location: str
@@ -43,19 +35,20 @@ class STELACleanArgs(Tap):
             slurm_id = ""
             if "SLURM_JOB_ID" in os.environ:
                 slurm_id = "_" + os.environ["SLURM_JOB_ID"]
-            self.save(f"cache/args_asr{slurm_id}.json")
+            self.save(f"cache/args{slurm_id}.json")
 
 
 ## Arguments setup
-args_loader = STELACleanArgs()
+args_loader = CHILDESCleanArgs()
 if "ARGS" in os.environ:
     arg_file = Path(os.environ["ARGS"])
-    args: STELACleanArgs = args_loader.from_dict(arg_file.load_json())
+    args: CHILDESCleanArgs = args_loader.from_dict(arg_file.load_json())
 else:
     args = args_loader.parse_args()
 
 slurm_utils.info_args(args)
 args.cache_args()
+sys.exit()
 
 prog_file = Path.cwd() / "childes.progress"
 root_dir = Path(args.location)

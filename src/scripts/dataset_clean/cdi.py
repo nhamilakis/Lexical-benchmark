@@ -1,13 +1,4 @@
-#!/home/nhamilakis/envs/venvs/lbenchmark/bin/python3.11
-# fmt: off
-#SBATCH --partition=gpu
-#SBATCH --cpus-per-task=1
-#SBATCH --mem=16G
-#SBATCH --job-name=cdi-preparation
-#SBATCH --time=0:45:00
-#SBATCH --export=ALL
-#SBATCH --output wf-cdi-build-%J.log
-# fmt: on
+#!/usr/bin/env python
 """Building Word-CDI Dataset."""
 
 from pathlib import Path
