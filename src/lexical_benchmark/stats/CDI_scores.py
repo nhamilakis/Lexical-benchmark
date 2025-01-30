@@ -10,7 +10,7 @@ class CDICalculator:
         self.word_list = word_list #input word list
         self.word_dict = dict(Counter(word_list))
 
-    def _select_words(self) -> dict[str, int]:
+    def select_words(self) -> dict[str, int]:
         """Select CDI words from the word dictionary."""
         return {key: self.word_dict.get(key, 0) for key in self.CDI_words}
 
@@ -22,10 +22,8 @@ class CDICalculator:
         """Compute binary score based on threshold."""
         return 1 if adjusted_count >= self.threshold else 0
 
-    def compute_mean_cdi_score(self) -> int:
+    def compute_mean_cdi_score(self,selected_words:dict) -> int:
         """Compute mean CDI score across all words."""
-        # Get selected words
-        selected_words = self._select_words()
         # Calculate scores for each word
         scores = [
             self._compute_score(self._adjust_count(count))

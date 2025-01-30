@@ -222,8 +222,7 @@ class TextGenerator:
                                 if retry_count >= max_retries:
                                     raise RuntimeError("Maximum retries exceeded for OOM recovery")
                                 continue
-                            # generate the next token directly
-                            print(gen)
+
                             decoded_token = self.tokenizer.decode([token_ids[-1]])
                             # Update context with the full sequence
                             input_ids.extend(token_ids)
