@@ -29,6 +29,12 @@ def word_clean_fn(word: str, word_dict: dataset_utils.DictionairyCleaner) -> boo
     """Check if a word is in dict."""
     return word_dict.check(word)
 
+def segment_sent(data: list[str]) -> list[str]:
+    """Segment sentence list into word list if needed."""
+    if isinstance(data[0], (str, bytes)):
+        return [word for sent in data for word in str(sent).split()]
+    return data
+
 
 class Metric:
     def __init__(
@@ -49,11 +55,7 @@ class Metric:
         self.chunk_size = chunk_size
         self.word_count_est = word_count_est
         self.word_dict = word_dict
-
-        if isinstance(data[0], (str, bytes)):
-            self.data = [word for sent in data for word in str(sent).split()]
-        else:
-            self.data = data
+        self.data = segment_sent(data)
 
         if word_dict is None:
             word_dict = dataset_utils.DictionairyCleaner(lang="EN")

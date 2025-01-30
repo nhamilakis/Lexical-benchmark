@@ -45,7 +45,8 @@ class CharacterTokenizer(PreTrainedTokenizer):
     def _tokenize(self, text: str) -> list[str]:
         return list(text)
 
-    def _convert_token_to_id(self, token: str) -> int:
+    # changed here for word length limits
+    def convert_token_to_id(self, token: str) -> int:
         return self.vocab.get(token, self.vocab[self.unk_token])
 
     def _convert_id_to_token(self, index: int) -> str:

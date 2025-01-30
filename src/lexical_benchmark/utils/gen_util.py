@@ -94,7 +94,6 @@ class TextGenerator:
                 model = LSTMForLanguageModeling.from_pretrained(model_path, config=config)
             else:
                 model = AutoModelForCausalLM.from_pretrained(model_path)
-            print("Model has been loaded")
             return model.to(self.device)
         except Exception as e:
             raise RuntimeError(f"Failed to load model from {model_path}: {e}")
@@ -102,7 +101,6 @@ class TextGenerator:
     def add_special_tokens(self, special_token_lst: list[str] = ["'", "|"]):
         for special_token in special_token_lst:
             self.tokenizer.add_tokens(special_token)
-        print(f"Added {len(special_token_lst)} special tokens to the tokenizer")
 
     def generate_next_token_vllm(self, input_ids, sampling_params):
         """Generate next token using vLLM."""
@@ -177,6 +175,15 @@ class TextGenerator:
             gen = self.tokenizer.decode([random_token_id])
         return input_ids, gen
 
+
+    def _add_bar(self,input_token_id:list,gen:str,added_token:str):
+        """Add new token to the current string and token_ids."""
+        gen+= added_token
+        added_id = self.tokenizer.convert_token_to_id(gen)
+        input_ids = [added_id] if self.use_vllm else torch.tensor(added_id, device=self.device)
+        return input_ids,gen
+
+
     def _should_reset_context(self, input_ids):
         """Check if context window should be reset."""
         if self.use_vllm:
@@ -189,16 +196,16 @@ class TextGenerator:
             return input_ids[:-1]
         return input_ids[:, :1]
 
-    def generate_text(self, word_num: int, temp_lst: list[float]) -> dict[str, str]:
+    def generate_text(self, word_num: int, temp_lst: list[float],max_word_len:int=40) -> dict[str, str]:
         """Generate text with different temperatures."""
         try:
             results = {}
-            max_retries = 10
-
+            max_retries = 3
             for temp in temp_lst:
                 input_ids, gen = self._initialize_generation()
                 bar_count = 0
                 retry_count = 0
+                cur_word_len = 0
 
                 if self.use_vllm:
                     sampling_params = SamplingParams(
@@ -239,11 +246,16 @@ class TextGenerator:
 
                         # Reset retry count on successful generation
                         retry_count = 0
-
+                        cur_word_len += 1
                         # Update generation state
                         if decoded_token == "|":
                             bar_count += 1
+                            # reset if the word chunk 
+                            cur_word_len = 0
                         gen += decoded_token
+                        # insert the bar if the one word-like unit
+                        if cur_word_len >max_word_len:
+                            input_ids,gen = self._add_bar(input_ids,gen,"|")
 
                     except Exception as e:
                         logging.warning(f"Error during token generation: {str(e)}")
@@ -251,7 +263,6 @@ class TextGenerator:
                         if retry_count >= max_retries:
                             raise RuntimeError(f"Maximum retries exceeded: {str(e)}")
                         continue
-
                 results[f"unprompted_{temp}"] = gen
 
             return results
