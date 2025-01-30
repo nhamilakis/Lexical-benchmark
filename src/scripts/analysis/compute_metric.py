@@ -64,9 +64,10 @@ def append_model_metric(gen: pd.DataFrame, temp_lst: list, info_dict: dict, metr
             CDI_words: list, chunk_size: int, word_dict: dict,word_count_est:int):
    scores = []
    for temp in temp_lst:
+        # clean sentence list
        sent_lst = gen[f"unprompted_{temp}"].apply(char2word).tolist()
        metric = Metric(data=sent_lst, temp=temp, metric_lst=metric_lst, threshold=threshold, 
-                      CDI_words=CDI_words, chunk_size=chunk_size, word_dict=word_dict,word_count_est=word_count_est)
+                      CDI_words=CDI_words, word_count_est=word_count_est,chunk_size=chunk_size, word_dict=word_dict)
        scores.append([x for x in metric.compute_metrics() if x is not None])
 
    score = pd.DataFrame(scores, columns=["temp", *metric_lst])
@@ -77,14 +78,16 @@ def append_model_metric(gen: pd.DataFrame, temp_lst: list, info_dict: dict, metr
    return score
 
 
-def append_human_metric(ref_data: pd.DataFrame, metric_lst: list, threshold: int, CDI_words: list, chunk_size: int, 
-            word_dict: dict,word_est_dict:dict):
+def append_human_metric(ref_data: pd.DataFrame, metric_lst: list, threshold: int, CDI_words: list, 
+            chunk_size: int, word_dict: dict,word_est_dict:dict,CDI:bool):
    gen_grouped = ref_data.groupby('month')
    scores = []
    for month, gen in gen_grouped:
-       sent_lst = gen["text"].tolist()
+       sent_lst = gen["text"].tolist() 
+       word_count_est = load_word_count_est(word_est_dict,month.name,CDI)
+       # note here the temp is just a placeholder
        metric = Metric(data=sent_lst, temp=month, metric_lst=metric_lst, threshold=threshold,
-                      CDI_words=CDI_words, chunk_size=chunk_size, word_dict=word_dict)
+            CDI_words=CDI_words, word_count_est = word_count_est,chunk_size=chunk_size, word_dict=word_dict)
        row = metric.compute_metrics()
        row.append(gen['sent_len'].sum())
        scores.append([x for x in row if x is not None])
@@ -104,6 +107,10 @@ def load_CDI_words(CDI_dir:Path,dataset:str,CDI:bool)->list:
         return CDI_frame['word'].tolist()
     return []
 
+def load_word_count_est(word_est_dict: dict, month: int, CDI: bool) -> float:
+    """Load word_count_est for each month. Returns 0 if month not in dictionary."""
+    # Using dict.get() with default value
+    return word_est_dict.get(month, 0) if CDI else 0
 
 
 def main():
@@ -118,7 +125,7 @@ def main():
     # load monthly estimation dict
     df_est = pd.read_csv(word_est_dir)
     word_est_dict = dict(zip(df_est["month"], df_est["child_month_est"]))
-
+    print(f"Monthly production estimation loaded {word_est_dict}")
     # set CDI parameters
     CDI=True if "CDI" in args.metric_lst else False
 
@@ -126,27 +133,26 @@ def main():
     # loop over datasets
     for dataset in gen_dir.iterdir():
         # load CDI words
-        CDI_words = load_CDI_words(CDI_dir,dataset.name,CDI)
         if dataset.is_dir():
+            CDI_words = load_CDI_words(CDI_dir,dataset.name,CDI)
             # assign different word dictionary
             word_dict = load_dict(settings.dataset_name_dict[dataset.name])
-
             for month in tqdm((dataset / f"{args.hour_per_year}_hour_per_year" / args.lang).iterdir()):
+                word_count_est = load_word_count_est(word_est_dict,int(month.name),CDI)
                 for chunk in month.iterdir():
                     for model in chunk.iterdir():
                         if (model/"gen.csv").exists():   # check whether there exsits the full generation file
                             gen = pd.read_csv(model/"gen.csv")
-                            # append info frame
+                                # append info frame
                             info_dict = {
-                                    "dataset": settings.dataset_name_dict[dataset.name],
-                                    "month": month.name,
-                                    "chunk": chunk.name,
-                                    "model_type": model.name
-
-                                }
-                            # compute the metric here sent_lst:list,temp_lst:list,info_dict:dict,
+                                        "dataset": settings.dataset_name_dict[dataset.name],
+                                        "month": month.name,
+                                        "chunk": chunk.name,
+                                        "model_type": model.name
+                                    }
+                             # compute the metric here sent_lst:list,temp_lst:list,info_dict:dict,
                             score = append_model_metric(gen,args.temp_lst,info_dict,args.metric_lst,
-                                                args.threshold,CDI_words,args.chunk_size, word_dict)
+                                args.threshold,CDI_words,args.chunk_size, word_dict,word_count_est)
                             score_all = pd.concat([score_all, score])
                             print(f"Finish computing metrics from {model.relative_to(gen_dir)}")
 
@@ -155,7 +161,8 @@ def main():
     CDI_words = load_CDI_words(CDI_dir,"CHILDES")
     # load word_dict
     word_dict = load_dict("CHILDES")
-    score_human = append_human_metric(ref_data,args.metric_lst,args.threshold,CDI_words,args.chunk_size, word_dict)
+    score_human = append_human_metric(ref_data,args.metric_lst,args.threshold,CDI_words,args.chunk_size, 
+        word_dict,word_est_dict,CDI)
     # Reorder columns based on given list
     score_human = score_human[score_all.columns]
     score_all = pd.concat([score_human,score_all])

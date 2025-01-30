@@ -48,6 +48,7 @@ class Metric:
         self.CDI_words = CDI_words or []
         self.chunk_size = chunk_size
         self.word_count_est = word_count_est
+        self.word_dict = word_dict
 
         if isinstance(data[0], (str, bytes)):
             self.data = [word for sent in data for word in str(sent).split()]
@@ -85,14 +86,13 @@ class Metric:
 
         # Create calculator instance
         calculator = CDICalculator(
-            word_list=self.data,
             CDI_words=self.CDI_words,
-            word_dict=self.word_dict,
             threshold=self.threshold,
-            word_count_est=self.word_count_est
+            word_count_est=self.word_count_est,
+            word_list=self.data
             )
         # Calculate mean score
-        mean_score = calculator.compute_mean_cdi_score(self.word_count)
+        mean_score = calculator.compute_mean_cdi_score()
         return mean_score
 
     def compute_metrics(self) -> list:
