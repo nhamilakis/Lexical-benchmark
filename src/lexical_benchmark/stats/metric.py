@@ -47,6 +47,7 @@ class Metric:
         word_count_est: int = None,  # count estimation based on prior study
         chunk_size: int | None = None,
         word_dict: dataset_utils.DictionairyCleaner | None = None,
+        previous_words: dict[str, int] = None,
     ) -> None:
         self.temp = temp
         self.metric_lst = metric_lst or []
@@ -55,6 +56,7 @@ class Metric:
         self.chunk_size = chunk_size
         self.word_count_est = word_count_est
         self.word_dict = word_dict
+        self.previous_words = previous_words if previous_words is not None else {}
         self.data = segment_sent(data)
 
         if word_dict is None:
@@ -91,11 +93,13 @@ class Metric:
             CDI_words=self.CDI_words,
             threshold=self.threshold,
             word_count_est=self.word_count_est,
-            word_list=self.data
+            word_list=self.data,
+
             )
         # Calculate mean score
-        mean_score = calculator.compute_mean_cdi_score()
-        return mean_score
+        cum_counts,mean_score = calculator.compute_mean_cdi_score()
+
+        return mean_score,cum_counts
 
     def compute_metrics(self) -> list:
         row = [self.temp]
@@ -103,10 +107,12 @@ class Metric:
             [
                 self.compute_ttr() if "type_token_ratio" in self.metric_lst else None,
                 self.compute_type_rej_rate() if "rej_type_rate" in self.metric_lst else None,
-                self.compute_CDI() if "CDI" in self.metric_lst else None,
+                self.compute_token_rej_rate() if "rej_token_rate" in self.metric_lst else None,
+                self.compute_CDI()[0] if "CDI" in self.metric_lst else None,
             ]
         )
-        return row
+        cum_counts = self.compute_CDI()[1] if "CDI" in self.metric_lst else None
+        return row,cum_counts
 
 
 class SigmoidFitter:

@@ -4,6 +4,7 @@ import collections
 from pathlib import Path
 
 import pandas as pd
+
 from lexical_benchmark import settings
 from lexical_benchmark.datasets.utils import training_files
 
