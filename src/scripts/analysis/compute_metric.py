@@ -61,6 +61,20 @@ def parse_args():
 
 
 
+def load_word_dict(
+    dataset: str,
+    chunk: str | int,
+    model: str,
+    temp: str | float,
+    previous_words_dict: dict[str, dict]
+) -> dict[str, int] | None:
+    try:
+        return previous_words_dict[dataset][str(chunk)][model][str(temp)]
+    except KeyError as e:
+        return None
+
+
+
 def append_model_metric(gen: pd.DataFrame, temp_lst: list, info_dict: dict, metric_lst: list, threshold: int, 
             CDI_words: list, chunk_size: int, word_dict: dict,word_count_est:int,previous_words:dict):
    scores = []
@@ -76,7 +90,7 @@ def append_model_metric(gen: pd.DataFrame, temp_lst: list, info_dict: dict, metr
    ordered_cols = [col for col in score.columns if col not in metric_lst] + metric_lst
    score = score[ordered_cols]
    score['word_num'] = gen['sent_len'].sum()
-   return score, cum_count_dict
+   return score, previous_words
 
 
 def append_human_metric(ref_data: pd.DataFrame, metric_lst: list, threshold: int, CDI_words: list, 
@@ -130,9 +144,10 @@ def main():
     print(f"Monthly production estimation loaded {word_est_dict}")
     # set CDI parameters
     CDI=True if "CDI" in args.metric_lst else False
-
+    CDI_month_dict = {}
+    
     score_all = pd.DataFrame()
-    # loop over datasets   {dataset_chunk_model_temp:{word_count_dict}}
+    # loop over datasets   {dataset{chunk{model{temp:{word_count_dict}}}}}
     for dataset in gen_dir.iterdir():
         # load CDI words
         if dataset.is_dir():
@@ -159,7 +174,7 @@ def main():
 
                             score_all = pd.concat([score_all, score])
                             print(f"Finish computing metrics from {model.relative_to(gen_dir)}")
-
+    
     # compute human production
     ref_data = pd.read_csv(ref_dir)
     CDI_words = load_CDI_words(CDI_dir,"CHILDES",CDI)
@@ -168,10 +183,11 @@ def main():
     score_human = append_human_metric(ref_data,args.metric_lst,args.threshold,CDI_words,args.chunk_size, 
         word_dict,word_est_dict,CDI)
     # Reorder columns based on given list
+    
     score_human = score_human[score_all.columns]
     score_all = pd.concat([score_human,score_all])
     score_all.to_csv(metric_dir/f"metric_{args.hour_per_year}.csv")
     print(f"Saving the metric to {metric_dir}/metric_{args.hour_per_year}.csv")
-
+    
 if __name__ == "__main__":
     main()
