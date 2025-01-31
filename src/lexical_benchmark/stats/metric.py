@@ -9,41 +9,14 @@ from lexical_benchmark.stats import normalised_rejection_rates
 from lexical_benchmark.stats.CDI_scores import CDICalculator
 
 
-def load_dict(dataset_name: str):
-    """Load dictionary based on different datasets."""
-    if dataset_name == "child":
-        print("Append en_dict with adult input")
-        dataset = childes.CHILDESDataset()
-        childes_adult_extras_lexique = childes.CHILDESExtrasLexicon(dataset)
-        childes_adult_extras_lexique.add_lang("Eng-NA", "adult")
-        childes_adult_extras_lexique.add_lang("Eng-UK", "adult")
-        dict_hash_id = childes_adult_extras_lexique.cache_current()
-        en_dict = dataset_utils.DictionairyCleaner(lang="EN", childes_extra_id=dict_hash_id)
-    else:
-        en_dict = dataset_utils.DictionairyCleaner(lang="EN")
-    print("Dictionary has been loaded!")
-    return en_dict
-
-
-def word_clean_fn(word: str, word_dict: dataset_utils.DictionairyCleaner) -> bool:
-    """Check if a word is in dict."""
-    return word_dict.check(word)
-
-def segment_sent(data: list[str]) -> list[str]:
-    """Segment sentence list into word list if needed."""
-    if isinstance(data[0], (str, bytes)):
-        return [word for sent in data for word in str(sent).split()]
-    return data
-
-
 class Metric:
     def __init__(
         self,
         data: list[str],
         temp: str = None,
         metric_lst: list = None,
-        threshold: int = None,    # count_based threshold for CDI score
-        CDI_words: list = None,   # a list of selected CDI words
+        threshold: int = None,  # count_based threshold for CDI score
+        CDI_words: list = None,  # a list of selected CDI words
         word_count_est: int = None,  # count estimation based on prior study
         chunk_size: int | None = None,
         word_dict: dataset_utils.DictionairyCleaner | None = None,
@@ -87,19 +60,17 @@ class Metric:
         return self.stats.token_rejection_rate()
 
     def compute_CDI(self) -> float:
-
         # Create calculator instance
         calculator = CDICalculator(
             CDI_words=self.CDI_words,
             threshold=self.threshold,
             word_count_est=self.word_count_est,
             word_list=self.data,
-
-            )
+        )
         # Calculate mean score
-        cum_counts,mean_score = calculator.compute_mean_cdi_score()
+        cum_counts, mean_score = calculator.compute_mean_cdi_score()
 
-        return mean_score,cum_counts
+        return mean_score, cum_counts
 
     def compute_metrics(self) -> list:
         row = [self.temp]
@@ -112,8 +83,125 @@ class Metric:
             ]
         )
         cum_counts = self.compute_CDI()[1] if "CDI" in self.metric_lst else None
-        return row,cum_counts
+        return row, cum_counts
 
+
+class WordDictManager1:
+    """Manage word dictionary operations with nested structure."""
+
+    def __init__(self, dataset: str, chunk: str | int, model_type: str, temp: str | float) -> None:
+        self.dataset = dataset
+        self.chunk = str(chunk)
+        self.model_type = model_type
+        self.temp = str(temp)
+
+    def load_word_dict(self, CDI_month_dict: dict[str, dict]) -> dict[str, int] | None:
+        """Load dictionary based on initialized parameters."""
+        try:
+            return CDI_month_dict[self.dataset][self.chunk][self.model_type][self.temp]
+        except KeyError:
+            return {}
+
+    def write_word_dict(self, previous_words: dict[str, dict], CDI_month_dict: dict[str, dict]) -> dict[str, dict]:
+        """Write dictionary based on initialized parameters."""
+        # Create dataset level if it doesn't exist
+        if self.dataset not in CDI_month_dict:
+            CDI_month_dict[self.dataset] = {}
+        # Create chunk level if it doesn't exist
+        if self.chunk not in CDI_month_dict[self.dataset]:
+            CDI_month_dict[self.dataset][self.chunk] = {}
+        # Create model type level if it doesn't exist
+        if self.model_type not in CDI_month_dict[self.dataset][self.chunk]:
+            CDI_month_dict[self.dataset][self.chunk][self.model_type] = {}
+        # Store the words
+        CDI_month_dict[self.dataset][self.chunk][self.model_type][self.temp] = previous_words
+        return CDI_month_dict
+
+class WordDictManager:
+    """Manage word dictionary operations with nested structure."""
+
+    def __init__(self, dataset: str, chunk: str | int, model_type: str, temp: str | float) -> None:
+        """Initialize WordDictManager with all values converted to strings.
+        
+        Args:
+            dataset: Name of dataset
+            chunk: Chunk identifier (will be converted to string)
+            model_type: Type of model
+            temp: Temperature value (will be converted to string)
+        """
+        self.dataset = dataset
+        self.chunk = str(chunk)
+        self.model_type = model_type
+        self.temp = str(temp)
+
+    def load_word_dict(self, CDI_month_dict: dict[str, dict]) -> dict[str, int]:
+        """Load dictionary based on initialized parameters.
+        
+        Args:
+            CDI_month_dict: Nested dictionary containing word data
+            
+        Returns:
+            Dictionary of word counts or empty dict if not found
+        """
+        try:
+            # Debug the dictionary structure
+            if self.dataset not in CDI_month_dict:
+                print(f"Dataset {self.dataset} not in dictionary")
+                return {}
+                
+            if self.chunk not in CDI_month_dict[self.dataset]:
+                print(f"Chunk {self.chunk} not in dataset {self.dataset}")
+                return {}
+                
+            if self.model_type not in CDI_month_dict[self.dataset][self.chunk]:
+                print(f"Model {self.model_type} not in chunk {self.chunk}")
+                return {}
+                
+            if self.temp not in CDI_month_dict[self.dataset][self.chunk][self.model_type]:
+                print(f"Temp {self.temp} not in model {self.model_type}")
+                return {}
+                
+            return CDI_month_dict[self.dataset][self.chunk][self.model_type][self.temp]
+        except Exception as e:
+            print(f"Error accessing dictionary: {e}")
+            print(f"Dataset: {self.dataset}, Chunk: {self.chunk}, Model: {self.model_type}, Temp: {self.temp}")
+            return {}
+
+    def write_word_dict(self, previous_words: dict[str, dict], CDI_month_dict: dict[str, dict]) -> dict[str, dict]:
+        """Write dictionary based on initialized parameters.
+        
+        Args:
+            previous_words: Dictionary of word counts to store
+            CDI_month_dict: Nested dictionary to update
+            
+        Returns:
+            Updated CDI month dictionary
+        """
+        # Create nested structure if it doesn't exist
+        if self.dataset not in CDI_month_dict:
+            CDI_month_dict[self.dataset] = {}
+            
+        if self.chunk not in CDI_month_dict[self.dataset]:
+            CDI_month_dict[self.dataset][self.chunk] = {}
+            
+        if self.model_type not in CDI_month_dict[self.dataset][self.chunk]:
+            CDI_month_dict[self.dataset][self.chunk][self.model_type] = {}
+            
+        # Store the words
+        CDI_month_dict[self.dataset][self.chunk][self.model_type][self.temp] = previous_words
+        
+        return CDI_month_dict
+
+    def debug_dict_structure(self, CDI_month_dict: dict[str, dict]) -> None:
+        """Debug helper to print dictionary structure."""
+        print("\nDictionary Structure:")
+        print(f"Datasets: {list(CDI_month_dict.keys())}")
+        if self.dataset in CDI_month_dict:
+            print(f"Chunks in {self.dataset}: {list(CDI_month_dict[self.dataset].keys())}")
+            if self.chunk in CDI_month_dict[self.dataset]:
+                print(f"Models in chunk {self.chunk}: {list(CDI_month_dict[self.dataset][self.chunk].keys())}")
+                if self.model_type in CDI_month_dict[self.dataset][self.chunk]:
+                    print(f"Temps in model {self.model_type}: {list(CDI_month_dict[self.dataset][self.chunk][self.model_type].keys())}")
 
 class SigmoidFitter:
     def __init__(self, x_data: list[int], y_data: list[int], target_y: float) -> None:
@@ -140,3 +228,31 @@ class SigmoidFitter:
         target_x = x_fit[target_y_index]
 
         return {"target_x": target_x, "slope": popt[0], "offset": popt[1]}
+
+
+def load_dict(dataset_name: str):
+    """Load dictionary based on different datasets."""
+    if dataset_name == "child":
+        print("Append en_dict with adult input")
+        dataset = childes.CHILDESDataset()
+        childes_adult_extras_lexique = childes.CHILDESExtrasLexicon(dataset)
+        childes_adult_extras_lexique.add_lang("Eng-NA", "adult")
+        childes_adult_extras_lexique.add_lang("Eng-UK", "adult")
+        dict_hash_id = childes_adult_extras_lexique.cache_current()
+        en_dict = dataset_utils.DictionairyCleaner(lang="EN", childes_extra_id=dict_hash_id)
+    else:
+        en_dict = dataset_utils.DictionairyCleaner(lang="EN")
+    print("Dictionary has been loaded!")
+    return en_dict
+
+
+def word_clean_fn(word: str, word_dict: dataset_utils.DictionairyCleaner) -> bool:
+    """Check if a word is in dict."""
+    return word_dict.check(word)
+
+
+def segment_sent(data: list[str]) -> list[str]:
+    """Segment sentence list into word list if needed."""
+    if isinstance(data[0], (str, bytes)):
+        return [word for sent in data for word in str(sent).split()]
+    return data

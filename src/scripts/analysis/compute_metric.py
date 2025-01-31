@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from lexical_benchmark import settings
 from lexical_benchmark.datasets.utils.text_cleaning import char2word
-from lexical_benchmark.stats.metric import Metric, load_dict
+from lexical_benchmark.stats.metric import Metric, WordDictManager, load_dict
 
 
 def parse_args():
@@ -61,54 +61,90 @@ def parse_args():
 
 
 
-def load_word_dict(
-    dataset: str,
-    chunk: str | int,
-    model: str,
-    temp: str | float,
-    previous_words_dict: dict[str, dict]
-) -> dict[str, int] | None:
-    try:
-        return previous_words_dict[dataset][str(chunk)][model][str(temp)]
-    except KeyError as e:
-        return None
 
 
+def append_model_metric(gen: pd.DataFrame, temp_lst: list, info_dict: dict, metric_lst: list, threshold: int,
+            CDI_words: list, chunk_size: int, word_dict: dict,word_count_est:int,CDI_month_dict:dict):
 
-def append_model_metric(gen: pd.DataFrame, temp_lst: list, info_dict: dict, metric_lst: list, threshold: int, 
-            CDI_words: list, chunk_size: int, word_dict: dict,word_count_est:int,previous_words:dict):
-   scores = []
-   for temp in temp_lst:
+    scores = []
+    for temp in temp_lst:
+        # initlize the dict manager info
+        word_dict_manager = WordDictManager(
+            dataset = info_dict['dataset'],
+            chunk = info_dict['chunk'],
+            model_type = info_dict['model_type'],
+            temp = temp,
+            )
+        previous_words = word_dict_manager.load_word_dict(CDI_month_dict)
         # clean sentence list
-       sent_lst = gen[f"unprompted_{temp}"].apply(char2word).tolist()
-       metric = Metric(data=sent_lst, temp=temp, metric_lst=metric_lst, threshold=threshold, 
-                      CDI_words=CDI_words, word_count_est=word_count_est,chunk_size=chunk_size, word_dict=word_dict)
-       scores.append([x[0] for x in metric.compute_metrics() if x is not None])
+        sent_lst = gen[f"unprompted_{temp}"].apply(char2word).tolist()
+        metric = Metric(
+            data=sent_lst,
+            temp=temp,
+            metric_lst=metric_lst,
+            threshold=threshold,
+            CDI_words=CDI_words,
+            word_count_est=word_count_est,
+            chunk_size=chunk_size,
+            word_dict=word_dict,
+            previous_words = previous_words
+            )
+        scores.append([x[0] for x in metric.compute_metrics() if x is not None])
+        # update the CDI dict
+        previous_words = metric.compute_metrics()[1]
+        CDI_month_dict = word_dict_manager.write_word_dict(
+            previous_words,
+            CDI_month_dict
+            )
 
-   score = pd.DataFrame(scores, columns=["temp", *metric_lst])
-   score = score.assign(**info_dict)
-   ordered_cols = [col for col in score.columns if col not in metric_lst] + metric_lst
-   score = score[ordered_cols]
-   score['word_num'] = gen['sent_len'].sum()
-   return score, previous_words
+    score = pd.DataFrame(scores, columns=["temp", *metric_lst])
+    score = score.assign(**info_dict)
+    ordered_cols = [col for col in score.columns if col not in metric_lst] + metric_lst
+    score = score[ordered_cols]
+    score['word_num'] = gen['sent_len'].sum()
+    return score, CDI_month_dict
 
 
 def append_human_metric(ref_data: pd.DataFrame, metric_lst: list, threshold: int, CDI_words: list, 
-            chunk_size: int, word_dict: dict,word_est_dict:dict,CDI:bool):
+            chunk_size: int, word_dict: dict,word_est_dict:dict,CDI:bool,previous_words:dict,CDI_month_dict:dict):
+   info_dict = {"dataset": "CHILDES", "chunk": "00", "model_type": "human","temp":"1.0"}
    gen_grouped = ref_data.groupby('month')
    scores = []
    for month, gen in gen_grouped:
-       sent_lst = gen["text"].tolist() 
-       word_count_est = load_word_count_est(word_est_dict,month,CDI)
-       # note here the temp is just a placeholder
-       metric = Metric(data=sent_lst, temp=month, metric_lst=metric_lst, threshold=threshold,
-            CDI_words=CDI_words, word_count_est = word_count_est,chunk_size=chunk_size, word_dict=word_dict)
-       row = metric.compute_metrics()
-       row.append(gen['sent_len'].sum())
-       scores.append([x for x in row if x is not None])
+        sent_lst = gen["text"].tolist()
+        word_count_est = load_word_count_est(word_est_dict,month,CDI)
+        # initlize the dict manager info
+        word_dict_manager = WordDictManager(
+            dataset = info_dict['dataset'],
+            chunk = info_dict['chunk'],
+            model_type = info_dict['model_type'],
+            temp = info_dict['temp'],
+            )
+        word_dict_manager.debug_dict_structure(CDI_month_dict)
+        previous_words = word_dict_manager.load_word_dict(CDI_month_dict)
+        metric = Metric(
+            data=sent_lst,
+            temp=month,
+            metric_lst=metric_lst,
+            threshold=threshold,
+            CDI_words=CDI_words,
+            word_count_est=word_count_est,
+            chunk_size=chunk_size,
+            word_dict=word_dict,
+            previous_words = previous_words
+            )
+        row = metric.compute_metrics()[1]
+        row.append(gen['sent_len'].sum())
+        scores.append([x for x in row if x is not None])
+        # update the CDI dict
+        previous_words = metric.compute_metrics()[1]
+        CDI_month_dict = word_dict_manager.write_word_dict(
+            previous_words,
+            CDI_month_dict
+            )
+
 
    score = pd.DataFrame(scores, columns=["month", *metric_lst, 'word_num'])
-   info_dict = {"dataset": "CHILDES", "chunk": "00", "model_type": "human","temp":"1.0"}
    score = score.assign(**info_dict)
    ordered_cols = [col for col in score.columns if col not in metric_lst] + metric_lst
    score = score[ordered_cols]
@@ -145,15 +181,13 @@ def main():
     # set CDI parameters
     CDI=True if "CDI" in args.metric_lst else False
     CDI_month_dict = {}
-    
     score_all = pd.DataFrame()
     # loop over datasets   {dataset{chunk{model{temp:{word_count_dict}}}}}
     for dataset in gen_dir.iterdir():
         # load CDI words
         if dataset.is_dir():
             CDI_words,previous_words = load_CDI_words(CDI_dir,dataset.name,CDI)
-            # initialize the CDI words with an ampty dictionary
-            # assign different word dictionary
+            # initialize the CDI words with an ampty dictionary; assign different word dictionary
             word_dict = load_dict(settings.dataset_name_dict[dataset.name])
             for month in tqdm((dataset / f"{args.hour_per_year}_hour_per_year" / args.lang).iterdir()):
                 word_count_est = load_word_count_est(word_est_dict,int(month.name),CDI)
@@ -168,22 +202,19 @@ def main():
                                         "chunk": chunk.name,
                                         "model_type": model.name
                                     }
-                             # compute the metric here sent_lst:list,temp_lst:list,info_dict:dict,
-                            score = append_model_metric(gen,args.temp_lst,info_dict,args.metric_lst,
+                            # compute the metric and update CDI_month_dict
+                            score, CDI_month_dict = append_model_metric(gen,args.temp_lst,info_dict,args.metric_lst,
                                 args.threshold,CDI_words,args.chunk_size, word_dict,word_count_est,previous_words)
-
                             score_all = pd.concat([score_all, score])
                             print(f"Finish computing metrics from {model.relative_to(gen_dir)}")
-    
     # compute human production
     ref_data = pd.read_csv(ref_dir)
-    CDI_words = load_CDI_words(CDI_dir,"CHILDES",CDI)
+    CDI_words,previous_words = load_CDI_words(CDI_dir,"CHILDES",CDI)
     # load word_dict
     word_dict = load_dict("CHILDES")
     score_human = append_human_metric(ref_data,args.metric_lst,args.threshold,CDI_words,args.chunk_size, 
-        word_dict,word_est_dict,CDI)
+        word_dict,word_est_dict,CDI,previous_words,CDI_month_dict)
     # Reorder columns based on given list
-    
     score_human = score_human[score_all.columns]
     score_all = pd.concat([score_human,score_all])
     score_all.to_csv(metric_dir/f"metric_{args.hour_per_year}.csv")

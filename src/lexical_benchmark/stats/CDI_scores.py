@@ -48,7 +48,7 @@ class CDICalculator:
         """Compute binary score based on threshold."""
         return 1 if adjusted_count >= self.threshold else 0
 
-    def _get_combined_counts(self) -> dict[str, float]:
+    def get_combined_counts(self) -> dict[str, float]:
         """Combine adjusted counts with previous words."""
         selected_words = self._select_words()
         adjusted_dict = {word: self._adjust_count(count) for word, count in selected_words.items()}
