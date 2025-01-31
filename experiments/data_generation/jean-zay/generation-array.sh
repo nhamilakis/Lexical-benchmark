@@ -23,7 +23,7 @@
 export MODEL_ROOT="$WORK/data/models"
 export GEN_ROOT="$WORK/data/gen"
 export DATASET_ROOT="$WORK/data/datasets"
-export CODE="$(PWD)/code"
+export CODE="$(pwd)/code"
 export JZ=1
 
 if [[ -z "${SLURM_ARRAY_TASK_ID}" ]]; then
@@ -83,10 +83,9 @@ echo "CPU Info: $(lscpu | grep 'Model name' | sed 's/Model name: *//')"
 echo "Memory Info: $(free -h | grep Mem)"
 
 echo -e "\n=== PYTHON ==="
-echo "python: $(which python)"
-echo "python-version $(python -V)"
-echo "CUDA-AVAILABLE $(python -c 'import torch; print(torch.cuda.is_available());')"
-
+echo "PYTHON-VERSION: $(uv run python -V)"
+echo "PYTHON: $(uv run which python)"
+echo "CUDA-AVAILABLE $(uv run python -c 'import torch; print(torch.cuda.is_available());')"
 
 echo "Running Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
 

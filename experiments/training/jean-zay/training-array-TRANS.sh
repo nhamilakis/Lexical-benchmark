@@ -17,13 +17,13 @@
 # Array Number of Jobs to run in Parallel
 # Given via CMD arguments (because it varies depending on the number of jobs)
 ##SBATCH --array=0-2
-#SBATCH --output=/lustre/fswork/projects/rech/hhb/ucx81cx/logs/%x-%A-%a.log
+#SBATCH --output=logs/%x-%A-%a.log
 #SBATCH --hint=nomultithread        # hyperthreading is deactivated
 
 export MODEL_ROOT="$WORK/data/models"
 export GEN_ROOT="$WORK/data/gen"
 export DATASET_ROOT="$WORK/data/datasets"
-export CODE="$(PWD)/code"
+export CODE="$(pwd)/code"
 export JZ=1
 
 if [[ -z "${SLURM_ARRAY_TASK_ID}" ]]; then
@@ -85,8 +85,9 @@ echo "Memory Info: $(free -h | grep Mem)"
 echo -e "\n=== PYTHON ==="
 echo "python: $(uv run which python)"
 echo "python-version $(uv run python -V)"
+echo "CUDA-AVAILABLE $(uv run python -c 'import torch; print(torch.cuda.is_available());')"
 
-echo "Running Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
+echo "Training Transformer  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
 
 # Grab parameters from index file
 read DATASET SPLIT CHUNK VAL_PATH <<< "$(get_line "${JOB_INDEX_FILE}" $SLURM_ARRAY_TASK_ID)"

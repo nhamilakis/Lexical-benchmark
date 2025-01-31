@@ -30,22 +30,22 @@ notebook-tunnel node=compute_node port=jupyter_port:
 [doc("Fetch notebooks from Oberon")]
 fetch-notebooks:
     echo "Fetching notebooks..."
-    rsync -azP --delete --exclude=".ipynb_checkpoints" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/notebooks/" "{{current_dir}}/notebooks/"
+    rsync -azP --delete --exclude=".venv" --exclude=".ipynb_checkpoints" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/notebooks/" "{{current_dir}}/notebooks/"
 
 [doc("Deploy experiment code to remote")]
 deploy-experiments:
     echo "Syncing experiment directory..."
-    rsync -azP --delete --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/experiments/" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/experiments/"
+    rsync -azP --delete --exclude=".venv" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/experiments/" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/experiments/"
 
 [doc("Deploy source code to remote")]
 deploy-source: 
     echo "Syncing source-code directory..."
-    rsync -azP --delete --exclude=".mypy_cache" --exclude="notebooks"  --exclude="experiments" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/source/"
+    rsync -azP --delete --exclude=".venv" --exclude=".mypy_cache" --exclude="notebooks"  --exclude="experiments" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/source/"
 
 [doc("Deploy source code to remote")]
 deploy-coml-prod: 
     echo "Syncing source-code directory..."
-    rsync -azP --delete --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{COML_CLUSTER}}:{{scratch1_deploy_folder}}"
+    rsync -azP --delete --exclude=".venv" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{COML_CLUSTER}}:{{scratch1_deploy_folder}}"
 
 [doc("Deploy source code to jean-folder test folder !!")]
 deploy-jz-dev:
@@ -53,9 +53,9 @@ deploy-jz-dev:
     # SSHPASS not set
     echo "Syncing source-code directory..."
     if [ -z "${SSHPASS}" ]; then
-        rsync -azP --delete --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_DEV}}"
+        rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_DEV}}"
     else
-        sshpass -e rsync -azP --delete --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_DEV}}"
+        sshpass -e rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_DEV}}"
     fi
 
 [doc("Deploy source code to jean-folder in test env 1")]
@@ -64,9 +64,9 @@ deploy-jz-test1:
     # SSHPASS not set
     echo "Syncing source-code directory..."
     if [ -z "${SSHPASS}" ]; then
-        rsync -azP --delete --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_TEST_1}}"
+        rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_TEST_1}}"
     else
-        sshpass -e rsync -azP --delete --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_TEST_1}}"
+        sshpass -e rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_TEST_1}}"
     fi
 
 [doc("Deploy source code to jean-folder in test env 2")]
@@ -75,9 +75,9 @@ deploy-jz-test2:
     # SSHPASS not set
     echo "Syncing source-code directory..."
     if [ -z "${SSHPASS}" ]; then
-        rsync -azP --delete --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_TEST_2}}"
+        rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_TEST_2}}"
     else
-        sshpass -e rsync -azP --delete --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_TEST_2}}"
+        sshpass -e rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_TEST_2}}"
     fi
 
 [doc("Install module & dependencies")]
