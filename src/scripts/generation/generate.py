@@ -73,7 +73,7 @@ def main(args):
             return
 
         # Setup logger
-        logger = Logger.setup(generation_path)
+        logger = Logger.setup_stdout()
         logger.info(f"Starting generation with arguments: {args}")
         logger.info(f"Detected model type: {model_type}, vLLM enabled: {use_vllm}")
 

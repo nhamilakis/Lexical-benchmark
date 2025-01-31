@@ -17,11 +17,11 @@
 # Array Number of Jobs to run in Parallel
 # Given via CMD arguments (because it varies depending on the number of jobs)
 ##SBATCH --array=0-2
-#SBATCH --output=/lustre/fswork/projects/rech/hhb/ucx81cx/logs/%x-%j-%a.log
+#SBATCH --output=logs/%x-%j-%a.log
 #SBATCH --hint=nomultithread        # hyperthreading is deactivated
 
 export MODEL_ROOT="$WORK/data/models"
-export GEN_ROOT="$WORK/data/gen"
+export GEN_ROOT="$WORK/data/gen2"
 export DATASET_ROOT="$WORK/data/datasets"
 export CODE="$(pwd)/code"
 export JZ=1
@@ -35,7 +35,12 @@ JOB_INDEX_FILE=$1
 
 
 if [[ -z "${1}" ]]; then
-    echo "Error: index file required" >&2
+    echo "Error: index file required (1st arg)" >&2
+    exit 1
+fi
+
+if [[ -z "${2}" ]]; then
+    echo "Error: hour_per_year needed (2nd arg)" >&2
     exit 1
 fi
 
@@ -92,6 +97,6 @@ echo "Running Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
 # Grab parameters from index file
 read model output <<< "$(get_line "${JOB_INDEX_FILE}" $SLURM_ARRAY_TASK_ID)"
 
-uv run $CODE/src/scripts/generation/generate.py --gen_file "$GEN_ROOT/CHILDES_model.csv" --model_path "$MODEL_ROOT/$model" --generation_path "$GEN_ROOT/$output" --save_interval 100 --hour_per_year 100 --use_vllm
+uv run $CODE/src/scripts/generation/generate.py --gen_file "$GEN_ROOT/CHILDES_model.csv" --model_path "$MODEL_ROOT/$model" --generation_path "$GEN_ROOT/$output" --save_interval 500 --hour_per_year $2 --use_vllm --resume
 
 echo "Completed Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"

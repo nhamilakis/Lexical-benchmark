@@ -32,6 +32,18 @@ class Logger:
         )
         return logging.getLogger(__name__)
 
+    @staticmethod
+    def setup_stdout() -> logging.Logger:
+        """Configure STDOUT logs."""
+        logging.basicConfig(
+            format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+            datefmt="%m/%d/%Y %H:%M:%S",
+            level=logging.INFO,
+            handlers=[logging.StreamHandler()],
+            force=True,
+        )
+        return logging.getLogger(__name__)
+
 
 class TextGenerator:
     """Handles text generation using transformer models."""
@@ -288,7 +300,7 @@ class BatchProcessor:
         self.generator = generator
         self.save_path = Path(save_path)
         self.chunk_size = chunk_size
-        self.logger = Logger.setup(self.save_path)
+        self.logger = Logger.setup_stdout()
 
     def process_batch(self, batch: pd.DataFrame, temp_lst: list[float]) -> pd.DataFrame:
         """Process a batch of data for text generation."""

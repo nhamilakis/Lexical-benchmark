@@ -8,6 +8,7 @@ import typing as t
 from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Thread
+import json
 
 import humanize
 import psutil
@@ -16,6 +17,9 @@ try:
     import torch
 except ImportError:
     torch = None
+
+
+START_TIME: datetime | None = None
 
 
 class ProgressTask:
@@ -251,3 +255,37 @@ def info_args(args: argparse.Namespace | tap.Tap, separator: str = "-", width: i
         print(f"{key}: {value}", flush=True)
 
     print(separator * width, flush=True)
+
+
+
+def save_run(items: dict, *, root_dir: Path | None = None, end: bool = False) -> None:
+    """Save run related items as json dict."""
+    global START_TIME  # noqa: PLW0603
+    END_TIME = None
+    if START_TIME is None:
+        START_TIME = datetime.now()
+    elif START_TIME and end:
+        END_TIME = datetime.now()
+
+    TOTAL_TIME = None
+    if END_TIME and START_TIME:
+        TOTAL_TIME= END_TIME - START_TIME
+
+    JOB_ID = os.environ.get("SLURM_JOB_ID", "-")
+
+    if root_dir is None:
+        root_dir = Path.cwd()
+
+    data = {
+        "JOB_ID": JOB_ID,
+        "START": START_TIME.isoformat() if START_TIME else None,
+        "END": END_TIME.isoformat() if END_TIME else None,
+        "TOTAL_RUNTIME": humanize.naturaldelta(TOTAL_TIME) if TOTAL_TIME else None,
+        **items
+    }
+    with (root_dir / f"run_{JOB_ID}.json").open("w") as fh:
+        try:
+            json.dump(data, fh, indent=4)
+        except TypeError:
+            print("FAILED TO WRITE JOB_STATUS !!")
+            print(data)
