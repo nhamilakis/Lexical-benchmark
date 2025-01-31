@@ -8,7 +8,9 @@ import pandas as pd
 import torch
 
 from lexical_benchmark.settings import chunk2month
+from lexical_benchmark import settings
 from lexical_benchmark.utils.gen_util import BatchProcessor, Logger, TextGenerator
+from lexical_benchmark.utils import slurm_utils
 
 
 def parse_args():
@@ -141,4 +143,14 @@ def main(args):
 
 if __name__ == "__main__":
     args = parse_args()
+    run_info = {
+        "model": str(args.model_path),
+        "target": str(args.generation_path),
+        "hour_per_year": args.hour_per_year,
+        "use_vllm": args.use_vllm,
+        "override": args.override,
+        "resume": args.resume,
+    }
+    slurm_utils.save_run(run_info)
     main(args)
+    slurm_utils.save_run(run_info, end=True)
