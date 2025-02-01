@@ -51,7 +51,7 @@ def parse_args() -> argparse.Namespace:
         default=["type_token_ratio", "rej_type_rate", "rej_token_rate", "CDI"],
         help="metric list; ttr,rej_type_rate,CDI",
     )
-    parser.add_argument("--temp_lst", type=list, default=[1.0], help="temperature list")
+    parser.add_argument("--temp_lst", type=list, default=[0.3,0.6,1.0,1.5], help="temperature list")
     parser.add_argument("--hour_per_year", default=1000, type=int, help="Estimated yearly exposure hours")
     parser.add_argument("--chunk_size", default=1000, type=int, help="Chunk size to normalize the scores")
     parser.add_argument("--threshold", default=1, type=int, help="threshold to compute CDI scores")
@@ -206,6 +206,8 @@ class MetricsProcessor:
 
         return cdi_score, cum_counts
 
+
+
     def _compute_model_metrics(
         self,
         texts_dict: dict[float | str, list[str]],
@@ -215,16 +217,7 @@ class MetricsProcessor:
         word_count_est: float,
         use_aggregated: bool = False,
     ) -> tuple[pd.DataFrame, dict]:
-        """Compute metrics for model-generated data.
-
-        Args:
-            texts_dict: Dictionary mapping temperature to list of texts
-            info_dict: Dictionary containing group information
-            CDI_words: List of CDI vocabulary words
-            word_dict: Dictionary for word validation
-            word_count_est: Estimated word count
-            use_aggregated: Whether to use texts as aggregated data
-        """
+        """Compute metrics for model-generated data."""
         scores = []
 
         for temp in self.args.temp_lst:
@@ -241,7 +234,6 @@ class MetricsProcessor:
 
                 # Compute non-CDI metrics
                 if use_aggregated:
-                    # Use aggregated texts for TTR and rejection rates
                     metrics = self._compute_aggregated_metrics(
                         texts,
                         word_dict,
@@ -249,7 +241,6 @@ class MetricsProcessor:
                         [m for m in self.args.metric_lst if m in self.non_cdi_metrics],
                     )
                 else:
-                    # Compute metrics for individual month
                     metrics = self._compute_aggregated_metrics(
                         texts,
                         word_dict,
@@ -270,6 +261,7 @@ class MetricsProcessor:
                     else:
                         row.append(metrics.get(metric_name))
                 row.append(sum(len(text.split()) for text in texts))  # word_num
+                row.append(temp)  # Add temperature to the row
                 scores.append(row)
 
                 if cum_counts is not None:
@@ -282,7 +274,7 @@ class MetricsProcessor:
         if not scores:
             return pd.DataFrame(), self.CDI_month_dict
 
-        columns = ["month"] + self.args.metric_lst + ["word_num"]
+        columns = ["month"] + self.args.metric_lst + ["word_num", "temp"]  # Add temp to columns
         score = pd.DataFrame(scores, columns=columns)
         score = score.assign(**{k: v for k, v in info_dict.items() if k != "month"})
 
@@ -330,7 +322,6 @@ class MetricsProcessor:
                             agg_metrics[group_key][temp] = self._compute_aggregated_metrics(
                                 texts, word_dict, self.args.chunk_size, non_cdi_metrics
                             )
-
             # Process each month
             for month in base_path.iterdir():
                 month_num = int(month.name)
@@ -353,10 +344,8 @@ class MetricsProcessor:
                         scores = []
                         for temp in self.args.temp_lst:
                             try:
-                                # Get monthly texts for CDI computation
                                 monthly_texts = gen[f"unprompted_{temp}"].apply(char2word).tolist()
 
-                                # Set up word dict manager
                                 word_dict_manager = WordDictManager(
                                     dataset=info_dict["dataset"],
                                     chunk=info_dict["chunk"],
@@ -365,7 +354,6 @@ class MetricsProcessor:
                                 )
                                 previous_words = word_dict_manager.load_word_dict(self.CDI_month_dict)
 
-                                # Get CDI score for this specific month
                                 cdi_score, cum_counts = self._compute_monthly_CDI(
                                     monthly_texts,
                                     temp,
@@ -375,7 +363,6 @@ class MetricsProcessor:
                                     previous_words,
                                 )
 
-                                # Get aggregated metrics if available
                                 if agg_group is not None and (agg_group, chunk.name, model.name) in agg_metrics:
                                     non_cdi_metrics = agg_metrics[(agg_group, chunk.name, model.name)][temp]
                                 else:
@@ -386,7 +373,7 @@ class MetricsProcessor:
                                         [m for m in self.args.metric_lst if m in self.non_cdi_metrics],
                                     )
 
-                                # Create row with metrics
+                                # Create row with metrics and temperature
                                 row = [month_num]
                                 for metric_name in self.args.metric_lst:
                                     if metric_name == "CDI":
@@ -394,6 +381,7 @@ class MetricsProcessor:
                                     else:
                                         row.append(non_cdi_metrics.get(metric_name))
                                 row.append(sum(len(text.split()) for text in monthly_texts))
+                                row.append(temp)  # Add temperature to row
                                 scores.append(row)
 
                                 if cum_counts is not None:
@@ -406,10 +394,12 @@ class MetricsProcessor:
                                 continue
 
                         if scores:
-                            columns = ["month"] + self.args.metric_lst + ["word_num"]
+                            columns = ["month"] + self.args.metric_lst + ["word_num", "temp"]  # Add temp to columns
                             score = pd.DataFrame(scores, columns=columns)
                             score = score.assign(**info_dict)
                             self.score_all = pd.concat([self.score_all, score])
+
+
 
     def _calculate_agg_word_est(self, agg_group: int) -> float:
         """Calculate aggregated word estimation for a group of months."""
@@ -469,14 +459,17 @@ class MetricsProcessor:
         scores = []
         gen_grouped = ref_data.groupby("month")
 
-        # Compute aggregated metrics for each group
+        # Initialize aggregation metrics dictionary outside the loop
         agg_metrics = {}
+
+        # Compute aggregated metrics for each group if needed
         if self.args.agg_months > 1:
             for month in gen_grouped.groups:
                 agg_group = (month - 1) // self.args.agg_months
                 if agg_group not in agg_metrics:
                     group_months = range(
-                        agg_group * self.args.agg_months + 1, (agg_group + 1) * self.args.agg_months + 1
+                        agg_group * self.args.agg_months + 1,
+                        (agg_group + 1) * self.args.agg_months + 1
                     )
                     # Collect all text data for this group
                     agg_data = []
@@ -506,12 +499,11 @@ class MetricsProcessor:
 
             word_count_est = self.load_word_count_est(month)
             previous_words = word_dict_manager.load_word_dict(self.CDI_month_dict)
-            # Convert to string and handle NaN values
             sent_lst = gen["text"].fillna("").astype(str).tolist()
 
             # Get CDI score if enabled
             cdi_score, cum_counts = self._compute_monthly_CDI(
-                sent_lst, month, CDI_words, word_dict, word_count_est, previous_words
+                sent_lst, info_dict["temp"], CDI_words, word_dict, word_count_est, previous_words
             )
 
             # Create row with metrics
@@ -524,21 +516,22 @@ class MetricsProcessor:
                 elif self.args.agg_months > 1 and agg_group in agg_metrics:
                     row.append(agg_metrics[agg_group].get(metric_name))
                 else:
-                    # Compute non-aggregated metrics for single month
                     curr_metrics = self._compute_aggregated_metrics(
                         sent_lst, word_dict, self.args.chunk_size, [metric_name]
                     )
                     row.append(curr_metrics.get(metric_name))
 
-            row.append(gen["sent_len"].sum())
+            row.append(gen["sent_len"].sum())  # word_num
+            row.append(info_dict["temp"])  # temperature
             scores.append(row)
 
             if cum_counts is not None:
                 self.CDI_month_dict = word_dict_manager.write_word_dict(cum_counts, self.CDI_month_dict)
+
         if not scores:
             return pd.DataFrame()
 
-        columns = ["month"] + self.args.metric_lst + ["word_num"]
+        columns = ["month"] + self.args.metric_lst + ["word_num", "temp"]
         score = pd.DataFrame(scores, columns=columns)
         score = score.assign(**info_dict)
         return score
