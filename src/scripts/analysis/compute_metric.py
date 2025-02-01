@@ -47,7 +47,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--metric_lst",
         type=list,
-        default=["type_token_ratio", "rej_type_rate", "rej_token_rate", "CDI"],
+        default=["type_token_ratio", "rej_type_rate", "rej_token_rate"],
         help="metric list; ttr,rej_type_rate,CDI",
     )
     parser.add_argument("--temp_lst", type=list, default=[0.3, 0.6, 1.0, 1.5], help="temperature list")
@@ -106,38 +106,64 @@ class MetricsProcessor:
         """Compute metrics for model-generated data."""
         scores = []
 
+        # Define the complete metric list in order
+        all_metrics = ["type_token_ratio", "rej_type_rate", "rej_token_rate", "CDI"]
+
+        # Create a mapping of metric name to its position in metric_results
+        metric_positions = {metric: i + 1 for i, metric in enumerate(all_metrics)}
+
         for temp in self.args.temp_lst:
             word_dict_manager = WordDictManager(
                 dataset=info_dict["dataset"], chunk=info_dict["chunk"], model_type=info_dict["model_type"], temp=temp
             )
 
-            previous_words = word_dict_manager.load_word_dict(self.CDI_month_dict)
-            sent_lst = gen[f"unprompted_{temp}"].apply(char2word).tolist()
+            try:
+                previous_words = word_dict_manager.load_word_dict(self.CDI_month_dict)
+                sent_lst = gen[f"unprompted_{temp}"].apply(char2word).tolist()
 
-            metric = Metric(
-                data=sent_lst,
-                temp=temp,
-                metric_lst=self.args.metric_lst,
-                threshold=self.args.threshold,
-                CDI_words=CDI_words,
-                word_count_est=word_count_est,
-                chunk_size=self.args.chunk_size,
-                word_dict=word_dict,
-                previous_words=previous_words,
-            )
+                metric = Metric(
+                    data=sent_lst,
+                    temp=temp,
+                    metric_lst=self.args.metric_lst,
+                    threshold=self.args.threshold,
+                    CDI_words=CDI_words,
+                    word_count_est=word_count_est,
+                    chunk_size=self.args.chunk_size,
+                    word_dict=word_dict,
+                    previous_words=previous_words,
+                )
 
-            metric_results, cum_counts = metric.compute_metrics()
+                metric_results, cum_counts = metric.compute_metrics()
 
-            if metric_results:
-                scores.append(metric_results)
+                if metric_results:
+                    # Extract only the requested metrics in the order they appear in args.metric_lst
+                    row = [temp]  # Start with temperature
+                    for metric_name in self.args.metric_lst:
+                        pos = metric_positions.get(metric_name)
+                        if pos is not None and pos < len(metric_results):
+                            row.append(metric_results[pos])
+                        else:
+                            row.append(None)
+                    scores.append(row)
 
-            if cum_counts is not None:
-                self.CDI_month_dict = word_dict_manager.write_word_dict(cum_counts, self.CDI_month_dict)
+                if cum_counts is not None:
+                    self.CDI_month_dict = word_dict_manager.write_word_dict(cum_counts, self.CDI_month_dict)
+
+            except KeyError as e:
+                print(f"Error processing temperature {temp}: {e}")
+                continue
+            except Exception as e:
+                print(f"Unexpected error processing temperature {temp}: {e}")
+                continue
 
         if not scores:
             return pd.DataFrame(), self.CDI_month_dict
 
-        score = pd.DataFrame(scores, columns=["temp"] + self.args.metric_lst)
+        # Create DataFrame with correct columns and data
+        columns = ["temp"] + self.args.metric_lst
+        score = pd.DataFrame(scores, columns=columns)
+
+        # Add additional information
         score = score.assign(**info_dict)
         score["word_num"] = gen["sent_len"].sum()
 
@@ -200,8 +226,13 @@ class MetricsProcessor:
             self.score_all = pd.concat([score_human, self.score_all])
 
     def _compute_human_metrics(self, ref_data: pd.DataFrame, CDI_words: list[str], word_dict: dict) -> pd.DataFrame:
-        """Compute metrics for human reference data."""
+        """Compute metrics for human reference data.
+"""
         info_dict = {"dataset": "CHILDES", "chunk": "00", "model_type": "human", "temp": "1.0"}
+
+        # Define all possible metrics in order
+        all_metrics = ["type_token_ratio", "rej_type_rate", "rej_token_rate", "CDI"]
+        metric_positions = {metric: i + 1 for i, metric in enumerate(all_metrics)}
 
         gen_grouped = ref_data.groupby("month")
         scores = []
@@ -233,8 +264,15 @@ class MetricsProcessor:
             metric_results, cum_counts = metric.compute_metrics()
 
             if metric_results:
-                row = metric_results
-                row.append(gen["sent_len"].sum())
+                # Extract metrics in the order they appear in args.metric_lst
+                row = [month]  # Start with month
+                for metric_name in self.args.metric_lst:
+                    pos = metric_positions.get(metric_name)
+                    if pos is not None and pos < len(metric_results):
+                        row.append(metric_results[pos])
+                    else:
+                        row.append(None)
+                row.append(gen["sent_len"].sum())  # Add word count
                 scores.append(row)
 
             if cum_counts is not None:
@@ -243,7 +281,9 @@ class MetricsProcessor:
         if not scores:
             return pd.DataFrame()
 
-        score = pd.DataFrame(scores, columns=["month"] + self.args.metric_lst + ["word_num"])
+        # Create DataFrame with correct column names
+        columns = ["month"] + self.args.metric_lst + ["word_num"]
+        score = pd.DataFrame(scores, columns=columns)
         score = score.assign(**info_dict)
 
         return score
