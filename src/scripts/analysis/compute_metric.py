@@ -2,10 +2,11 @@
 """Compute core metrics from the generation directory."""
 
 import argparse
+import typing as t
+from collections import defaultdict
 from pathlib import Path
 
 import pandas as pd
-from tqdm import tqdm
 
 from lexical_benchmark import settings
 from lexical_benchmark.datasets.utils.text_cleaning import char2word
@@ -50,13 +51,13 @@ def parse_args() -> argparse.Namespace:
         default=["type_token_ratio", "rej_type_rate", "rej_token_rate", "CDI"],
         help="metric list; ttr,rej_type_rate,CDI",
     )
-    parser.add_argument("--temp_lst", type=list, default=[0.3, 0.6, 1.0, 1.5], help="temperature list")
+    parser.add_argument("--temp_lst", type=list, default=[1.0], help="temperature list")
     parser.add_argument("--hour_per_year", default=1000, type=int, help="Estimated yearly exposure hours")
     parser.add_argument("--chunk_size", default=1000, type=int, help="Chunk size to normalize the scores")
     parser.add_argument("--threshold", default=1, type=int, help="threshold to compute CDI scores")
     parser.add_argument("--lang", default="EN", type=str, help="tested language")
     parser.add_argument(
-        "--agg_months", type=int, default=3, help="Number of months to aggregate for rejection rate and TTR computation"
+        "--agg_months", type=int, default=2, help="Number of months to aggregate for rejection rate and TTR computation"
     )
     return parser.parse_args()
 
@@ -103,6 +104,40 @@ class MetricsProcessor:
         """Load word count estimation for each month."""
         return self.word_est_dict.get(month, 0) if self.CDI_enabled else 0
 
+    def _aggregate_by_group(self, dataset_path: Path, word_dict: dict[str, t.Any]) -> dict[tuple, list[str]]:
+        """Aggregate text data across months for each unique group combination."""
+        grouped_data: dict[tuple, list[str]] = defaultdict(list)
+        base_path = dataset_path / f"{self.args.hour_per_year}_hour_per_year" / self.args.lang
+
+        # First pass: collect all data by groups
+        for month in base_path.iterdir():
+            month_num = int(month.name)
+            agg_group = (month_num - 1) // self.args.agg_months
+
+            for chunk in month.iterdir():
+                for model in chunk.iterdir():
+                    gen_file = model / "gen.csv"
+                    if not gen_file.exists():
+                        continue
+
+                    gen_df = pd.read_csv(gen_file)
+
+                    # Create group key for aggregation
+                    for temp in self.args.temp_lst:
+                        group_key = (
+                            settings.dataset_name_dict[dataset_path.name],
+                            chunk.name,
+                            model.name,
+                            temp,
+                            agg_group,
+                        )
+
+                        # Get text data for this temperature
+                        texts = gen_df[f"unprompted_{temp}"].apply(char2word).tolist()
+                        grouped_data[group_key].extend(texts)
+
+        return grouped_data
+
     def _compute_aggregated_metrics(
         self, data: list[str], word_dict: dict, chunk_size: int, metric_lst: list[str]
     ) -> dict[str, float]:
@@ -119,10 +154,8 @@ class MetricsProcessor:
                     cleaned_data.append(item)
             else:
                 continue  # Skip any other types
-
         if not cleaned_data:  # If no valid data after cleaning
             return {metric: 0.0 for metric in metric_lst}
-
         # Aggregate cleaned text data
         aggregated_text = " ".join(cleaned_data)
 
@@ -135,17 +168,12 @@ class MetricsProcessor:
 
         # Compute requested metrics
         results = {}
-        try:
-            if "type_token_ratio" in metric_lst:
-                results["type_token_ratio"] = metric.compute_ttr()
-            if "rej_type_rate" in metric_lst:
-                results["rej_type_rate"] = metric.compute_type_rej_rate()
-            if "rej_token_rate" in metric_lst:
-                results["rej_token_rate"] = metric.compute_token_rej_rate()
-        except Exception as e:
-            print(f"Error computing metrics: {e}")
-            return {metric: 0.0 for metric in metric_lst}
-
+        if "type_token_ratio" in metric_lst:
+            results["type_token_ratio"] = metric.compute_ttr()
+        if "rej_type_rate" in metric_lst:
+            results["rej_type_rate"] = metric.compute_type_rej_rate()
+        if "rej_token_rate" in metric_lst:
+            results["rej_token_rate"] = metric.compute_token_rej_rate()
         return results
 
     def _compute_monthly_CDI(
@@ -179,9 +207,24 @@ class MetricsProcessor:
         return cdi_score, cum_counts
 
     def _compute_model_metrics(
-        self, gen: pd.DataFrame, info_dict: dict[str, str], CDI_words: list[str], word_dict: dict, word_count_est: float
+        self,
+        texts_dict: dict[float | str, list[str]],
+        info_dict: dict[str, str | float],
+        CDI_words: list[str],
+        word_dict: dict,
+        word_count_est: float,
+        use_aggregated: bool = False,
     ) -> tuple[pd.DataFrame, dict]:
-        """Compute metrics for model-generated data."""
+        """Compute metrics for model-generated data.
+
+        Args:
+            texts_dict: Dictionary mapping temperature to list of texts
+            info_dict: Dictionary containing group information
+            CDI_words: List of CDI vocabulary words
+            word_dict: Dictionary for word validation
+            word_count_est: Estimated word count
+            use_aggregated: Whether to use texts as aggregated data
+        """
         scores = []
 
         for temp in self.args.temp_lst:
@@ -194,31 +237,39 @@ class MetricsProcessor:
                 )
 
                 previous_words = word_dict_manager.load_word_dict(self.CDI_month_dict)
+                texts = texts_dict[temp]
 
-                # Get all text data for this temperature
-                sent_lst = gen[f"unprompted_{temp}"].apply(char2word).tolist()
-
-                # Get aggregated metrics for rejection rates and TTR
-                non_cdi_metrics = [m for m in self.args.metric_lst if m in self.non_cdi_metrics]
-                if non_cdi_metrics:
-                    agg_metrics = self._compute_aggregated_metrics(
-                        sent_lst, word_dict, self.args.chunk_size, non_cdi_metrics
+                # Compute non-CDI metrics
+                if use_aggregated:
+                    # Use aggregated texts for TTR and rejection rates
+                    metrics = self._compute_aggregated_metrics(
+                        texts,
+                        word_dict,
+                        self.args.chunk_size,
+                        [m for m in self.args.metric_lst if m in self.non_cdi_metrics],
                     )
                 else:
-                    agg_metrics = {}
+                    # Compute metrics for individual month
+                    metrics = self._compute_aggregated_metrics(
+                        texts,
+                        word_dict,
+                        self.args.chunk_size,
+                        [m for m in self.args.metric_lst if m in self.non_cdi_metrics],
+                    )
 
-                # Get CDI score if enabled
+                # Always compute CDI on individual month data
                 cdi_score, cum_counts = self._compute_monthly_CDI(
-                    sent_lst, temp, CDI_words, word_dict, word_count_est, previous_words
+                    texts, temp, CDI_words, word_dict, word_count_est, previous_words
                 )
 
                 # Create row with metrics
-                row = [temp]
+                row = [info_dict["month"]]
                 for metric_name in self.args.metric_lst:
                     if metric_name == "CDI":
                         row.append(cdi_score)
                     else:
-                        row.append(agg_metrics.get(metric_name))
+                        row.append(metrics.get(metric_name))
+                row.append(sum(len(text.split()) for text in texts))  # word_num
                 scores.append(row)
 
                 if cum_counts is not None:
@@ -231,15 +282,14 @@ class MetricsProcessor:
         if not scores:
             return pd.DataFrame(), self.CDI_month_dict
 
-        columns = ["temp"] + self.args.metric_lst
+        columns = ["month"] + self.args.metric_lst + ["word_num"]
         score = pd.DataFrame(scores, columns=columns)
-        score = score.assign(**info_dict)
-        score["word_num"] = gen["sent_len"].sum()
+        score = score.assign(**{k: v for k, v in info_dict.items() if k != "month"})
 
         return score, self.CDI_month_dict
 
     def process_model_data(self) -> None:
-        """Process model-generated data and compute metrics."""
+        """Process model-generated data with month aggregation."""
         for dataset in self.paths["gen_dir"].iterdir():
             if not dataset.is_dir():
                 continue
@@ -248,9 +298,129 @@ class MetricsProcessor:
             word_dict = load_dict(settings.dataset_name_dict[dataset.name])
             base_path = dataset / f"{self.args.hour_per_year}_hour_per_year" / self.args.lang
 
-            for month in tqdm(base_path.iterdir()):
-                word_count_est = self.load_word_count_est(int(month.name))
-                self._process_month(month, dataset, CDI_words, word_dict, word_count_est)
+            # First compute aggregated metrics if needed
+            agg_metrics = {}
+            if self.args.agg_months > 1:
+                for month in base_path.iterdir():
+                    month_num = int(month.name)
+                    agg_group = (month_num - 1) // self.args.agg_months
+
+                    for chunk in month.iterdir():
+                        for model in chunk.iterdir():
+                            if not (model / "gen.csv").exists():
+                                continue
+
+                            gen_df = pd.read_csv(model / "gen.csv")
+                            group_key = (agg_group, chunk.name, model.name)
+
+                            if group_key not in agg_metrics:
+                                agg_metrics[group_key] = defaultdict(list)
+
+                            # Collect texts for aggregated non-CDI metrics
+                            for temp in self.args.temp_lst:
+                                texts = gen_df[f"unprompted_{temp}"].apply(char2word).tolist()
+                                agg_metrics[group_key][temp].extend(texts)
+
+                # Compute aggregated metrics once per group
+                for group_key, texts_by_temp in agg_metrics.items():
+                    agg_group, chunk, model = group_key
+                    for temp, texts in texts_by_temp.items():
+                        non_cdi_metrics = [m for m in self.args.metric_lst if m in self.non_cdi_metrics]
+                        if non_cdi_metrics:
+                            agg_metrics[group_key][temp] = self._compute_aggregated_metrics(
+                                texts, word_dict, self.args.chunk_size, non_cdi_metrics
+                            )
+
+            # Process each month
+            for month in base_path.iterdir():
+                month_num = int(month.name)
+                agg_group = (month_num - 1) // self.args.agg_months if self.args.agg_months > 1 else None
+
+                for chunk in month.iterdir():
+                    for model in chunk.iterdir():
+                        gen_file = model / "gen.csv"
+                        if not gen_file.exists():
+                            continue
+
+                        gen = pd.read_csv(gen_file)
+                        info_dict = {
+                            "dataset": settings.dataset_name_dict[dataset.name],
+                            "month": month.name,
+                            "chunk": chunk.name,
+                            "model_type": model.name,
+                        }
+
+                        scores = []
+                        for temp in self.args.temp_lst:
+                            try:
+                                # Get monthly texts for CDI computation
+                                monthly_texts = gen[f"unprompted_{temp}"].apply(char2word).tolist()
+
+                                # Set up word dict manager
+                                word_dict_manager = WordDictManager(
+                                    dataset=info_dict["dataset"],
+                                    chunk=info_dict["chunk"],
+                                    model_type=info_dict["model_type"],
+                                    temp=temp,
+                                )
+                                previous_words = word_dict_manager.load_word_dict(self.CDI_month_dict)
+
+                                # Get CDI score for this specific month
+                                cdi_score, cum_counts = self._compute_monthly_CDI(
+                                    monthly_texts,
+                                    temp,
+                                    CDI_words,
+                                    word_dict,
+                                    self.load_word_count_est(month_num),
+                                    previous_words,
+                                )
+
+                                # Get aggregated metrics if available
+                                if agg_group is not None and (agg_group, chunk.name, model.name) in agg_metrics:
+                                    non_cdi_metrics = agg_metrics[(agg_group, chunk.name, model.name)][temp]
+                                else:
+                                    non_cdi_metrics = self._compute_aggregated_metrics(
+                                        monthly_texts,
+                                        word_dict,
+                                        self.args.chunk_size,
+                                        [m for m in self.args.metric_lst if m in self.non_cdi_metrics],
+                                    )
+
+                                # Create row with metrics
+                                row = [month_num]
+                                for metric_name in self.args.metric_lst:
+                                    if metric_name == "CDI":
+                                        row.append(cdi_score)
+                                    else:
+                                        row.append(non_cdi_metrics.get(metric_name))
+                                row.append(sum(len(text.split()) for text in monthly_texts))
+                                scores.append(row)
+
+                                if cum_counts is not None:
+                                    self.CDI_month_dict = word_dict_manager.write_word_dict(
+                                        cum_counts, self.CDI_month_dict
+                                    )
+
+                            except Exception as e:
+                                print(f"Error processing temperature {temp}: {e}")
+                                continue
+
+                        if scores:
+                            columns = ["month"] + self.args.metric_lst + ["word_num"]
+                            score = pd.DataFrame(scores, columns=columns)
+                            score = score.assign(**info_dict)
+                            self.score_all = pd.concat([self.score_all, score])
+
+    def _calculate_agg_word_est(self, agg_group: int) -> float:
+        """Calculate aggregated word estimation for a group of months."""
+        if not self.CDI_enabled:
+            return 0.0
+
+        start_month = agg_group * self.args.agg_months + 1
+        end_month = (agg_group + 1) * self.args.agg_months
+
+        total_est = sum(self.word_est_dict.get(month, 0) for month in range(start_month, end_month + 1))
+        return total_est
 
     def _process_month(
         self, month: Path, dataset: Path, CDI_words: list[str], word_dict: dict, word_count_est: float
