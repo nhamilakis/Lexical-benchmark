@@ -9,13 +9,16 @@ from tqdm import tqdm
 
 from lexical_benchmark import settings
 from lexical_benchmark.datasets.utils.text_cleaning import char2word
-from lexical_benchmark.stats.metric import Metric, WordDictManager, load_dict
+from lexical_benchmark.stats.metric import (
+    Metric,
+    WordDictManager,
+    load_dict,
+)
 
 
-def parse_args():
-    # Run parameters
+def parse_args() -> argparse.Namespace:
+    """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="compute metrics")
-
     parser.add_argument(
         "--gen_path",
         type=str,
@@ -55,259 +58,214 @@ def parse_args():
     return parser.parse_args()
 
 
-def compute_metrics_base(
-    sent_lst: list[str],
-    temp: str | float,
-    metric_lst: list[str],
-    threshold: int,
-    CDI_words: list[str],
-    chunk_size: int,
-    word_dict: dict,
-    word_count_est: int,
-    previous_words: dict[str, int],
-    CDI_month_dict: dict[str, dict],
-) -> tuple[list, dict[str, dict]]:
-    """Base function for computing metrics."""
-    # Create metric instance
-    metric = Metric(
-        data=sent_lst,
-        temp=temp,
-        metric_lst=metric_lst,
-        threshold=threshold,
-        CDI_words=CDI_words,
-        word_count_est=word_count_est,
-        chunk_size=chunk_size,
-        word_dict=word_dict,
-        previous_words=previous_words,
-    )
-    return metric.compute_metrics()
+class MetricsProcessor:
+    """Compute and manage metrics for both model-generated and human data."""
 
+    def __init__(self, args: argparse.Namespace) -> None:
+        """Initialize the MetricsComputer with command line arguments."""
+        self.args = args
+        self.paths = self._setup_paths()
+        self.word_est_dict = self._load_word_est_dict()
+        self.CDI_enabled = "CDI" in args.metric_lst
+        self.CDI_month_dict: dict[str, dict] = {"dataset": {"chunk": {"model_type": {"temp": {}}}}}
+        self.score_all = pd.DataFrame()
+        self.metric_indices = {"type_token_ratio": 1, "rej_type_rate": 2, "rej_token_rate": 3, "CDI": 4}
 
-def append_model_metric(
-    gen: pd.DataFrame,
-    temp_lst: list[float],
-    info_dict: dict[str, str | int],
-    metric_lst: list[str],
-    threshold: int,
-    CDI_words: list[str],
-    chunk_size: int,
-    word_dict: dict,
-    word_count_est: int,
-    CDI_month_dict: dict[str, dict],
-) -> tuple[pd.DataFrame, dict[str, dict]]:
-    """Compute model-specific metrics."""
-    scores = []
-    metric_indices = {"type_token_ratio": 1, "rej_type_rate": 2, "rej_token_rate": 3, "CDI": 4}
+    def _setup_paths(self) -> dict[str, Path]:
+        """Set up all necessary paths."""
+        return {
+            "gen_dir": settings.PATH.DATA_DIR / self.args.gen_path,
+            "metric_dir": settings.PATH.DATA_DIR / self.args.metric_path,
+            "ref_dir": settings.PATH.DATA_DIR / self.args.ref_path,
+            "CDI_dir": settings.PATH.DATA_DIR / self.args.CDI_path,
+            "word_est_dir": settings.PATH.DATA_DIR / self.args.word_est_path,
+        }
 
-    for temp in temp_lst:
-        word_dict_manager = WordDictManager(
-            dataset=info_dict["dataset"],
-            chunk=info_dict["chunk"],
-            model_type=info_dict["model_type"],
-            temp=temp,
-        )
+    def _load_word_est_dict(self) -> dict[int, float]:
+        """Load and return the word estimation dictionary."""
+        df_est = pd.read_csv(self.paths["word_est_dir"])
+        word_est_dict = dict(zip(df_est["month"], df_est["child_month_est"]))
+        print(f"Monthly production estimation loaded {word_est_dict}")
+        return word_est_dict
 
-        previous_words = word_dict_manager.load_word_dict(CDI_month_dict)
-        sent_lst = gen[f"unprompted_{temp}"].apply(char2word).tolist()
+    def load_CDI_words(self, dataset: str) -> tuple[list[str], dict[str, int]]:
+        """Load CDI words for different datasets."""
+        if self.CDI_enabled:
+            CDI_frame = pd.read_csv(self.paths["CDI_dir"] / f"{dataset}_CDI.csv")
+            CDI_words = CDI_frame["word"].tolist()
+            return CDI_words, dict.fromkeys(CDI_words, 0)
+        return [], {}
 
-        # Compute metrics using base function
-        metric_results, cum_counts = compute_metrics_base(
-            sent_lst=sent_lst,
-            temp=temp,
-            metric_lst=metric_lst,
-            threshold=threshold,
-            CDI_words=CDI_words,
-            word_count_est=word_count_est,
-            chunk_size=chunk_size,
-            word_dict=word_dict,
-            previous_words=previous_words,
-            CDI_month_dict=CDI_month_dict,
-        )
+    def load_word_count_est(self, month: int) -> float:
+        """Load word count estimation for each month."""
+        return self.word_est_dict.get(month, 0) if self.CDI_enabled else 0
 
-        if metric_results:
-            row = [temp]  # Start with temperature
-            for metric_name in metric_lst:
-                idx = metric_indices.get(metric_name)
-                if idx is not None and idx < len(metric_results):
-                    row.append(metric_results[idx])
-                else:
-                    row.append(None)
-            scores.append(row)
+    def _compute_model_metrics(
+        self, gen: pd.DataFrame, info_dict: dict[str, str], CDI_words: list[str], word_dict: dict, word_count_est: float
+    ) -> tuple[pd.DataFrame, dict]:
+        """Compute metrics for model-generated data."""
+        scores = []
 
-        # Update CDI dictionary
-        if cum_counts is not None:
-            CDI_month_dict = word_dict_manager.write_word_dict(cum_counts, CDI_month_dict)
+        for temp in self.args.temp_lst:
+            word_dict_manager = WordDictManager(
+                dataset=info_dict["dataset"], chunk=info_dict["chunk"], model_type=info_dict["model_type"], temp=temp
+            )
 
-    if not scores:
-        return pd.DataFrame(), CDI_month_dict
+            previous_words = word_dict_manager.load_word_dict(self.CDI_month_dict)
+            sent_lst = gen[f"unprompted_{temp}"].apply(char2word).tolist()
 
-    score = pd.DataFrame(scores, columns=["temp"] + metric_lst)
-    score = score.assign(**info_dict)
-    score["word_num"] = gen["sent_len"].sum()
+            metric = Metric(
+                data=sent_lst,
+                temp=temp,
+                metric_lst=self.args.metric_lst,
+                threshold=self.args.threshold,
+                CDI_words=CDI_words,
+                word_count_est=word_count_est,
+                chunk_size=self.args.chunk_size,
+                word_dict=word_dict,
+                previous_words=previous_words,
+            )
 
-    return score, CDI_month_dict
+            metric_results, cum_counts = metric.compute_metrics()
 
+            if metric_results:
+                scores.append(metric_results)
 
-def append_human_metric(
-    ref_data: pd.DataFrame,
-    metric_lst: list[str],
-    threshold: int,
-    CDI_words: list[str],
-    chunk_size: int,
-    word_dict: dict,
-    word_est_dict: dict[int, float],
-    CDI: bool,
-    previous_words: dict[str, int],
-    CDI_month_dict: dict[str, dict],
-) -> pd.DataFrame:
-    """Compute human metrics."""
-    info_dict = {"dataset": "CHILDES", "chunk": "00", "model_type": "human", "temp": "1.0"}
+            if cum_counts is not None:
+                self.CDI_month_dict = word_dict_manager.write_word_dict(cum_counts, self.CDI_month_dict)
 
-    gen_grouped = ref_data.groupby("month")
-    scores = []
-    metric_indices = {"type_token_ratio": 1, "rej_type_rate": 2, "rej_token_rate": 3, "CDI": 4}
+        if not scores:
+            return pd.DataFrame(), self.CDI_month_dict
 
-    for month, gen in gen_grouped:
-        word_dict_manager = WordDictManager(
-            dataset=info_dict["dataset"],
-            chunk=info_dict["chunk"],
-            model_type=info_dict["model_type"],
-            temp=info_dict["temp"],
-        )
+        score = pd.DataFrame(scores, columns=["temp"] + self.args.metric_lst)
+        score = score.assign(**info_dict)
+        score["word_num"] = gen["sent_len"].sum()
 
-        word_count_est = load_word_count_est(word_est_dict, month, CDI)
-        previous_words = word_dict_manager.load_word_dict(CDI_month_dict)
-        sent_lst = gen["text"].tolist()
+        return score, self.CDI_month_dict
 
-        # Compute metrics using base function
-        metric_results, cum_counts = compute_metrics_base(
-            sent_lst=sent_lst,
-            temp=month,
-            metric_lst=metric_lst,
-            threshold=threshold,
-            CDI_words=CDI_words,
-            word_count_est=word_count_est,
-            chunk_size=chunk_size,
-            word_dict=word_dict,
-            previous_words=previous_words,
-            CDI_month_dict=CDI_month_dict,
-        )
+    def process_model_data(self) -> None:
+        """Process model-generated data and compute metrics."""
+        for dataset in self.paths["gen_dir"].iterdir():
+            if not dataset.is_dir():
+                continue
 
-        if metric_results:
-            row = [month]  # Start with month
-            for metric_name in metric_lst:
-                idx = metric_indices.get(metric_name)
-                if idx is not None and idx < len(metric_results):
-                    row.append(metric_results[idx])
-                else:
-                    row.append(None)
-            row.append(gen["sent_len"].sum())
-            scores.append(row)
-
-        # Update CDI dictionary
-        if cum_counts is not None:
-            CDI_month_dict = word_dict_manager.write_word_dict(cum_counts, CDI_month_dict)
-
-    if not scores:
-        return pd.DataFrame()
-
-    score = pd.DataFrame(scores, columns=["month"] + metric_lst + ["word_num"])
-    score = score.assign(**info_dict)
-
-    return score
-
-
-def load_CDI_words(CDI_dir: Path, dataset: str, CDI: bool) -> list:
-    """Load CDI words for different datasets."""
-    if CDI:
-        CDI_frame = pd.read_csv(CDI_dir / f"{dataset}_CDI.csv")
-        CDI_words = CDI_frame["word"].tolist()
-        return CDI_words, dict.fromkeys(CDI_words, 0)
-    return [], {}
-
-
-def load_word_count_est(word_est_dict: dict, month: int, CDI: bool) -> float:
-    """Load word_count_est for each month. Returns 0 if month not in dictionary."""
-    # Using dict.get() with default value
-    return word_est_dict.get(month, 0) if CDI else 0
-
-
-def main():
-    # Args parser
-    args = parse_args()
-    # load paths
-    gen_dir: Path = settings.PATH.DATA_DIR / args.gen_path
-    metric_dir: Path = settings.PATH.DATA_DIR / args.metric_path
-    ref_dir: Path = settings.PATH.DATA_DIR / args.ref_path
-    CDI_dir: Path = settings.PATH.DATA_DIR / args.CDI_path
-    word_est_dir: Path = settings.PATH.DATA_DIR / args.word_est_path
-    # load monthly estimation dict
-    df_est = pd.read_csv(word_est_dir)
-    word_est_dict = dict(zip(df_est["month"], df_est["child_month_est"]))
-    print(f"Monthly production estimation loaded {word_est_dict}")
-    # set CDI parameters
-    CDI = True if "CDI" in args.metric_lst else False
-    CDI_month_dict = {"dataset": {"chunk": {"model_type": {"temp": {}}}}}
-    score_all = pd.DataFrame()
-    # loop over datasets   {dataset{chunk{model{temp:{word_count_dict}}}}}
-    for dataset in gen_dir.iterdir():
-        # load CDI words
-        if dataset.is_dir():
-            CDI_words, previous_words = load_CDI_words(CDI_dir, dataset.name, CDI)
-            # initialize the CDI words with an ampty dictionary; assign different word dictionary
+            CDI_words, previous_words = self.load_CDI_words(dataset.name)
             word_dict = load_dict(settings.dataset_name_dict[dataset.name])
-            for month in tqdm((dataset / f"{args.hour_per_year}_hour_per_year" / args.lang).iterdir()):
-                word_count_est = load_word_count_est(word_est_dict, int(month.name), CDI)
-                for chunk in month.iterdir():
-                    for model in chunk.iterdir():
-                        if (model / "gen.csv").exists():  # check whether there exsits the full generation file
-                            gen = pd.read_csv(model / "gen.csv")
-                            # append info frame
-                            info_dict = {
-                                "dataset": settings.dataset_name_dict[dataset.name],
-                                "month": month.name,
-                                "chunk": chunk.name,
-                                "model_type": model.name,
-                            }
-                            # compute the metric and update CDI_month_dict
-                            score, CDI_month_dict = append_model_metric(
-                                gen,
-                                args.temp_lst,
-                                info_dict,
-                                args.metric_lst,
-                                args.threshold,
-                                CDI_words,
-                                args.chunk_size,
-                                word_dict,
-                                word_count_est,
-                                CDI_month_dict,
-                            )
-                            score_all = pd.concat([score_all, score])
-                            print(f"Finish computing metrics from {model.relative_to(gen_dir)}")
 
-    # compute human production
-    ref_data = pd.read_csv(ref_dir)
-    CDI_words, previous_words = load_CDI_words(CDI_dir, "CHILDES", CDI)
-    # load word_dict
-    word_dict = load_dict("CHILDES")
-    score_human = append_human_metric(
-        ref_data,
-        args.metric_lst,
-        args.threshold,
-        CDI_words,
-        args.chunk_size,
-        word_dict,
-        word_est_dict,
-        CDI,
-        previous_words,
-        CDI_month_dict,
-    )
-    # Reorder columns based on given list
-    score_human = score_human[score_all.columns]
+            base_path = dataset / f"{self.args.hour_per_year}_hour_per_year" / self.args.lang
 
-    score_all = pd.concat([score_human, score_all])
-    score_all.to_csv(metric_dir / f"metric_{args.hour_per_year}.csv")
-    print(f"Saving the metric to {metric_dir}/metric_{args.hour_per_year}.csv")
+            for month in tqdm(base_path.iterdir()):
+                word_count_est = self.load_word_count_est(int(month.name))
+                self._process_month(month, dataset, CDI_words, word_dict, word_count_est)
+
+    def _process_month(
+        self, month: Path, dataset: Path, CDI_words: list[str], word_dict: dict, word_count_est: float
+    ) -> None:
+        """Process data for a specific month."""
+        for chunk in month.iterdir():
+            for model in chunk.iterdir():
+                gen_file = model / "gen.csv"
+                if not gen_file.exists():
+                    continue
+
+                gen = pd.read_csv(gen_file)
+                info_dict = {
+                    "dataset": settings.dataset_name_dict[dataset.name],
+                    "month": month.name,
+                    "chunk": chunk.name,
+                    "model_type": model.name,
+                }
+
+                score, self.CDI_month_dict = self._compute_model_metrics(
+                    gen=gen,
+                    info_dict=info_dict,
+                    CDI_words=CDI_words,
+                    word_dict=word_dict,
+                    word_count_est=word_count_est,
+                )
+
+                self.score_all = pd.concat([self.score_all, score])
+                print(f"Finish computing metrics from {model.relative_to(self.paths['gen_dir'])}")
+
+    def process_human_data(self) -> None:
+        """Process human reference data and compute metrics."""
+        ref_data = pd.read_csv(self.paths["ref_dir"])
+        CDI_words, previous_words = self.load_CDI_words("CHILDES")
+        word_dict = load_dict("CHILDES")
+
+        score_human = self._compute_human_metrics(ref_data=ref_data, CDI_words=CDI_words, word_dict=word_dict)
+
+        if not score_human.empty:
+            score_human = score_human[self.score_all.columns]
+            self.score_all = pd.concat([score_human, self.score_all])
+
+    def _compute_human_metrics(self, ref_data: pd.DataFrame, CDI_words: list[str], word_dict: dict) -> pd.DataFrame:
+        """Compute metrics for human reference data."""
+        info_dict = {"dataset": "CHILDES", "chunk": "00", "model_type": "human", "temp": "1.0"}
+
+        gen_grouped = ref_data.groupby("month")
+        scores = []
+
+        for month, gen in gen_grouped:
+            word_dict_manager = WordDictManager(
+                dataset=info_dict["dataset"],
+                chunk=info_dict["chunk"],
+                model_type=info_dict["model_type"],
+                temp=info_dict["temp"],
+            )
+
+            word_count_est = self.load_word_count_est(month)
+            previous_words = word_dict_manager.load_word_dict(self.CDI_month_dict)
+            sent_lst = gen["text"].tolist()
+
+            metric = Metric(
+                data=sent_lst,
+                temp=month,
+                metric_lst=self.args.metric_lst,
+                threshold=self.args.threshold,
+                CDI_words=CDI_words,
+                word_count_est=word_count_est,
+                chunk_size=self.args.chunk_size,
+                word_dict=word_dict,
+                previous_words=previous_words,
+            )
+
+            metric_results, cum_counts = metric.compute_metrics()
+
+            if metric_results:
+                row = metric_results
+                row.append(gen["sent_len"].sum())
+                scores.append(row)
+
+            if cum_counts is not None:
+                self.CDI_month_dict = word_dict_manager.write_word_dict(cum_counts, self.CDI_month_dict)
+
+        if not scores:
+            return pd.DataFrame()
+
+        score = pd.DataFrame(scores, columns=["month"] + self.args.metric_lst + ["word_num"])
+        score = score.assign(**info_dict)
+
+        return score
+
+    def save_results(self) -> None:
+        """Save computed metrics to file."""
+        output_path = self.paths["metric_dir"] / f"metric_{self.args.hour_per_year}.csv"
+        self.score_all.to_csv(output_path)
+        print(f"Saving the metric to {output_path}")
+
+    def run(self) -> None:
+        """Run the complete metrics computation pipeline."""
+        self.process_model_data()
+        self.process_human_data()
+        self.save_results()
+
+
+def main() -> None:
+    """Main entry point for metrics computation."""
+    args = parse_args()
+    computer = MetricsProcessor(args)
+    computer.run()
 
 
 if __name__ == "__main__":
