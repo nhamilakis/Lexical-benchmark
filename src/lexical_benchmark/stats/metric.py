@@ -1,12 +1,159 @@
 import functools
+import typing as t
 
 import numpy as np
+import pandas as pd
 from scipy.optimize import curve_fit
 
 from lexical_benchmark.datasets import childes
 from lexical_benchmark.datasets import utils as dataset_utils
 from lexical_benchmark.stats import normalised_rejection_rates
 from lexical_benchmark.stats.CDI_scores import CDICalculator
+
+
+class MetricAnalyzer:
+    """Compute and manage metrics for both model-generated and human data."""
+
+    def __init__(
+        self,
+        metric_lst: list[str],
+        threshold: int,
+        CDI_words: list[str],
+        chunk_size: int,
+        word_dict: dict[str, t.Any],
+        word_count_est: int,
+        CDI_month_dict: dict[str, dict],
+    ) -> None:
+        """Initialize MetricsComputer with configuration parameters."""
+        self.metric_lst = metric_lst
+        self.threshold = threshold
+        self.CDI_words = CDI_words
+        self.chunk_size = chunk_size
+        self.word_dict = word_dict
+        self.word_count_est = word_count_est
+        self.CDI_month_dict = CDI_month_dict
+
+        # Common metric indices mapping
+        self.metric_indices = {"type_token_ratio": 1, "rej_type_rate": 2, "rej_token_rate": 3, "CDI": 4}
+
+    def compute_metrics_base(
+        self,
+        sent_lst: list[str],
+        temp: str | float,
+        previous_words: dict[str, int],
+    ) -> tuple[list, dict[str, dict]]:
+        """Base function for computing metrics."""
+        metric = Metric(
+            data=sent_lst,
+            temp=temp,
+            metric_lst=self.metric_lst,
+            threshold=self.threshold,
+            CDI_words=self.CDI_words,
+            word_count_est=self.word_count_est,
+            chunk_size=self.chunk_size,
+            word_dict=self.word_dict,
+            previous_words=previous_words,
+        )
+        return metric.compute_metrics()
+
+    def compute_model_metrics(
+        self,
+        gen: pd.DataFrame,
+        temp_lst: list[float],
+        info_dict: dict[str, str | int],
+    ) -> tuple[pd.DataFrame, dict[str, dict]]:
+        """Compute model-specific metrics."""
+        scores = []
+
+        for temp in temp_lst:
+            word_dict_manager = WordDictManager(
+                dataset=info_dict["dataset"],
+                chunk=info_dict["chunk"],
+                model_type=info_dict["model_type"],
+                temp=temp,
+            )
+
+            previous_words = word_dict_manager.load_word_dict(self.CDI_month_dict)
+            sent_lst = gen[f"unprompted_{temp}"].apply(char2word).tolist()
+
+            metric_results, cum_counts = self.compute_metrics_base(
+                sent_lst=sent_lst,
+                temp=temp,
+                previous_words=previous_words,
+            )
+
+            if metric_results:
+                scores.append(self._create_metric_row(temp, metric_results))
+
+            if cum_counts is not None:
+                self.CDI_month_dict = word_dict_manager.write_word_dict(cum_counts, self.CDI_month_dict)
+
+        if not scores:
+            return pd.DataFrame(), self.CDI_month_dict
+
+        score = pd.DataFrame(scores, columns=["temp"] + self.metric_lst)
+        score = score.assign(**info_dict)
+        score["word_num"] = gen["sent_len"].sum()
+
+        return score, self.CDI_month_dict
+
+    def compute_human_metrics(
+        self,
+        ref_data: pd.DataFrame,
+        word_est_dict: dict[int, float],
+        CDI: bool,
+        previous_words: dict[str, int],
+    ) -> pd.DataFrame:
+        """Compute human metrics."""
+        info_dict = {"dataset": "CHILDES", "chunk": "00", "model_type": "human", "temp": "1.0"}
+
+        gen_grouped = ref_data.groupby("month")
+        scores = []
+
+        for month, gen in gen_grouped:
+            word_dict_manager = WordDictManager(
+                dataset=info_dict["dataset"],
+                chunk=info_dict["chunk"],
+                model_type=info_dict["model_type"],
+                temp=info_dict["temp"],
+            )
+
+            word_count_est = load_word_count_est(word_est_dict, month, CDI)
+            previous_words = word_dict_manager.load_word_dict(self.CDI_month_dict)
+            sent_lst = gen["text"].tolist()
+
+            metric_results, cum_counts = self.compute_metrics_base(
+                sent_lst=sent_lst,
+                temp=month,
+                previous_words=previous_words,
+            )
+
+            if metric_results:
+                row = self._create_metric_row(month, metric_results)
+                row.append(gen["sent_len"].sum())
+                scores.append(row)
+
+            if cum_counts is not None:
+                self.CDI_month_dict = word_dict_manager.write_word_dict(cum_counts, self.CDI_month_dict)
+
+        if not scores:
+            return pd.DataFrame()
+
+        score = pd.DataFrame(scores, columns=["month"] + self.metric_lst + ["word_num"])
+        score = score.assign(**info_dict)
+
+        return score
+
+    def _create_metric_row(self, identifier: float | str, metric_results: list) -> list:
+        """Helper method to create a metric row."""
+        row = [identifier]
+        for metric_name in self.metric_lst:
+            idx = self.metric_indices.get(metric_name)
+            if idx is not None and idx < len(metric_results):
+                row.append(metric_results[idx])
+            else:
+                row.append(None)
+        return row
 
 
 class Metric:
@@ -66,6 +213,7 @@ class Metric:
             threshold=self.threshold,
             word_count_est=self.word_count_est,
             word_list=self.data,
+            previous_words=self.previous_words,
         )
         # Calculate mean score
         cum_counts, mean_score = calculator.compute_mean_cdi_score()
@@ -86,122 +234,45 @@ class Metric:
         return row, cum_counts
 
 
-class WordDictManager1:
-    """Manage word dictionary operations with nested structure."""
-
-    def __init__(self, dataset: str, chunk: str | int, model_type: str, temp: str | float) -> None:
-        self.dataset = dataset
-        self.chunk = str(chunk)
-        self.model_type = model_type
-        self.temp = str(temp)
-
-    def load_word_dict(self, CDI_month_dict: dict[str, dict]) -> dict[str, int] | None:
-        """Load dictionary based on initialized parameters."""
-        try:
-            return CDI_month_dict[self.dataset][self.chunk][self.model_type][self.temp]
-        except KeyError:
-            return {}
-
-    def write_word_dict(self, previous_words: dict[str, dict], CDI_month_dict: dict[str, dict]) -> dict[str, dict]:
-        """Write dictionary based on initialized parameters."""
-        # Create dataset level if it doesn't exist
-        if self.dataset not in CDI_month_dict:
-            CDI_month_dict[self.dataset] = {}
-        # Create chunk level if it doesn't exist
-        if self.chunk not in CDI_month_dict[self.dataset]:
-            CDI_month_dict[self.dataset][self.chunk] = {}
-        # Create model type level if it doesn't exist
-        if self.model_type not in CDI_month_dict[self.dataset][self.chunk]:
-            CDI_month_dict[self.dataset][self.chunk][self.model_type] = {}
-        # Store the words
-        CDI_month_dict[self.dataset][self.chunk][self.model_type][self.temp] = previous_words
-        return CDI_month_dict
-
 class WordDictManager:
     """Manage word dictionary operations with nested structure."""
 
     def __init__(self, dataset: str, chunk: str | int, model_type: str, temp: str | float) -> None:
-        """Initialize WordDictManager with all values converted to strings.
-        
-        Args:
-            dataset: Name of dataset
-            chunk: Chunk identifier (will be converted to string)
-            model_type: Type of model
-            temp: Temperature value (will be converted to string)
-        """
-        self.dataset = dataset
+        """Initialize WordDictManager with all values converted to strings."""
+        self.dataset = str(dataset)
         self.chunk = str(chunk)
-        self.model_type = model_type
+        self.model_type = str(model_type)
         self.temp = str(temp)
 
     def load_word_dict(self, CDI_month_dict: dict[str, dict]) -> dict[str, int]:
-        """Load dictionary based on initialized parameters.
-        
-        Args:
-            CDI_month_dict: Nested dictionary containing word data
-            
-        Returns:
-            Dictionary of word counts or empty dict if not found
-        """
+        """Load dictionary based on initialized parameters."""
         try:
-            # Debug the dictionary structure
-            if self.dataset not in CDI_month_dict:
-                print(f"Dataset {self.dataset} not in dictionary")
-                return {}
-                
-            if self.chunk not in CDI_month_dict[self.dataset]:
-                print(f"Chunk {self.chunk} not in dataset {self.dataset}")
-                return {}
-                
-            if self.model_type not in CDI_month_dict[self.dataset][self.chunk]:
-                print(f"Model {self.model_type} not in chunk {self.chunk}")
-                return {}
-                
-            if self.temp not in CDI_month_dict[self.dataset][self.chunk][self.model_type]:
-                print(f"Temp {self.temp} not in model {self.model_type}")
-                return {}
-                
-            return CDI_month_dict[self.dataset][self.chunk][self.model_type][self.temp]
+            return CDI_month_dict.get(self.dataset, {}).get(self.chunk, {}).get(self.model_type, {}).get(self.temp, {})
         except Exception as e:
             print(f"Error accessing dictionary: {e}")
-            print(f"Dataset: {self.dataset}, Chunk: {self.chunk}, Model: {self.model_type}, Temp: {self.temp}")
+            print(f"Path: {self.dataset}/{self.chunk}/{self.model_type}/{self.temp}")
             return {}
 
     def write_word_dict(self, previous_words: dict[str, dict], CDI_month_dict: dict[str, dict]) -> dict[str, dict]:
-        """Write dictionary based on initialized parameters.
-        
-        Args:
-            previous_words: Dictionary of word counts to store
-            CDI_month_dict: Nested dictionary to update
-            
-        Returns:
-            Updated CDI month dictionary
-        """
-        # Create nested structure if it doesn't exist
+        """Write dictionary based on initialized parameters."""
+        # Initialize empty dictionaries if they don't exist
+        if not isinstance(CDI_month_dict, dict):
+            CDI_month_dict = {}
+
         if self.dataset not in CDI_month_dict:
             CDI_month_dict[self.dataset] = {}
-            
+
         if self.chunk not in CDI_month_dict[self.dataset]:
             CDI_month_dict[self.dataset][self.chunk] = {}
-            
+
         if self.model_type not in CDI_month_dict[self.dataset][self.chunk]:
             CDI_month_dict[self.dataset][self.chunk][self.model_type] = {}
-            
+
         # Store the words
         CDI_month_dict[self.dataset][self.chunk][self.model_type][self.temp] = previous_words
-        
+
         return CDI_month_dict
 
-    def debug_dict_structure(self, CDI_month_dict: dict[str, dict]) -> None:
-        """Debug helper to print dictionary structure."""
-        print("\nDictionary Structure:")
-        print(f"Datasets: {list(CDI_month_dict.keys())}")
-        if self.dataset in CDI_month_dict:
-            print(f"Chunks in {self.dataset}: {list(CDI_month_dict[self.dataset].keys())}")
-            if self.chunk in CDI_month_dict[self.dataset]:
-                print(f"Models in chunk {self.chunk}: {list(CDI_month_dict[self.dataset][self.chunk].keys())}")
-                if self.model_type in CDI_month_dict[self.dataset][self.chunk]:
-                    print(f"Temps in model {self.model_type}: {list(CDI_month_dict[self.dataset][self.chunk][self.model_type].keys())}")
 
 class SigmoidFitter:
     def __init__(self, x_data: list[int], y_data: list[int], target_y: float) -> None:

@@ -42,7 +42,7 @@ class CDICalculator:
 
     def _adjust_count(self, current_count: int) -> float:
         """Adjust word count by monthly estimation."""
-        return current_count * (self.word_count_est / len(self.word_list)) / 1_000_000
+        return current_count * (self.word_count_est / len(self.word_list))
 
     def _compute_score(self, adjusted_count: float) -> int:
         """Compute binary score based on threshold."""
