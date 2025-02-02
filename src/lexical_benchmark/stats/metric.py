@@ -2,7 +2,6 @@ import functools
 import typing as t
 
 import numpy as np
-import pandas as pd
 from scipy.optimize import curve_fit
 
 from lexical_benchmark.datasets import childes
@@ -65,13 +64,13 @@ class Metric:
         # Create calculator instance
         calculator = CDICalculator(
             CDI_words=self.CDI_words,
-            threshold=self.threshold,
             word_count_est=self.word_count_est,
             word_list=self.data,
             previous_words=self.previous_words,
         )
         # Calculate mean score
-        cum_counts, mean_score = calculator.compute_mean_cdi_score()
+        cum_counts = calculator.get_combined_counts()
+        mean_score = calculator.compute_mean_cdi_score(cum_counts,self.threshold)
 
         return mean_score, cum_counts
 

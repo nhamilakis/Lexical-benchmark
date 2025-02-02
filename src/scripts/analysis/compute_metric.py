@@ -200,9 +200,9 @@ class MetricsProcessor:
             word_dict=word_dict,
             previous_words=previous_words,
         )
-
-        cdi_results, cum_counts = metric.compute_metrics()
-        cdi_score = cdi_results[4] if cdi_results else None
+        cum_counts  = metric.compute_CDI()
+        cdi_results = metric.compute_CDI()
+        cdi_score = cdi_results if cdi_results else None
 
         return cdi_score, cum_counts
 

@@ -8,7 +8,6 @@ class CDICalculator:
 
     word_list: list[str]
     CDI_words: list[str]
-    threshold: int
     word_count_est: int
     previous_words: dict[str, int]
 
@@ -16,21 +15,11 @@ class CDICalculator:
         self,
         word_list: list[str],
         CDI_words: list[str],
-        threshold: int,
         word_count_est: int,
         previous_words: dict[str, int] | None = None,
     ) -> None:
-        """Initialize CDI Score Calculator.
-
-        Args:
-            word_list: List of input words
-            CDI_words: List of CDI reference words
-            threshold: Threshold for score computation
-            word_count_est: Estimated word count
-            previous_words: Dictionary of previous word counts
-        """
+        """Initialize CDI Score Calculator."""
         self.CDI_words = CDI_words
-        self.threshold = threshold
         self.word_count_est = word_count_est
         self.word_list = word_list
         self.word_dict = dict(Counter(word_list))
@@ -44,9 +33,9 @@ class CDICalculator:
         """Adjust word count by monthly estimation."""
         return current_count * (self.word_count_est / len(self.word_list))
 
-    def _compute_score(self, adjusted_count: float) -> int:
+    def _compute_score(self, adjusted_count: float,threshold: int) -> int:
         """Compute binary score based on threshold."""
-        return 1 if adjusted_count >= self.threshold else 0
+        return 1 if adjusted_count >= threshold else 0
 
     def get_combined_counts(self) -> dict[str, float]:
         """Combine adjusted counts with previous words."""
@@ -58,13 +47,10 @@ class CDICalculator:
             combined_counts[word] += count
         for word, count in self.previous_words.items():
             combined_counts[word] += count
-
         return combined_counts
 
-    def compute_mean_cdi_score(self) -> tuple[float, dict[str, float]]:
+    def compute_mean_cdi_score(self,combined_counts:dict,threshold: int) -> tuple[float, dict[str, float]]:
         """Compute mean CDI score and combined counts."""
-        combined_counts = self.get_combined_counts()
-        scores = [self._compute_score(count) for count in combined_counts.values()]
+        scores = [self._compute_score(count,threshold) for count in combined_counts.values()]
         mean_score = sum(scores) / len(scores) if scores else 0
-
-        return combined_counts,mean_score
+        return mean_score
