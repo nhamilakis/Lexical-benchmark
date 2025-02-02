@@ -51,6 +51,8 @@ class GenerationMerger:
 
         if not gen_all.empty:
             filename_prefix, filename_suffix = self.filename.split('.')[:-1], self.filename.split('.')[-1]
+            print(f"filename_prefix is {filename_prefix}")
+            print(f"filename_suffix is {filename_suffix}")
             out_path = self.gen_dir / f"{filename_prefix}_hour_per_year.{filename_suffix}"
             gen_all.to_csv(out_path)
             print(f"Saving the concatenated generation to {out_path}")

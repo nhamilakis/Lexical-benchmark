@@ -10,6 +10,7 @@ import pandas as pd
 
 from lexical_benchmark import settings
 from lexical_benchmark.datasets.utils.text_cleaning import char2word
+from lexical_benchmark.stats.CDI_scores import CDICalculator
 from lexical_benchmark.stats.metric import (
     Metric,
     WordDictManager,
@@ -54,10 +55,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--temp_lst", type=list, default=[0.3,0.6,1.0,1.5], help="temperature list")
     parser.add_argument("--hour_per_year", default=1000, type=int, help="Estimated yearly exposure hours")
     parser.add_argument("--chunk_size", default=1000, type=int, help="Chunk size to normalize the scores")
-    parser.add_argument("--threshold", default=1, type=int, help="threshold to compute CDI scores")
+    parser.add_argument("--threshold", default=50, type=int, help="threshold to compute CDI scores")
     parser.add_argument("--lang", default="EN", type=str, help="tested language")
     parser.add_argument(
-        "--agg_months", type=int, default=2, help="Number of months to aggregate for rejection rate and TTR computation"
+        "--agg_months", type=int, default=3, help="Number of months to aggregate for rejection rate and TTR computation"
     )
     return parser.parse_args()
 
@@ -73,6 +74,7 @@ class MetricsProcessor:
         self.CDI_enabled = "CDI" in args.metric_lst
         self.CDI_month_dict: dict[str, dict] = {"dataset": {"chunk": {"model_type": {"temp": {}}}}}
         self.score_all = pd.DataFrame()
+        self.threshold = args.threshold
         self.non_cdi_metrics = ["type_token_ratio", "rej_type_rate", "rej_token_rate"]
 
     def _setup_paths(self) -> dict[str, Path]:
@@ -179,31 +181,24 @@ class MetricsProcessor:
     def _compute_monthly_CDI(
         self,
         sent_lst: list[str],
-        temp: float | str,
         CDI_words: list[str],
-        word_dict: dict,
         word_count_est: float,
         previous_words: dict[str, int],
-    ) -> tuple[float | None, dict | None]:
+        threshold: int
+    ) -> tuple[list[float] | None, dict | None]:
         """Compute monthly CDI scores if enabled."""
         if not self.CDI_enabled:
             return None, None
 
-        metric = Metric(
-            data=sent_lst,
-            temp=temp,
-            metric_lst=["CDI"],
-            threshold=self.args.threshold,
+        calculator = CDICalculator(
             CDI_words=CDI_words,
             word_count_est=word_count_est,
-            chunk_size=self.args.chunk_size,
-            word_dict=word_dict,
+            word_list=sent_lst,
             previous_words=previous_words,
         )
-        cum_counts  = metric.compute_CDI()
-        cdi_results = metric.compute_CDI()
-        cdi_score = cdi_results if cdi_results else None
 
+        cum_counts = calculator.get_combined_counts()
+        cdi_score = calculator.compute_mean_cdi_score(cum_counts, threshold)
         return cdi_score, cum_counts
 
 
@@ -250,7 +245,7 @@ class MetricsProcessor:
 
                 # Always compute CDI on individual month data
                 cdi_score, cum_counts = self._compute_monthly_CDI(
-                    texts, temp, CDI_words, word_dict, word_count_est, previous_words
+                    texts, CDI_words, word_count_est, previous_words,self.threshold
                 )
 
                 # Create row with metrics
@@ -356,11 +351,10 @@ class MetricsProcessor:
 
                                 cdi_score, cum_counts = self._compute_monthly_CDI(
                                     monthly_texts,
-                                    temp,
                                     CDI_words,
-                                    word_dict,
                                     self.load_word_count_est(month_num),
                                     previous_words,
+                                    self.threshold
                                 )
 
                                 if agg_group is not None and (agg_group, chunk.name, model.name) in agg_metrics:
@@ -503,7 +497,7 @@ class MetricsProcessor:
 
             # Get CDI score if enabled
             cdi_score, cum_counts = self._compute_monthly_CDI(
-                sent_lst, info_dict["temp"], CDI_words, word_dict, word_count_est, previous_words
+                sent_lst, CDI_words, word_count_est, previous_words,self.threshold
             )
 
             # Create row with metrics

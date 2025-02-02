@@ -40,7 +40,7 @@ def parse_args():
     )
     parser.add_argument(
         "--threshold_lst",
-        default=[1,10,20,30,40],
+        default=[1,50,100],
         type=list,
         help="threshold to compute CDI scores"
         )
@@ -93,22 +93,21 @@ class MetricsProcessor:
         self,
         sent_lst: list[str],
         CDI_words: list[str],
-        word_count_est: float,  # This should be a float
+        word_count_est: float,
         previous_words: dict[str, int],
         threshold_lst: list[int]
-    ) -> tuple[list[float] | None, dict | None]:  # Updated return type to list of scores
+    ) -> tuple[list[float] | None, dict | None]:
         """Compute monthly CDI scores if enabled."""
         if not self.CDI_enabled:
             return None, None
 
         calculator = CDICalculator(
             CDI_words=CDI_words,
-            word_count_est=word_count_est,  # Pass the float directly
+            word_count_est=word_count_est,
             word_list=sent_lst,
             previous_words=previous_words,
         )
 
-        # Calculate scores for each threshold
         try:
             cum_counts = calculator.get_combined_counts()
             cdi_scores = []
@@ -119,6 +118,70 @@ class MetricsProcessor:
         except Exception as e:
             print(f"Error calculating CDI scores: {e}")
             return None, None
+
+    def _compute_human_metrics(self, ref_data: pd.DataFrame, CDI_words: list[str], word_dict: dict) -> pd.DataFrame:
+        """Compute metrics for human reference data with thresholds as columns."""
+        scores = []
+        gen_grouped = ref_data.groupby("month")
+
+        # Process each month
+        for month, gen in gen_grouped:
+            word_dict_manager = WordDictManager(
+                dataset="CHILDES",
+                chunk="00",
+                model_type="human",
+                temp="1.0"
+            )
+
+            word_count_est = self.load_word_count_est(month)
+            previous_words = word_dict_manager.load_word_dict(self.CDI_month_dict)
+            sent_lst = gen["text"].fillna("").astype(str).tolist()
+
+            # Get CDI scores for all thresholds
+            cdi_scores, cum_counts = self._compute_monthly_CDI(
+                sent_lst, 
+                CDI_words, 
+                word_count_est,
+                previous_words,
+                self.threshold_lst
+            )
+
+            if cdi_scores is not None:
+                # Create a row with month and word count
+                row = {
+                    "month": month,
+                    "word_count": gen["sent_len"].sum()
+                }
+                # Add threshold scores as separate columns
+                for threshold, score in zip(self.threshold_lst, cdi_scores):
+                    row[f"threshold_{threshold}"] = score
+                scores.append(row)
+
+            if cum_counts is not None:
+                self.CDI_month_dict = word_dict_manager.write_word_dict(
+                    cum_counts,
+                    self.CDI_month_dict
+                )
+
+        if not scores:
+            return pd.DataFrame()
+
+        # Create DataFrame from list of dictionaries
+        score = pd.DataFrame(scores)
+        # Add constant columns
+        score = score.assign(
+            dataset="CHILDES",
+            chunk="00",
+            model_type="human",
+            temp="1.0"
+        )
+        # Reorder columns
+        threshold_cols = [f"threshold_{t}" for t in self.threshold_lst]
+        col_order = ["month", "word_count"] + threshold_cols + ["dataset", "chunk", "model_type", "temp"]
+        score = score[col_order]
+        return score
+
+
 
     def _process_month(
         self, month: Path, dataset: Path, CDI_words: list[str], word_dict: dict, word_count_est: float
@@ -157,70 +220,15 @@ class MetricsProcessor:
 
         self.score_all = self._compute_human_metrics(ref_data=ref_data, CDI_words=CDI_words, word_dict=word_dict)
 
-
-    def _compute_human_metrics(self, ref_data: pd.DataFrame, CDI_words: list[str], word_dict: dict) -> pd.DataFrame:
-        """Compute metrics for human reference data."""
-        scores = []
-        gen_grouped = ref_data.groupby("month")
-
-        # Process each month
-        for month, gen in gen_grouped:
-            word_dict_manager = WordDictManager(
-                dataset="CHILDES",
-                chunk="00",
-                model_type="human",
-                temp="1.0"
-            )
-
-            word_count_est = self.load_word_count_est(month)
-            previous_words = word_dict_manager.load_word_dict(self.CDI_month_dict)
-            sent_lst = gen["text"].fillna("").astype(str).tolist()
-
-            # Get CDI scores for all thresholds
-            cdi_scores, cum_counts = self._compute_monthly_CDI(
-                sent_lst, 
-                CDI_words, 
-                word_count_est,  # Pass the float
-                previous_words,
-                self.threshold_lst
-            )
-
-            if cdi_scores is not None:
-                for threshold, score in zip(self.threshold_lst, cdi_scores):
-                    row = [
-                        month,
-                        threshold,
-                        score,
-                        gen["sent_len"].sum()
-                    ]
-                    scores.append(row)
-
-            if cum_counts is not None:
-                self.CDI_month_dict = word_dict_manager.write_word_dict(
-                    cum_counts, 
-                    self.CDI_month_dict
-                )
-
-        if not scores:
-            return pd.DataFrame()
-
-        # Create DataFrame with proper column names
-        columns = ["month", "threshold", "cdi_score", "word_count"]
-        score = pd.DataFrame(scores, columns=columns)
-        # Add constant columns
-        score = score.assign(
-            dataset="CHILDES",
-            chunk="00",
-            model_type="human",
-            temp="1.0"
-        )
-        return score
-
     def save_results(self) -> None:
         """Save computed metrics to file."""
-        output_path = self.paths["metric_dir"] / f"metric_CDI_test.csv"
-        self.score_all.to_csv(output_path)
-        print(f"Saving the metric to {output_path}")
+        if self.score_all.empty:
+            print("Warning: No results to save")
+            return
+
+        output_path = self.paths["metric_dir"] / f"metric_CDI_threshold_test.csv"
+        self.score_all.to_csv(output_path, index=False)
+        print(f"Saved metrics to {output_path}")
 
     def run(self) -> None:
         """Run the complete metrics computation pipeline."""

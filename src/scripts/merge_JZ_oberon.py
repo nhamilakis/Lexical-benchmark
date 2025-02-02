@@ -13,8 +13,8 @@ def parseargs():
     # Run parameters
     parser = argparse.ArgumentParser(description="Get the array script for generation")
     parser.add_argument("--source1", type=str, default="gen/oberon", help="Source Directory1")
-    parser.add_argument("--source2", type=str, default="gen/jz", help="Directory to save path file")
-    parser.add_argument("--dest", type=str, default="gen/merged", help="Destination Directory to save path file")
+    parser.add_argument("--source2", type=str, default="gen/jz2", help="Directory to save path file")
+    parser.add_argument("--dest", type=str, default="gen/merged2", help="Destination Directory to save path file")
     parser.add_argument("--strategy", type=str, default="size", help="Merging strategy")
     return parser.parse_args()
 
