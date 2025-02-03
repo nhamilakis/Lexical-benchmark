@@ -499,7 +499,7 @@ class BatchProcessor:
                     generated_df = pd.concat([generated_df, processed_df])
 
                     # Save intermediate results if resuming
-                    if resume and resume_file.is_file():
+                    if resume_file.is_file():
                         # update the intemediate file: source file + newly genrated file
                         updated_source_df = pd.concat([source_df,processed_df])
                     else:
