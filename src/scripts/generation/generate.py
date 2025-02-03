@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 import torch
 
-from lexical_benchmark import settings
 from lexical_benchmark.settings import chunk2month
 from lexical_benchmark.utils import slurm_utils
 from lexical_benchmark.utils.gen_util import BatchProcessor, Logger, TextGenerator
