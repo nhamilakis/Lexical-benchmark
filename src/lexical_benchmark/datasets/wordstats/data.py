@@ -9,16 +9,6 @@ class WordStatsDataset:
     """Path & accessor mapping for word stats."""
 
     @property
-    def wf_column_names(self) -> list[str]:
-        """Column names for word-frequency CSV files."""
-        return ["word", "count"]
-
-    @property
-    def wfpos_column_names(self) -> list[str]:
-        """Column names for word-frequency with POS tag CSV files."""
-        return [*self.wf_column_names, "POS"]
-
-    @property
     def word_frequencies(self) -> utils.PathNamespace:
         """Word Frequency mapping filenames."""
         return utils.PathNamespace(
@@ -27,6 +17,16 @@ class WordStatsDataset:
             child_realistic_by_month_60_00=self.root_dir / "word_frequencies" / self.lang / "childrealistic_bm_60_00.csv",
             cdi_childrealistic=self.root_dir / "word_frequencies" / self.lang / "cdi_childlike.csv",
             cdi_childes=self.root_dir / "word_frequencies" / self.lang / "cdi_childes.csv",
+        )
+
+    @property
+    def matched_frequencies_exp(self) -> utils.PathNamespace:
+        """Matched Word Frequencies."""
+        return utils.PathNamespace(
+            machine=self.root_dir / "matched" / self.lang / "machine.csv",
+            machine_stats=self.root_dir / "matched" / self.lang / "stats_machine.csv",
+            human_realistc=self.root_dir / "matched" / self.lang / "human_realistic.csv",
+            human_reastic_stats=self.root_dir / "matched" / self.lang / "stats_human_realistic.csv"
         )
 
     def __init__(self, root_dir: Path = settings.PATH.word_stats, lang: str = "EN") -> None:

@@ -2,13 +2,12 @@
 """match freq based on between human and machine cdi."""
 
 import argparse
-import collections
-from pathlib import Path
+import warnings
 
 import numpy as np
 import pandas as pd
-from lexical_benchmark import settings
-from lexical_benchmark.datasets import childes, stella, wordstats
+
+from lexical_benchmark.datasets import wordstats
 from lexical_benchmark.utils import stat_tools
 
 try:
@@ -17,17 +16,18 @@ except ImportError:
     print("Install polars for dataframe loading !")
     raise
 
+warnings.filterwarnings(action="ignore", category=FutureWarning, message=r".*behavior of DataFrame.sum.*")
+
 
 def arguments() -> argparse.Namespace:
     """Build & Parse command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--CDI_path", default=f"{settings.PATH.dataset_root}/processed/CDI/")
-    parser.add_argument("--human_freq", default=f"{settings.PATH.dataset_root}/CHILDES/")
-    parser.add_argument("--machine_freq", default=f"{settings.PATH.dataset_root}/processed/freq/3200h.csv")
-    parser.add_argument("--lang", type=str, default="BE")
-    parser.add_argument("--test-type", type=str, default="exp")
-    parser.add_argument("--sampling_ratio", type=int, default=1)
-    parser.add_argument("--nbins", type=int, default=6)
+    parser.add_argument("--lang", type=str, default="EN")
+    parser.add_argument("--test-type", type=str, default="exp", choices=["recep", "exp"])
+    parser.add_argument("-s", "--sampling-ratio", type=int, default=1) # To test 1 & 2
+    parser.add_argument("--nbins", type=int, default=6) # # 6 or 12
+    parser.add_argument("-n", "--number-of-iterations", type=int, default=100000) # needs documentation
+
     return parser.parse_args()
 
 
@@ -40,8 +40,8 @@ def annotate_freq(cdi_data: pd.DataFrame, human_freq: pd.DataFrame) -> pd.DataFr
 
 
 def match_sample(
-    dataref: pd.DataFrame,
-    datasam: pd.DataFrame,
+    dataref: pd.DataFrame, # "word", "freq"
+    datasam: pd.DataFrame, # "word", "freq"
     sampling_ratio: int,
     nbins: int,
     n: int = 100000,
@@ -55,8 +55,8 @@ def match_sample(
     the returned distribution can contain more samples than the target distribution).
     """
     # convert into freq_m
-    dataref = np.log10(dataref["freq_m"])
-    datasam = np.log10(datasam["freq_m"])
+    dataref = np.log10(dataref["freq"]) #'freq_m'
+    datasam = np.log10(datasam["freq"]) #'freq_m'
 
     lenref = len(dataref)
     lensam = len(datasam)
@@ -136,29 +136,59 @@ def main() -> None:
 
     wordstats_dataset.word_frequencies.stela_by_month_60_00.read_csv()
 
-    ## Load Frequencies & other data
+    ## Load Machine Word-Count & compute frequencies
     machine_freq = load_stella_60_00()
-    human_freq = load_childes_adult_data()
-    # NOTE: are we using this ??
+    total_count = machine_freq["count"].sum()
+    machine_freq = machine_freq.with_columns(
+        (pl.col("count") / pl.lit(total_count)).alias("freq")
+    )
+
+    ## Load HumanRealistic Word-Count & compute frequencies
     human_realistic = load_childrealistic_60_00_data()
+    total_count = human_realistic["count"].sum()
+    human_realistic = human_realistic.with_columns(
+        (pl.col("count") / pl.lit(total_count)).alias("freq")
+    )
 
-    # NOTE: these two already have the word frequencies loaded each from a corresponding dataset
+    ## Load CDI Word-Count (Childes) & compute frequencies
     cdi_data_childes = load_cdi_childes_data()
-    cdi_data_childrealistic = load_cdi_childrealistic_data()
+    total_count = cdi_data_childes["count"].sum()
+    cdi_data_childes = cdi_data_childes.with_columns(
+        (pl.col("count") / pl.lit(total_count)).alias("freq")
+    )
+
+    # MATCHING SAMPLES CDI - Machine
+    pidx, _, stat = match_sample(
+        dataref=cdi_data_childes.to_pandas(), datasam=machine_freq.to_pandas(),
+        nbins=args.nbins, sampling_ratio=args.sampling_ratio, n=args.number_of_iterations,
+    )
+
+    if args.test_type == "exp":
+        wordstats_dataset.matched_frequencies_exp.machine.mk_parent()
+        machine_freq.to_pandas().iloc[pidx].to_csv(wordstats_dataset.matched_frequencies_exp.machine, index=False)
+
+        wordstats_dataset.matched_frequencies_exp.machine_stats.mk_parent()
+        stat.to_csv(wordstats_dataset.matched_frequencies_exp.machine_stats, index=False)
+    else:
+        print(f"No target files for {args.test_type}")
 
 
-    # TODO: match files (target here is CDI ?
-    # TODO: maybe we should add an option to choose between the two CDI)
-    pidx, _, stat = match_sample(target, machine_freq, args.sampling_ratio, args.nbins)
+    # MATCHING SAMPLES CDI - HumanRealistic
+    pidx, _, stat = match_sample(
+        dataref=cdi_data_childes.to_pandas(), datasam=human_realistic.to_pandas(),
+        nbins=args.nbins, sampling_ratio=args.sampling_ratio, n=args.number_of_iterations,
+    )
+    if args.test_type == "exp":
+        wordstats_dataset.matched_frequencies_exp.human_realistc.mk_parent()
+        human_realistic.to_pandas().iloc[pidx].to_csv(
+            wordstats_dataset.matched_frequencies_exp.human_realistc, index=False
+        )
 
-    # TODO: save what ?
-    # Is this the target file ?? or does this exist before ?
-    machine_cdi_file = Path(args.CDI_path) / f"{args.lang}_{args.test_type}_machine.csv"
-    machine_freq.iloc[pidx].to_csv(machine_cdi_file)
+        wordstats_dataset.matched_frequencies_exp.human_reastic_stats.mk_parent()
+        stat.to_csv(wordstats_dataset.matched_frequencies_exp.human_reastic_stats, index=False)
+    else:
+        print(f"No target files for {args.test_type}")
 
-    cdi_stat_file = Path(args.CDI_path) / f"{args.lang}_{args.test_type}_stat.csv"
-    stat.to_csv(cdi_stat_file)
-    #stat.write_csv(cdi_stat_file)
-    
+
 if __name__ == "__main__":
     main()
