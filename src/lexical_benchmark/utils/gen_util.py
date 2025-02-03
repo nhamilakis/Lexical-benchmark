@@ -199,7 +199,6 @@ class TextGenerator:
             return input_ids[:-1]
         return input_ids[:, :1]
 
-
     def generate_text(self, word_num: int, temp_lst: list[float]) -> dict[str, str]:
         """Generate text with different temperatures."""
         try:
@@ -500,8 +499,9 @@ class BatchProcessor:
 
                     # Save intermediate results if resuming
                     if resume_file.is_file():
+                        source_df = pd.read_csv(resume_file)
                         # update the intemediate file: source file + newly genrated file
-                        updated_source_df = pd.concat([source_df,processed_df])
+                        updated_source_df = pd.concat([source_df, processed_df])
                     else:
                         updated_source_df = generated_df
                     updated_source_df.to_csv(resume_file, index=False)
