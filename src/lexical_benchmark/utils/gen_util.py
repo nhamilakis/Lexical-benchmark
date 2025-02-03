@@ -477,7 +477,7 @@ class BatchProcessor:
                 chunks = [df.iloc[i : i + self.chunk_size] for i in range(0, total_rows, self.chunk_size)]
 
                 # Process each chunk
-                for chunk_idx, chunk in enumerate(chunks, desc="Processing chunks"):
+                for chunk_idx, chunk in enumerate(chunks):
                     if self.generator.local_rank != -1:
                         dist.barrier()
 
