@@ -7,7 +7,6 @@ import pandas as pd
 import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel
-from tqdm import tqdm
 from transformers import AutoModelForCausalLM, PretrainedConfig, PreTrainedModel
 from vllm import LLM, SamplingParams
 
@@ -478,7 +477,7 @@ class BatchProcessor:
                 chunks = [df.iloc[i : i + self.chunk_size] for i in range(0, total_rows, self.chunk_size)]
 
                 # Process each chunk
-                for chunk_idx, chunk in enumerate(tqdm(chunks, desc="Processing chunks")):
+                for chunk_idx, chunk in enumerate(chunks, desc="Processing chunks"):
                     if self.generator.local_rank != -1:
                         dist.barrier()
 
@@ -501,8 +500,11 @@ class BatchProcessor:
 
                     # Save intermediate results if resuming
                     if resume and resume_file.is_file():
-                        generated_df.to_csv(resume_file, index=False)
-                        self.logger.info(f"Saved intermediate results - Total rows processed: {len(generated_df)}")
+                        updated_source_df = pd.concat([source_df,processed_df])
+                    else:
+                        updated_source_df = generated_df
+                    updated_source_df.to_csv(resume_file, index=False)
+                    self.logger.info(f"Saved intermediate results - Total rows processed: {len(generated_df)}")
             else:
                 self.logger.info("No new rows to process")
 

@@ -7,10 +7,10 @@ import numpy as np
 import pandas as pd
 import torch
 
-from lexical_benchmark.settings import chunk2month
 from lexical_benchmark import settings
-from lexical_benchmark.utils.gen_util import BatchProcessor, Logger, TextGenerator
+from lexical_benchmark.settings import chunk2month
 from lexical_benchmark.utils import slurm_utils
+from lexical_benchmark.utils.gen_util import BatchProcessor, Logger, TextGenerator
 
 
 def parse_args():
@@ -20,13 +20,13 @@ def parse_args():
     parser.add_argument(
         "--model_path",
         type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/models/STELATranscriptions2/by_month/EN/10/00/LSTM",
+        default="/scratch1/projects/lexical-benchmark/v2/models/STELATranscriptions2/by_month/EN/10/00/trans",
         help="Path to the base LM",
     )
     parser.add_argument(
         "--generation_path",
         type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/gen/merged/STELATranscriptions2/by_month/EN/10/00/LSTM",
+        default="/scratch1/projects/lexical-benchmark/v2/gen/merged2/STELATranscriptions2/by_month/EN/10/00/trans",
         help="Path to the generated texts",
     )
     parser.add_argument(

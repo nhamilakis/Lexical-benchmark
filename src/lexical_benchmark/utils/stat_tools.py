@@ -1,14 +1,11 @@
+import collections
 import random
 import typing as t
 from dataclasses import dataclass
-import collections
-import pandas as pd
+
 import numpy as np
-import random
+import pandas as pd
 from nltk.util import ngrams
-
-
-
 
 T = t.TypeVar("T")
 
