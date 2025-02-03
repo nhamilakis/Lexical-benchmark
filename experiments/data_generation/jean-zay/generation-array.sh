@@ -13,7 +13,7 @@
 #SBATCH --cpus-per-task=16
 # Only run this when testing
 ##SBATCH --qos=qos_gpu_a100-dev
-#SBATCH --time=20:00:00
+#SBATCH --time=10:00:00
 # Array Number of Jobs to run in Parallel
 # Given via CMD arguments (because it varies depending on the number of jobs)
 ##SBATCH --array=0-2
@@ -98,5 +98,6 @@ echo "Running Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
 read model output <<< "$(get_line "${JOB_INDEX_FILE}" $SLURM_ARRAY_TASK_ID)"
 
 uv run $CODE/src/scripts/generation/generate.py --gen_file "$GEN_ROOT/CHILDES_model.csv" --model_path "$MODEL_ROOT/$model" --generation_path "$GEN_ROOT/$output" --save_interval 500 --hour_per_year $2 --use_vllm --resume
+
 
 echo "Completed Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"

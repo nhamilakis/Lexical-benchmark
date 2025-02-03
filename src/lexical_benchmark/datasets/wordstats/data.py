@@ -20,19 +20,23 @@ class WordStatsDataset:
         )
 
     @property
+    def matched_root(self)-> Path:
+        """Matched frequencies root directory."""
+        return self.root_dir / "matched" / self.lang
+
+    @property
     def matched_frequencies_exp(self) -> utils.PathNamespace:
         """Matched Word Frequencies."""
         return utils.PathNamespace(
-            machine=self.root_dir / "matched" / self.lang / "machine.csv",
-            machine_stats=self.root_dir / "matched" / self.lang / "stats_machine.csv",
-            human_realistc=self.root_dir / "matched" / self.lang / "human_realistic.csv",
-            human_reastic_stats=self.root_dir / "matched" / self.lang / "stats_human_realistic.csv"
+            machine=self.matched_root / "machine.csv",
+            machine_stats=self.matched_root / "stats_machine.csv",
+            human_realistc=self.matched_root / "human_realistic.csv",
+            human_reastic_stats=self.matched_root / "stats_human_realistic.csv"
         )
 
     def __init__(self, root_dir: Path = settings.PATH.word_stats, lang: str = "EN") -> None:
         self.root_dir = root_dir
         self.lang = lang
-
 
 
 

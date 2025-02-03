@@ -6,6 +6,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
+from rich.console import Console
 
 from lexical_benchmark.datasets import wordstats
 from lexical_benchmark.utils import stat_tools
@@ -17,6 +18,7 @@ except ImportError:
     raise
 
 warnings.filterwarnings(action="ignore", category=FutureWarning, message=r".*behavior of DataFrame.sum.*")
+console = Console()
 
 
 def arguments() -> argparse.Namespace:
@@ -24,9 +26,9 @@ def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--lang", type=str, default="EN")
     parser.add_argument("--test-type", type=str, default="exp", choices=["recep", "exp"])
-    parser.add_argument("-s", "--sampling-ratio", type=int, default=1) # To test 1 & 2
-    parser.add_argument("--nbins", type=int, default=6) # # 6 or 12
-    parser.add_argument("-n", "--number-of-iterations", type=int, default=100000) # needs documentation
+    parser.add_argument("-s", "--sampling-ratio", type=int, default=1)  # To test 1 & 2
+    parser.add_argument("--nbins", type=int, default=6)  # # 6 or 12
+    parser.add_argument("-n", "--number-of-iterations", type=int, default=100000)  # needs documentation
 
     return parser.parse_args()
 
@@ -40,8 +42,8 @@ def annotate_freq(cdi_data: pd.DataFrame, human_freq: pd.DataFrame) -> pd.DataFr
 
 
 def match_sample(
-    dataref: pd.DataFrame, # "word", "freq"
-    datasam: pd.DataFrame, # "word", "freq"
+    dataref: pd.DataFrame,  # "word", "freq"
+    datasam: pd.DataFrame,  # "word", "freq"
     sampling_ratio: int,
     nbins: int,
     n: int = 100000,
@@ -55,8 +57,8 @@ def match_sample(
     the returned distribution can contain more samples than the target distribution).
     """
     # convert into freq_m
-    dataref = np.log10(dataref["freq"]) #'freq_m'
-    datasam = np.log10(datasam["freq"]) #'freq_m'
+    dataref = np.log10(dataref["freq"])  #'freq_m'
+    datasam = np.log10(datasam["freq"])  #'freq_m'
 
     lenref = len(dataref)
     lensam = len(datasam)
@@ -88,44 +90,96 @@ def match_sample(
 def load_stella_60_00(lang: str = "EN") -> pl.DataFrame:
     """Load Word-Count data for STELA/by_month/60/00."""
     dataset = wordstats.WordStatsDataset(lang=lang)
-    return pl.read_csv(
+    wf = pl.read_csv(
         dataset.word_frequencies.stela_by_month_60_00,
         has_header=True,
     )
+    total_count = wf["count"].sum()
+    return wf.with_columns(((pl.col("count") / pl.lit(total_count)) * pl.lit(1_000_000)).alias("freq"))
 
 
-def load_cdi_childes_data(lang: str = "EN") -> pd.DataFrame:
-    """Load the CDI/CHILDES Word-Count data."""
+def load_cdi_childes_data(lang: str = "EN") -> pl.DataFrame:
+    """Load the CDI/CHILDES Word-Count-Frequency data."""
     dataset = wordstats.WordStatsDataset(lang=lang)
-    return pl.read_csv(
+    wf = pl.read_csv(
         dataset.word_frequencies.cdi_childes,
         has_header=True,
     )
+    total_count = wf["count"].sum()
+    return wf.with_columns(((pl.col("count") / pl.lit(total_count)) * pl.lit(1_000_000)).alias("freq"))
 
-def load_cdi_childrealistic_data(lang: str = "EN") -> pd.DataFrame:
-    """Load the CDI/CHILDRealistic Word-Count data."""
+
+def load_cdi_childrealistic_data(lang: str = "EN") -> pl.DataFrame:
+    """Load the CDI/CHILDRealistic Word-Count-Frequency data."""
     dataset = wordstats.WordStatsDataset(lang=lang)
-    return pl.read_csv(
+    wf = pl.read_csv(
         dataset.word_frequencies.cdi_childrealistic,
         has_header=True,
     )
+    total_count = wf["count"].sum()
+    return wf.with_columns(((pl.col("count") / pl.lit(total_count)) * pl.lit(1_000_000)).alias("freq"))
 
-def load_childrealistic_60_00_data(lang: str = "EN") -> pd.DataFrame:
+
+def load_childrealistic_60_00_data(lang: str = "EN") -> pl.DataFrame:
     """Load the Childrealistic/EN Word-Count data."""
     dataset = wordstats.WordStatsDataset(lang=lang)
-    return pl.read_csv(
+    wf = pl.read_csv(
         dataset.word_frequencies.child_realistic_by_month_60_00,
         has_header=True,
     )
+    total_count = wf["count"].sum()
+    return wf.with_columns(((pl.col("count") / pl.lit(total_count)) * pl.lit(1_000_000)).alias("freq"))
 
 
 def load_childes_adult_data(lang: str = "EN") -> pd.DataFrame:
     """Load the CHILDES Word-Count data."""
     dataset = wordstats.WordStatsDataset(lang=lang)
-    return pl.read_csv(
+    wf = pl.read_csv(
         dataset.word_frequencies.childes_adult,
         has_header=True,
     )
+    total_count = wf["count"].sum()
+    return wf.with_columns(((pl.col("count") / pl.lit(total_count)) * pl.lit(1_000_000)).alias("freq"))
+
+
+def match_sample_wrap(
+    dataref: pl.DataFrame,  # "word", "freq"
+    datasam: pl.DataFrame,  # "word", "freq"
+    sampling_ratio: int,
+    nbins: int,
+    n: int = 100000,
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Wrapper function around match_frequencies."""
+    dataref_df = dataref.to_pandas()
+    datasam_df = datasam.to_pandas()
+    pidx, _, stat = match_sample(
+        dataref=dataref_df, datasam=datasam_df, nbins=nbins, sampling_ratio=sampling_ratio, n=n
+    )
+
+    datasam_df = datasam_df.iloc[pidx]
+    return pl.from_pandas(datasam_df), pl.from_pandas(stat)
+
+
+def tag_bins(source: pl.DataFrame, bin_frequencies: pl.DataFrame, set_name: str) -> pl.DataFrame:
+    """Tag words with the corresponding bin number."""
+    # Filter given set and keep only min/max
+    bin_frequencies = (
+        bin_frequencies.filter(pl.col("set") == set_name)
+        .select(["min", "max"])
+        .with_row_index("band_index")
+        .with_columns([(10 ** pl.col("min")).alias("min"), (10 ** pl.col("max")).alias("max")])
+    )
+
+    # Create expression to find the correct band
+    expr = pl.when(False).then(None)
+
+    # Build the condition for each range
+    for row in bin_frequencies.iter_rows():
+        band_idx, min_val, max_val = row
+        expr = expr.when((pl.col("freq") >= min_val) & (pl.col("freq") <= max_val)).then(band_idx)
+
+    # Add the bin_nb column to source dataframe
+    return source.with_columns(bin_nb=expr.otherwise(None))
 
 
 def main() -> None:
@@ -134,58 +188,71 @@ def main() -> None:
 
     wordstats_dataset = wordstats.WordStatsDataset()
 
-    wordstats_dataset.word_frequencies.stela_by_month_60_00.read_csv()
-
     ## Load Machine Word-Count & compute frequencies
     machine_freq = load_stella_60_00()
-    total_count = machine_freq["count"].sum()
-    machine_freq = machine_freq.with_columns(
-        (pl.col("count") / pl.lit(total_count)).alias("freq")
-    )
 
     ## Load HumanRealistic Word-Count & compute frequencies
     human_realistic = load_childrealistic_60_00_data()
-    total_count = human_realistic["count"].sum()
-    human_realistic = human_realistic.with_columns(
-        (pl.col("count") / pl.lit(total_count)).alias("freq")
-    )
 
     ## Load CDI Word-Count (Childes) & compute frequencies
     cdi_data_childes = load_cdi_childes_data()
-    total_count = cdi_data_childes["count"].sum()
-    cdi_data_childes = cdi_data_childes.with_columns(
-        (pl.col("count") / pl.lit(total_count)).alias("freq")
-    )
 
-    # MATCHING SAMPLES CDI - Machine
-    pidx, _, stat = match_sample(
-        dataref=cdi_data_childes.to_pandas(), datasam=machine_freq.to_pandas(),
-        nbins=args.nbins, sampling_ratio=args.sampling_ratio, n=args.number_of_iterations,
-    )
-
-    if args.test_type == "exp":
-        wordstats_dataset.matched_frequencies_exp.machine.mk_parent()
-        machine_freq.to_pandas().iloc[pidx].to_csv(wordstats_dataset.matched_frequencies_exp.machine, index=False)
-
-        wordstats_dataset.matched_frequencies_exp.machine_stats.mk_parent()
-        stat.to_csv(wordstats_dataset.matched_frequencies_exp.machine_stats, index=False)
-    else:
-        print(f"No target files for {args.test_type}")
-
-
-    # MATCHING SAMPLES CDI - HumanRealistic
-    pidx, _, stat = match_sample(
-        dataref=cdi_data_childes.to_pandas(), datasam=human_realistic.to_pandas(),
-        nbins=args.nbins, sampling_ratio=args.sampling_ratio, n=args.number_of_iterations,
-    )
-    if args.test_type == "exp":
-        wordstats_dataset.matched_frequencies_exp.human_realistc.mk_parent()
-        human_realistic.to_pandas().iloc[pidx].to_csv(
-            wordstats_dataset.matched_frequencies_exp.human_realistc, index=False
+    # MATCHING SAMPLES CDI(CHILDES) - Machine
+    with console.status("Matching frequencies [CDI - Machine]..."):
+        machine_matched, machine_stats = match_sample_wrap(
+            dataref=cdi_data_childes,
+            datasam=machine_freq,
+            nbins=args.nbins,
+            sampling_ratio=args.sampling_ratio,
+            n=args.number_of_iterations,
         )
+    print("Completed Matching frequencies [CDI - Machine]!")
 
-        wordstats_dataset.matched_frequencies_exp.human_reastic_stats.mk_parent()
-        stat.to_csv(wordstats_dataset.matched_frequencies_exp.human_reastic_stats, index=False)
+    # MATCHING SAMPLES CDI(CHILDES) - HumanRealistic
+    with console.status("Matching frequencies [CDI - HumanRealistic]..."):
+        human_realistic_matched, human_realistic_stats = match_sample_wrap(
+            dataref=cdi_data_childes,
+            datasam=human_realistic,
+            nbins=args.nbins,
+            sampling_ratio=args.sampling_ratio,
+            n=args.number_of_iterations,
+        )
+    print("Completed Matching frequencies [CDI - HumanRealistic]!")
+
+    # Tag words with their corresponding bin mapped from the frequency bands
+    with console.status("Tagging words with corresponding bins..."):
+        machine_matched = tag_bins(source=machine_matched, bin_frequencies=machine_stats, set_name="machine")
+        human_realistic_matched = tag_bins(
+            source=human_realistic, bin_frequencies=human_realistic_stats, set_name="machine"
+        )
+        cdi_data_childes = tag_bins(source=cdi_data_childes, bin_frequencies=human_realistic_stats, set_name="human")
+
+    # Save outputs to disk
+    if args.test_type == "exp":
+        with console.status(f"Saving files to {wordstats_dataset.matched_root}..."):
+            # Save Machine Matched
+            wordstats_dataset.matched_frequencies_exp.machine.mk_parent()
+            wordstats_dataset.matched_frequencies_exp.machine_stats.mk_parent()
+
+            machine_matched.write_csv(wordstats_dataset.matched_frequencies_exp.machine, include_header=True)
+            machine_stats.write_csv(wordstats_dataset.matched_frequencies_exp.machine_stats, include_header=True)
+
+            # Save HumanRealistic Matched
+            wordstats_dataset.matched_frequencies_exp.human_reastic_stats.mk_parent()
+            wordstats_dataset.matched_frequencies_exp.human_realistc.mk_parent()
+
+            human_realistic_matched.write_csv(
+                wordstats_dataset.matched_frequencies_exp.human_realistc, include_header=True
+            )
+            human_realistic_stats.write_csv(
+                wordstats_dataset.matched_frequencies_exp.human_reastic_stats, include_header=True
+            )
+
+            # Save new CDI
+            cdi_data_childes.write_csv(wordstats_dataset.matched_root / "cdi_childes.csv", include_header=True)
+
+        print(f"Saved files to {wordstats_dataset.matched_root}...")
+
     else:
         print(f"No target files for {args.test_type}")
 
