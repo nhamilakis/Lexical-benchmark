@@ -1,6 +1,5 @@
 #!/usr/bin/env/python
 import os
-import sys
 from pathlib import Path
 
 import pandas as pd
@@ -18,7 +17,7 @@ class CHILDESCleanArgs(Tap):
 
     location: str
     extras_id: str | None = None  # CHILDES Extra dict
-    save_args: bool = True  # Save arguments
+    save_args: bool = False  # Save arguments
     skip_formatting: bool = False  # Skip Dataset Pre-Formatting
     skip_cleaning: bool = False  # Skip Dataset Cleaning
     skip_word_cleaning: bool = False  # Skip Dataset Word Cleaning
@@ -48,7 +47,6 @@ else:
 
 slurm_utils.info_args(args)
 args.cache_args()
-sys.exit()
 
 prog_file = Path.cwd() / "childes.progress"
 root_dir = Path(args.location)
@@ -73,7 +71,7 @@ if not args.skip_formatting:
     progress = slurm_utils.ProgressTask(task_name="childes_id", update_interval=10, target_file=prog_file)
     for accent in progress.sequence_progress(dataset.accents):
         current = dataset.source_path / accent
-        id_list = [(item.relative_to(current).parent / item.stem).parts for item in root_dir.rglob("*.cha")]
+        id_list = [(item.relative_to(current).parent / item.stem).parts for item in current.rglob("*.cha")]
         (dataset.root_dir / "metadata" / f"ids_{accent}.txt").write_text(
             "\n".join([",".join(parts) for parts in id_list])
         )

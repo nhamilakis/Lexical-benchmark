@@ -1,15 +1,7 @@
-#!/home/nhamilakis/envs/venvs/lbenchmark/bin/python3.11
-# fmt: off
-#SBATCH --partition=gpu
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=32G
-#SBATCH --job-name=stela-cleanups
-#SBATCH --time=5:00:00
-#SBATCH --export=ALL
-#SBATCH --output stela-clean-%J.log
-# fmt: on
+#!/usr/bin/env python
 
 import os
+import sys
 from pathlib import Path
 
 from tap import Tap
@@ -27,12 +19,12 @@ class STELACleanArgs(Tap):
 
     location: str
     lang: str = "EN"
-    save_args: bool = True  # Save arguments
-    skip_prep: bool = True  # Skip preparation
+    save_args: bool = False  # Save arguments
+    skip_prep: bool = False  # Skip preparation
     skip_clean: bool = False  # Skip text cleaning
     skip_word_clean: bool = False  # Skip word cleaning
     skip_frequency_build: bool = False  # Skip building of Frequency Maps
-    asr_location: str = str(settings.PATH.asr_dir)  # Location of ASR text
+    asr_location: str | None = None # str(settings.PATH.asr_dir)  # Location of ASR text
     bad_books: tuple[str, ...] = (
         "4262_LibriVox_en",
         "6910_LibriVox_en",

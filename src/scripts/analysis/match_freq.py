@@ -114,7 +114,7 @@ def load_cdi_childes_data(lang: str = "EN") -> pl.DataFrame:
 
 
 def load_cdi_childrealistic_data(lang: str = "EN") -> pl.DataFrame:
-    """Load the CDI/CHILDRealistic Word-Count-Frequency data. """
+    """Load the CDI/CHILDRealistic Word-Count-Frequency data."""
     dataset = wordstats.WordStatsDataset(lang=lang)
     wf = pl.read_csv(
         dataset.word_frequencies.cdi_childrealistic,

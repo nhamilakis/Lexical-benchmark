@@ -2,11 +2,23 @@
 from pathlib import Path
 
 from lexical_benchmark import settings, utils
-from lexical_benchmark.datasets.stella import data
 
 
 class WordStatsDataset:
     """Path & accessor mapping for word stats."""
+
+    @property
+    def source_all_text(self) -> utils.PathNamespace:
+        """Source text used for word-counts."""
+        """
+        NOTE: these files have been created by the POS aggregation process
+        TODO: stela/50h/* needs to be replaced by by_month/EN/60/00.
+        """
+        return utils.PathNamespace(
+            stela=self.root_dir / "text" / "stela.txt",
+            childes_adult=self.root_dir / "text" / "childes_adult.txt",
+            child_realistic=self.root_dir / "text" / "child_realistic.txt",
+        )
 
     @property
     def word_frequencies(self) -> utils.PathNamespace:

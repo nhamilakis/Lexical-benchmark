@@ -1,6 +1,8 @@
 """Common util func for all the packages."""
 
 import contextlib
+import io
+import sys
 import typing as t
 from datetime import datetime
 from pathlib import Path
@@ -11,6 +13,17 @@ from time import sleep
 import humanize
 import requests
 from rich.console import Console
+
+
+@contextlib.contextmanager
+def nostdout() -> t.Generator[None, None, None]:
+    """Redirect stdout to /dev/null."""
+    save_stdout = sys.stdout
+    sys.stdout = io.BytesIO()
+    yield
+    sys.stdout = save_stdout
+
+
 
 
 def default_json_encoder(obj: t.Any) -> t.Any:

@@ -99,25 +99,25 @@ def divide_df(df, column, target_sum):
     """
     Divides a dataframe into subdataframes such that the sum of the specified column 
     in each subdataframe is close to the given target sum using cumsum for efficiency.
-    
+
     Parameters:
     df (pd.DataFrame): The input dataframe.
     column (str): The column to balance by sum.
     target_sum (float): The target sum for each subdataframe.
-    
+
     Returns:
     list: A list of subdataframes.
     """
     # Sort the dataframe by the column in descending order
     df_sorted = df.sort_values(by=column, ascending=False).reset_index(drop=True)
-    
+
     # Calculate cumulative sum and assign group IDs
     df_sorted['cumsum'] = df_sorted[column].cumsum()
     df_sorted['group'] = (df_sorted['cumsum'] // target_sum).astype(int)
-    
+
     # Group rows into subdataframes
     subdataframes = [group.drop(columns=['cumsum', 'group']) for _, group in df_sorted.groupby('group')]
-    
+
     return subdataframes
 
 transcript_mode = 'train'
@@ -186,7 +186,4 @@ while n < 60:
 
     print(f'Having saved the file to {out_path}')
     n += 1
-
-
-    
 

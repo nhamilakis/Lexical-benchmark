@@ -9,7 +9,8 @@
 
 CODE="${CODE:-source}"
 HARDCODED_ARGS=(
-    "--save_args" "--skip_word_cleaning" "--skip_word_frequencies"
+    "--save_args" "--skip_word_cleaning" "--skip_word_frequencies" 
+    "/lustre/fswork/projects/rech/hhb/ucx81cx/data2/datasets/CHILDES"
 )
 
 

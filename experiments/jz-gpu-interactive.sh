@@ -1,0 +1,1 @@
+srun --pty --job-name="interactive-gpu" --account="hhb@a100" --nodes="1" --ntasks-per-node="1" --gres="gpu:1" --cpus-per-task="8" -C "a100"  -t "3:00:00" bash -i

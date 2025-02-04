@@ -5,24 +5,23 @@ from pathlib import Path
 import pandas as pd
 from tap import Tap
 
-from lexical_benchmark.datasets import childes
-from lexical_benchmark.datasets import ChildRealistic
+from lexical_benchmark.datasets import child_realistic, childes
 from lexical_benchmark.datasets import utils as dataset_utils
 from lexical_benchmark.utils import slurm_utils
 
 
-
 class STELACleanArgs(Tap):
     """CMD args for ChildRealistic Cleanup PIPELINE."""
+
     #TODO: replace it with the root dir
-    location: str = '/scratch1/projects/lexical-benchmark/v2/datasets/ChildRealistic/'
+    location: str = "/scratch1/projects/lexical-benchmark/v2/datasets/ChildRealistic/"
     extras_id: str | None = None  # CHILDES Extra dict
     save_args: bool = True  # Save arguments
     skip_cleaning: bool = False  # Skip Dataset Cleaning
     skip_word_cleaning: bool = True  # Skip Dataset Word Cleaning
     skip_word_frequencies: bool = True # Skip Extraction of Word Frequencies
     lang: str = "EN"
-    
+
 
 
 ## Arguments setup
@@ -36,7 +35,7 @@ else:
 
 
 
-dataset = ChildRealistic.ChildRealDataset(root_dir=Path(args.location))
+dataset = child_realistic.ChildRealDataset(root_dir=Path(args.location))
 prog_file = Path.cwd() / "stela.progress"
 print('Dataset loaded')
 

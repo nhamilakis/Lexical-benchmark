@@ -186,7 +186,7 @@ class ChildRealDataset:
         """Extract languages."""
         return settings.STELA.langs
 
-    
+
     @property
     def word_frequencies(self) -> t.Any:
         """Word frequency builder."""
@@ -229,7 +229,6 @@ class ChildRealDataset:
                 )
 
                 print(f'Preprocessing {str(file)}')
-            
 
     def word_validation_filesmap(self, lang: str) -> t.Iterable[tuple[Path, Path, Path]]:
         """Build word validation step filesmap.

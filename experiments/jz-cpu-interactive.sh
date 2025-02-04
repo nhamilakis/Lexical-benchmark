@@ -1,0 +1,1 @@
+srun --pty --job-name="interactive-cpu" --account="hhb@cpu" --nodes="1" --ntasks-per-node="1" --cpus-per-task="8" --partition=cpu_p1  -t "3:00:00" bash -i
