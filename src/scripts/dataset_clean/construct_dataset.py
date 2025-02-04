@@ -10,7 +10,7 @@ from tqdm import tqdm
 def cut_sent(sentences, target_words):
     # Count words in each sentence
     word_counts = [len(sentence.split()) for sentence in sentences]
-    
+
     # Get cumulative word count
     cumulative_words = 0
     for i, count in enumerate(word_counts):
@@ -20,13 +20,13 @@ def cut_sent(sentences, target_words):
             # Check if including or excluding this sentence is closer to target
             with_current = cumulative_words
             without_current = cumulative_words - count
-            
+
             # Compare distances to target
             if abs(with_current - target_words) <= abs(without_current - target_words):
                 return (sentences[:i+1], sentences[i+1:], with_current)
             else:
                 return (sentences[:i], sentences[i:], without_current)
-    
+
     # If we never reached the target, return the full list and empty list
     return (sentences, [], cumulative_words)
 

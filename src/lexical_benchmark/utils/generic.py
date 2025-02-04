@@ -24,8 +24,6 @@ def nostdout() -> t.Generator[None, None, None]:
     sys.stdout = save_stdout
 
 
-
-
 def default_json_encoder(obj: t.Any) -> t.Any:
     """An encoder to convert known items for json serialization.
 

@@ -152,6 +152,10 @@ class _MyPathSettings:
 @_dataclasses.dataclass
 class _CHILDESMetadata:
     ACCENTS: tuple[str, ...] = ("Eng-NA", "Eng-UK")
+    LANG_ACCENT: dict[str, tuple[str, ...]] = _dataclasses.field(
+        default_factory=lambda: {
+        "EN": ("Eng-NA", "Eng-UK"),
+    })
     MAX_AGE: int = 40  # In months
     AGE_RANGES: tuple[tuple[int, int], ...] = _dataclasses.field(
         default_factory=lambda: tuple((x, x + 1) for x in range(39))

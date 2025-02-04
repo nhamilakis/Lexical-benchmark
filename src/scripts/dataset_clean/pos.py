@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 
 import os
-import sys
 from pathlib import Path
 
 from tap import Tap
 
-from lexical_benchmark.datasets import childes, stella, wordstats
+from lexical_benchmark.datasets import childes, stella, wordstats, child_realistic
 from lexical_benchmark.utils import slurm_utils
 
 slurm_utils.info_header()
@@ -36,6 +35,15 @@ if args.prep_src:
     dataset = childes.CHILDESDataset()
 
     childes_text = []
+    for accent in dataset.lang2accent(args.lang):
+        for item in dataset.iter_accent(accent):
+                file = item.preprocess_item("adult").processed
+                if file.is_file():
+                    childes_text.extend(file.safe_readlines())
+                else:
+                    print(f"Missing: CHILDES:{file}")
+
+
     for file, _, _ in dataset.word_validation_filesmap("adult"):
         if file.is_file():
             childes_text.extend(file.safe_readlines())
@@ -56,5 +64,7 @@ if args.prep_src:
     # TODO add cleaning of text
     wd_dataset.source_all_text.stela.safe_write_text("\n".join(stela_text))
 
+    dataset = child_realistic.ChildRealisticDataset()
+    for file in dataset.source_files("EN"):
 
 

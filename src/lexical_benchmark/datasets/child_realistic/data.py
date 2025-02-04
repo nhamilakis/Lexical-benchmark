@@ -13,7 +13,6 @@ TXT_TYPES = t.Literal["clean", "rejected", "unvalidated", "raw"]
 WORD_TYPES = t.Literal["clean", "rejected", "raw"]
 
 
-
 class PreprocessedItem(t.NamedTuple):
     """Struct containing raw speech items."""
 
@@ -167,13 +166,13 @@ class ChildRealDataset:
     @property
     def source_path(self) -> Path:
         """Path to the source dataset."""
-        return self.root_dir / "src" / "original" / 'txt' / 'EN'
+        return self.root_dir / "src" / "original" / "txt" / "EN"
         # TODO: add the language argument
 
     @property
     def preprocessed_path(self) -> Path:
         """Path to preprocessed version of the dataset."""
-        return self.root_dir / "src" / "preprocessed" / 'txt' / 'EN'
+        return self.root_dir / "src" / "preprocessed" / "txt" / "EN"
          # TODO: add the language argument
 
     @property
@@ -221,7 +220,7 @@ class ChildRealDataset:
         # iterate all the files
         for file in source_item.iterdir():
             if file.is_file():  # Check if it's a file (not a directory)
-                #file_pre = file.name.split('.')[0]
+                # file_pre = file.name.split('.')[0]
                 yield(
                     file,
                     preprocessed_item / f"{file.name}.preprocessed",
