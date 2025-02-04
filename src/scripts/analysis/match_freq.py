@@ -99,28 +99,27 @@ def load_stella_60_00(lang: str = "EN") -> pl.DataFrame:
 
 
 def load_cdi_childes_data(lang: str = "EN") -> pl.DataFrame:
-    """Load the CDI/CHILDES Word-Count-Frequency data.
-    TODO: add the CHILDES whole freq
-    """
+    """Load the CDI/CHILDES Word-Count-Frequency data."""
     dataset = wordstats.WordStatsDataset(lang=lang)
+    wf_all = pl.read_csv(
+        dataset.word_frequencies.childes_adult,
+        has_header=True,
+    )
     wf = pl.read_csv(
         dataset.word_frequencies.cdi_childes,
         has_header=True,
     )
-    total_count = wf["count"].sum()
+    total_count = wf_all["count"].sum()
     return wf.with_columns(((pl.col("count") / pl.lit(total_count)) * pl.lit(1_000_000)).alias("freq"))
 
 
 def load_cdi_childrealistic_data(lang: str = "EN") -> pl.DataFrame:
-    """Load the CDI/CHILDRealistic Word-Count-Frequency data. 
-        what's the difference between this and 
-    """
+    """Load the CDI/CHILDRealistic Word-Count-Frequency data. """
     dataset = wordstats.WordStatsDataset(lang=lang)
     wf = pl.read_csv(
         dataset.word_frequencies.cdi_childrealistic,
         has_header=True,
     )
-
     total_count = wf["count"].sum()
     return wf.with_columns(((pl.col("count") / pl.lit(total_count)) * pl.lit(1_000_000)).alias("freq"))
 
