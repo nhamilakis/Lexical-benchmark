@@ -12,7 +12,11 @@ from vllm import LLM, SamplingParams
 
 from lexical_benchmark.utils import hf_util
 
-
+"""
+TODO: 
+1. shut up the model outputs
+2. test on smaller intervals
+"""
 class Logger:
     """Utility class for logging configuration."""
 
@@ -351,7 +355,6 @@ class BatchProcessor:
                     # Single GPU/CPU processing
                     results.extend(self._process_subbatch(batch, temp_lst, temp_columns))
 
-            # CHANGE 4: Unified results processing
             try:
                 result_df = pd.DataFrame(results, index=batch.index)
                 missing_cols = set(temp_columns) - set(result_df.columns)
@@ -448,77 +451,74 @@ class BatchProcessor:
 
     def process_dataframe(self, df: pd.DataFrame, temp_lst: list[float], resume: bool = False) -> pd.DataFrame:
         """Process entire dataframe with intermediate saves."""
-        try:
-            if self.generator.local_rank != -1:
-                dist.barrier()
+        if self.generator.local_rank != -1:
+            dist.barrier()
 
             # Track metadata columns
-            info_cols = df.columns[: df.columns.get_loc("model") + 1].tolist()
-            resume_file = self.save_path / "gen_intermediate.csv"
+        info_cols = df.columns[: df.columns.get_loc("model") + 1].tolist()
+        resume_file = self.save_path / "gen_intermediate.csv"
 
             # Handle resume logic
-            if resume and resume_file.is_file():
-                self.logger.info(f"Attempting to resume from {resume_file}")
-                source_df = pd.read_csv(resume_file)
-                generated_df, remaining_df = self.segment_df(source_df, df)
-                self.logger.info(
+        if resume and resume_file.is_file():
+            self.logger.info(f"Attempting to resume from {resume_file}")
+            source_df = pd.read_csv(resume_file)
+            generated_df, remaining_df = self.segment_df(source_df, df)
+            self.logger.info(
                     f"Resume status: {len(generated_df)} rows recovered, {len(remaining_df)} rows remaining"
                 )
-                df = remaining_df  # Set remaining rows for processing
-            else:
-                self.logger.info("Starting fresh generation")
-                generated_df = pd.DataFrame()
+            df = remaining_df  # Set remaining rows for processing
+        else:
+            self.logger.info("Starting fresh generation")
+            generated_df = pd.DataFrame()
 
             # Process remaining rows if any
-            total_rows = len(df)
-            if total_rows > 0:
-                self.logger.info(f"Processing {total_rows} rows in chunks of {self.chunk_size}")
-                chunks = [df.iloc[i : i + self.chunk_size] for i in range(0, total_rows, self.chunk_size)]
+        total_rows = len(df)
+        if total_rows > 0:
+            self.logger.info(f"Processing {total_rows} rows in chunks of {self.chunk_size}")
+            chunks = [df.iloc[i : i + self.chunk_size] for i in range(0, total_rows, self.chunk_size)]
 
-                # Process each chunk
-                for chunk_idx, chunk in enumerate(chunks):
-                    if self.generator.local_rank != -1:
-                        dist.barrier()
+            # Process each chunk
+            print("Starting geneation")
+            for chunk_idx, chunk in enumerate(chunks):
+                if self.generator.local_rank != -1:
+                    dist.barrier()
 
-                    # Process batches within chunk
-                    processed_chunks = []
-                    for i in range(0, len(chunk), self.chunk_size):
-                        batch = chunk.iloc[i : i + self.chunk_size].copy()
-                        processed_batch = self.process_batch(batch, temp_lst)
+                # Process batches within chunk
+                processed_chunks = []
+                for i in range(0, len(chunk), self.chunk_size):
+                    batch = chunk.iloc[i : i + self.chunk_size].copy()
+                    processed_batch = self.process_batch(batch, temp_lst)
 
-                        # Preserve metadata columns
-                        for col in info_cols:
-                            processed_batch[col] = batch[col]
+                    # Preserve metadata columns
+                    for col in info_cols:
+                        processed_batch[col] = batch[col]
 
-                        processed_chunks.append(processed_batch)
-                        torch.cuda.empty_cache()
+                    processed_chunks.append(processed_batch)
+                    torch.cuda.empty_cache()
 
                     # Combine chunk results
-                    processed_df = pd.concat(processed_chunks)
-                    generated_df = pd.concat([generated_df, processed_df])
+                processed_df = pd.concat(processed_chunks)
+                generated_df = pd.concat([generated_df, processed_df])
 
-                    # Save intermediate results if resuming
-                    if resume_file.is_file():
-                        source_df = pd.read_csv(resume_file)
-                        # update the intemediate file: source file + newly genrated file
-                        updated_source_df = pd.concat([source_df, processed_df])
-                    else:
-                        updated_source_df = generated_df
-                    updated_source_df.to_csv(resume_file, index=False)
-                    self.logger.info(f"Saved intermediate results - Total rows processed: {len(generated_df)}")
-            else:
-                self.logger.info("No new rows to process")
+                # Save intermediate results if resuming
+                if resume_file.is_file():
+                    source_df = pd.read_csv(resume_file)
+                    # update the intemediate file: source file + newly generated file
+                    updated_source_df = pd.concat([source_df, processed_df])
+                else:
+                    updated_source_df = generated_df
+                updated_source_df.to_csv(resume_file, index=False)
+                self.logger.info(f"Saved intermediate results - Total rows processed: {len(generated_df)}")
+        else:
+            self.logger.info("No new rows to process")
 
-            # Ensure consistent column ordering
-            if not generated_df.empty:
+        # Ensure consistent column ordering
+        if not generated_df.empty:
                 all_cols = info_cols + [col for col in generated_df.columns if col not in info_cols]
                 generated_df = generated_df[all_cols]
 
-            return generated_df
+        return generated_df
 
-        except Exception as e:
-            self.logger.error(f"Error in process_dataframe: {str(e)}")
-            raise
 
 
 class LSTMConfig(PretrainedConfig):
