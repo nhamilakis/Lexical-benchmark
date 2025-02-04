@@ -10,6 +10,7 @@ import pandas as pd
 
 from lexical_benchmark import settings
 from lexical_benchmark.datasets.utils.text_cleaning import char2word
+from lexical_benchmark.datasets.wordstats.data import WordStatsDataset
 from lexical_benchmark.stats.CDI_scores import CDICalculator
 from lexical_benchmark.stats.metric import (
     Metric,
@@ -36,14 +37,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--metric_path",
         type=str,
-        default="gen/merged/",
+        default="datasets/metric",
         help="relative path to save metrics",
     )
-    parser.add_argument("--CDI_path", type=str, default="metrics/material/", help="relative path to CDI scores")
     parser.add_argument(
         "--word_est_path",
         type=str,
-        default="metrics/material/vocal_month.csv",
+        default="datasets/metric/vocal_month.csv",
         help="relative path to vocal estimation",
     )
     parser.add_argument(
@@ -83,7 +83,6 @@ class MetricsProcessor:
             "gen_dir": settings.PATH.DATA_DIR / self.args.gen_path,
             "metric_dir": settings.PATH.DATA_DIR / self.args.metric_path,
             "ref_dir": settings.PATH.DATA_DIR / self.args.ref_path,
-            "CDI_dir": settings.PATH.DATA_DIR / self.args.CDI_path,
             "word_est_dir": settings.PATH.DATA_DIR / self.args.word_est_path,
         }
 
@@ -97,8 +96,15 @@ class MetricsProcessor:
     def load_CDI_words(self, dataset: str) -> tuple[list[str], dict[str, int]]:
         """Load CDI words for different datasets."""
         if self.CDI_enabled:
-            CDI_frame = pd.read_csv(self.paths["CDI_dir"] / f"{dataset}_CDI.csv")
-            CDI_words = CDI_frame["word"].tolist()
+            CDIdataset = WordStatsDataset()
+            # load based on differnet dataset dict
+            if dataset == "STELATranscriptions2":
+                data = CDIdataset.matched_frequencies_exp.machine.read_csv()
+            if dataset == "CHILDES":
+                data = CDIdataset.matched_frequencies_exp.cdi.read_csv()
+            if dataset == "ChildRealistic":
+                data = CDIdataset.matched_frequencies_exp.human_realistc.read_csv()
+            CDI_words = data['word'].to_list()
             return CDI_words, dict.fromkeys(CDI_words, 0)
         return [], {}
 

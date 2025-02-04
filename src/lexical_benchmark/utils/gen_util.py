@@ -500,7 +500,7 @@ class BatchProcessor:
                 processed_df = pd.concat(processed_chunks)
                 generated_df = pd.concat([generated_df, processed_df])
 
-                # Save intermediate results if resuming
+                # Save intermediate results if resuminggit 
                 if resume_file.is_file():
                     source_df = pd.read_csv(resume_file)
                     # update the intemediate file: source file + newly generated file
