@@ -21,9 +21,10 @@
 import os
 from pathlib import Path
 
+from tap import Tap
+
 from lexical_benchmark.datasets.wordstats import WordStatsDataset, preparation
 from lexical_benchmark.utils import slurm_utils
-from tap import Tap
 
 slurm_utils.info_header()
 

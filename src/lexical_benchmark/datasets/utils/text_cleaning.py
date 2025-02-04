@@ -104,8 +104,9 @@ class TextActionFN(WordLogger, abc.ABC):
 class TextNormalization(TextActionFN):
     """Normalise Text, for processing."""
 
-    def __init__(self) -> None:
+    def __init__(self, allowed_chars: str = string.printable) -> None:
         super().__init__(label="Normalise TXT")
+        self.allowed_chars = allowed_chars
 
     def rmdiacritics(self, char: str) -> str:
         """Normalise char, by "removing" any diacritics like accents or curls and strokes and the like."""
@@ -124,7 +125,7 @@ class TextNormalization(TextActionFN):
     def __call__(self, line: str) -> str:
         """Normalise a line of text by fixing diacritics & removing all bad characters."""
         line_normalised = "".join(map(self.rmdiacritics, line))
-        return "".join(filter(lambda x: x in string.printable, line_normalised))
+        return "".join(filter(lambda x: x in self.allowed_chars, line_normalised))
 
 
 class QuotationCleaner(TextActionFN):
@@ -295,7 +296,7 @@ class URLRemover(TextActionFN):
         return self.url_match.sub("", line)
 
 
-class AZFilter(TextActionFN):
+class AZFilter(TextNormalization):
     """Filters text using an AZ filter.
 
     Notes
@@ -309,18 +310,21 @@ class AZFilter(TextActionFN):
 
     """
 
-    def __init__(self, *, allow_basic_punctuation: bool = False) -> None:
-        super().__init__(label="AlphabeticFilter")
-        # Append apostrophe & space to the allowed chars as to not break words
-        self.allowed_chars = string.ascii_lowercase + "-' "
+    def __init__(self, *, allow_basic_punctuation: bool = False, clean_diacritics: bool = False) -> None:
+        allowed_chars = string.ascii_lowercase + "-' "
         if allow_basic_punctuation:
-            self.allowed_chars += ".!?;,:"
+            allowed_chars += ".!?;,:"
+        super().__init__(allowed_chars=allowed_chars)
+        self.label = "AlphabeticFilter"
+        self.clean_diacritics = clean_diacritics
 
     def __call__(self, line: str) -> str:
         """Clean current line to keep only pure text."""
-        unclean_chars = "".join({c.lower() for c in line if c.lower() not in self.allowed_chars})
-        self.add_word(self.label, unclean_chars)
+        if self.clean_diacritics:
+            line_normalised = "".join(map(self.rmdiacritics, line))
 
+        unclean_chars = "".join({c.lower() for c in line_normalised if c.lower() not in self.allowed_chars})
+        self.add_word(self.label, unclean_chars)
         clean_line = "".join(c for c in line if c.lower() in self.allowed_chars).lower()
         # Replace hyphen with space
         return clean_line.replace("-", " ")

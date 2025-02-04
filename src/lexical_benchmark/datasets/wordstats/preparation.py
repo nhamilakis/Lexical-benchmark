@@ -8,7 +8,8 @@ except ImportError:
     pl = None # type: ignore[assignment]
 
 from lexical_benchmark import settings
-from lexical_benchmark.datasets import childes, stella, wordstats, utils as dataset_utils
+from lexical_benchmark.datasets import childes, stella, wordstats
+from lexical_benchmark.datasets import utils as dataset_utils
 
 
 def _prepare_childes_adult() -> None:
@@ -76,7 +77,7 @@ def _prepare_cdi_childes() -> None:
     if pl is None:
         raise OSError(f"This function ({_prepare_cdi_childes}) requires polars to be installed !")
 
-    df = (settings.PATH.wordbank_cdi / "en-na/wg_cdi_produce.csv").read_csv(has_header=True, use_pandas=False)
+    df = (settings.PATH.wordbank_cdi / "en-na/ws_cdi_produce.csv").read_csv(has_header=True, use_pandas=False)
     df = df.with_columns(pl.col("word").str.to_lowercase())
     target = wordstats.WordStatsDataset(lang="EN")
 
@@ -100,7 +101,7 @@ def _prepare_cdi_childrealistic() -> None:
     if pl is None:
         raise OSError(f"This function ({_prepare_cdi_childrealistic}) requires polars to be installed !")
 
-    df = (settings.PATH.wordbank_cdi / "en-na/wg_cdi_produce.csv").read_csv(has_header=True, use_pandas=False)
+    df = (settings.PATH.wordbank_cdi / "en-na/ws_cdi_produce.csv").read_csv(has_header=True, use_pandas=False)
     df = df.with_columns(pl.col("word").str.to_lowercase())
 
     target = wordstats.WordStatsDataset(lang="EN")

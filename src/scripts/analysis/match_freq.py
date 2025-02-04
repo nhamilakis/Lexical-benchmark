@@ -227,7 +227,7 @@ def main() -> None:
     with console.status("Tagging words with corresponding bins..."):
         machine_matched = tag_bins(source=machine_matched, bin_frequencies=machine_stats, set_name="machine")
         human_realistic_matched = tag_bins(
-            source=human_realistic, bin_frequencies=human_realistic_stats, set_name="machine"
+            source=human_realistic_matched, bin_frequencies=human_realistic_stats, set_name="machine"
         )
         cdi_data_childes = tag_bins(source=cdi_data_childes, bin_frequencies=human_realistic_stats, set_name="human")
 

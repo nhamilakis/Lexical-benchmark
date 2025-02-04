@@ -78,7 +78,7 @@ class CDIPreparation:
         self.download_date = None
         self._src_df: pd.DataFrame | None = None
         self._target_df: pd.DataFrame | None = None
-        self.columns = ["word", "word_length", "POS", "category", *[str(a) for a in range(age_min, age_max + 1)]]
+        self.columns = ["word", "category", *[str(a) for a in range(age_min, age_max + 1)]]
 
     @property
     def df(self) -> pd.DataFrame:
@@ -100,29 +100,13 @@ class CDIPreparation:
         self.dl_date = df["downloaded"].iloc[0]
         return df.drop(["downloaded"], axis=1)
 
-    def build_gold(
+    def add_POS(
         self,
+        df: pd.DataFrame,
         *,
         do_type_filtering: bool = True,
-        filter_pos_categories: bool = True,
-        filter_item_definitions: bool = True,
     ) -> pd.DataFrame:
-        """Build the gold dataframe from the given src."""
-        df = self.df.copy()
-
-        # Explode multidefinition words, clean item definition
-        df = dataset_utils.segment_synonym(df, "item_definition")
-
-        # Clean words (normalise accents and non-printable characters)
-        word_cleaning = text_cleaning.TextNormalization()
-        df["word"] = df["item_definition"].apply(word_cleaning)
-
-        # remove expressions (multi-word lines)
-        df = dataset_utils.remove_exp(df, "word")
-
-        # Calculate Word length
-        df["word_length"] = df["word"].apply(len)
-
+        """Add POS tag to the dataframe."""
         # Load POS inference model and inject it into the word_to_pos function
         word_to_pos = functools.partial(dataset_utils.word_to_pos, pos_model=self.pos_model_load)
 
@@ -134,13 +118,44 @@ class CDIPreparation:
             if self.pos_filter_type == POSTypes.content:
                 # filter out all PoS that is not in CONTENT_POS
                 df = df[df["POS"].isin(settings.CONTENT_POS)]
-
             elif self.pos_filter_type == POSTypes.function:
                 # Filter out all PoS that is in CONTENT_POS
                 df = df[~df["POS"].isin(settings.CONTENT_POS)]
+        return df
+
+    def build_gold(
+        self,
+        *,
+        generate_pos: bool = False,
+        do_type_filtering: bool = False,
+        filter_categories: bool = True,
+        filter_item_definitions: bool = True,
+    ) -> pd.DataFrame:
+        """Build the gold dataframe from the given src."""
+        df = self.df.copy()
+        columns = self.columns
+
+        # Explode multidefinition words, clean item definition
+        df = dataset_utils.segment_synonym(df, "item_definition")
+
+        # Clean words (normalise accents and non-printable characters)
+        word_cleaning = text_cleaning.AZFilter(clean_diacritics=True)
+        df["word"] = df["item_definition"].apply(word_cleaning)
+
+        # remove expressions (multi-word lines)
+        df = dataset_utils.remove_exp(df, "word")
+
+        # Calculate Word length
+        df["word_length"] = df["word"].apply(len)
+        columns.append("word_length")
+
+        # POS
+        if generate_pos:
+            columns.append("POS")
+            df = self.add_POS(df, do_type_filtering=do_type_filtering)
 
         # Filter polysemous words by annotations from original data
-        if filter_pos_categories:
+        if filter_categories:
             df = df[~df["category"].isin(settings.CATEGORY)]
 
         if filter_item_definitions:
@@ -150,4 +165,4 @@ class CDIPreparation:
         df = dataset_utils.merge_word(df, "word")
         df = df.drop(["item_id"], axis=1)
 
-        return df[self.columns].copy()
+        return df[columns].copy()
