@@ -13,7 +13,7 @@
 #SBATCH --cpus-per-task=16
 # Only run this when testing
 ##SBATCH --qos=qos_gpu_a100-dev
-#SBATCH --time=10:00:00
+#SBATCH --time=20:00:00
 # Array Number of Jobs to run in Parallel
 # Given via CMD arguments (because it varies depending on the number of jobs)
 ##SBATCH --array=0-2
@@ -21,6 +21,9 @@
 #SBATCH --hint=nomultithread        # hyperthreading is deactivated
 
 export MODEL_ROOT="$WORK/data/models"
+export VLLM_NO_USAGE_STATS=1
+export DO_NOT_TRACK=1
+export VLLM_LOGGING_LEVEL="ERROR"
 export GEN_ROOT="$WORK/data/gen2"
 export DATASET_ROOT="$WORK/data/datasets"
 export CODE="$(pwd)/code"
@@ -97,10 +100,12 @@ echo "Running Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"
 # Grab parameters from index file
 read model output <<< "$(get_line "${JOB_INDEX_FILE}" $SLURM_ARRAY_TASK_ID)"
 
-# TODO: add if model & output are set
-# TODO: redirect output to custom logfile
-
-uv run $CODE/src/scripts/generation/generate.py --gen_file "$GEN_ROOT/CHILDES_model.csv" --model_path "$MODEL_ROOT/$model" --generation_path "$GEN_ROOT/$output" --save_interval 500 --hour_per_year $2 --use_vllm --resume 1&2> logs/file.log
+if [ -n "${model}" ] && [ -n "${output}" ]; then
+    LOG_FILE="logs/$(echo "$model" | tr '/' '_' | sed 's/^_//').log"
+    uv run $CODE/src/scripts/generation/generate.py --gen_file "$GEN_ROOT/CHILDES_model.csv" --model_path "$MODEL_ROOT/$model" --generation_path "$GEN_ROOT/$output" --save_interval 100 --hour_per_year $2 --resume > "${LOG_FILE}.log" 2>&1
+else
+    echo "For index $SLURM_ARRAY_TASK_ID no line was found in $JOB_INDEX_FILE"
+fi
 
 
 echo "Completed Generation  ($SLURM_ARRAY_JOB_ID/$SLURM_ARRAY_TASK_ID) @ $(date)"

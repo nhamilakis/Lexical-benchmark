@@ -3,10 +3,8 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
-from lexical_benchmark import settings
-from tqdm import tqdm
 
-from lexical_benchmark.datasets.stella import data
+from lexical_benchmark import settings
 
 
 def parse_args() -> argparse.Namespace:
@@ -48,6 +46,9 @@ def has_model_been_trained(model_root: Path, dataset: str, lang: str, month: str
 def has_generation(gen_root: Path, dataset: str, lang: str, month: str, chunk: str, model_type: str, hour_per_year: str) -> bool:
     """Check if model has been generated."""
     return (gen_root / dataset / "by_month" / lang / month / chunk / model_type / f"{hour_per_year}_hour_per_year.csv").is_file()
+
+def has_intermidiate(gen_root: Path, dataset: str, lang: str, month: str, chunk: str, model_type: str, hour_per_year: str) -> bool:
+    return (gen_root / dataset / "by_month" / lang / month / chunk / model_type / "gen_intermediate.csv").is_file()
 
 
 def collect_generation_paths(
@@ -91,7 +92,9 @@ def collect_generation_paths(
 
                     # Check if generation needed
                     has_gen = has_generation(gen_root, dataset_name, lang, current_month, current_chunk, current_model, hour_per_year)
-                    if override or not has_gen:
+                    has_inter = has_intermidiate(gen_root, dataset_name, lang, current_month, current_chunk, current_model, hour_per_year)
+
+                    if (not has_inter and not has_gen) or override:
                         data_dirs.append(Path(dataset_name) / "by_month" / lang / current_month / current_chunk /current_model)
                         model_dirs.append(Path(dataset_name) / "by_month" / lang / current_month / current_chunk /current_model)
                     else:

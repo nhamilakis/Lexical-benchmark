@@ -13,10 +13,11 @@ from vllm import LLM, SamplingParams
 from lexical_benchmark.utils import hf_util
 
 """
-TODO: 
-1. shut up the model outputs
+TODO:
 2. test on smaller intervals
 """
+
+
 class Logger:
     """Utility class for logging configuration."""
 
@@ -36,12 +37,12 @@ class Logger:
         return logging.getLogger(__name__)
 
     @staticmethod
-    def setup_stdout() -> logging.Logger:
+    def setup_stdout(*, debug: bool = False) -> logging.Logger:
         """Configure STDOUT logs."""
         logging.basicConfig(
             format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
             datefmt="%m/%d/%Y %H:%M:%S",
-            level=logging.INFO,
+            level=logging.DEBUG if debug else logging.INFO,
             handlers=[logging.StreamHandler()],
             force=True,
         )
@@ -123,7 +124,13 @@ class TextGenerator:
         try:
             if not isinstance(input_ids, list):
                 input_ids = list(input_ids)
-            outputs = self.model.generate(prompt_token_ids=input_ids, sampling_params=sampling_params)
+            # NOTE: deprecation does not seem to be active, prompt_token_ids will be removed
+            # NOTE: and integrated into prompts ==> keep this in mind
+            outputs = self.model.generate(
+                prompt_token_ids=input_ids,
+                sampling_params=sampling_params,
+                use_tqdm=False,
+            )
 
             if not outputs or not outputs[0].outputs:
                 raise ValueError("vLLM generated empty output")
@@ -260,6 +267,7 @@ class TextGenerator:
 
                         # Update generation
                         gen += decoded_token
+                        print(gen)
                         if self.use_vllm:
                             input_ids.extend(token_ids)
 
@@ -297,12 +305,27 @@ class TextGenerator:
 class BatchProcessor:
     """Handles batch processing of text generation."""
 
-    def __init__(self, generator: TextGenerator, save_path: Path, chunk_size: int = 10) -> None:
+    def __init__(self, generator: TextGenerator, save_path: Path, hour_per_year: int, chunk_size: int = 10, debug: bool = False) -> None:
         """Initialize batch processor."""
+        self.hour_per_year = hour_per_year
         self.generator = generator
         self.save_path = Path(save_path)
         self.chunk_size = chunk_size
-        self.logger = Logger.setup_stdout()
+        self.logger = Logger.setup_stdout(debug=debug)
+        self.debug = debug
+
+    def get_save_file(self, *, intermidiate: bool = False, debug: bool = False) -> Path:
+        """Build target file."""
+        file_name = f"{self.hour_per_year}_hour_per_year"
+
+        if intermidiate:
+            file_name = f"{file_name}.intermediate"
+
+        if debug:
+            file_name = f"{file_name}.debug"
+
+        return self.save_path / f"{file_name}.csv"
+
 
     def process_batch(self, batch: pd.DataFrame, temp_lst: list[float]) -> pd.DataFrame:
         """Process a batch of data for text generation."""
@@ -404,121 +427,61 @@ class BatchProcessor:
                     torch.cuda.empty_cache()
         return results
 
-    def segment_df(self, source_df: pd.DataFrame, ref_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Select rows to be generated and match source/ref dataframes."""
-        self.logger.info(f"Segmenting DataFrames - source shape: {source_df.shape}, ref shape: {ref_df.shape}")
 
-        # Keep all metadata columns up to and including 'model'
-        info_cols = ref_df.columns[: ref_df.columns.get_loc("model") + 1].tolist()
-        # Get generation result columns after 'model'
-        gen_cols = source_df.columns[source_df.columns.get_loc("model") + 1 :].tolist()
-
-        self.logger.info(f"Info columns: {info_cols}")
-        self.logger.info(f"Generation columns: {gen_cols}")
-
-        generated_df = pd.DataFrame()
-        remaining_df = pd.DataFrame()
-
-        # Process each sentence length group
-        total_processed = 0
-        total_remaining = 0
-
-        for sent_len, ref_group in ref_df.groupby("sent_len"):
-            # Find matching rows in source
-            source_matches = source_df[source_df["sent_len"] == sent_len]
-            match_count = min(len(source_matches), len(ref_group))
-
-            self.logger.info(
-                f"Length {sent_len}: {len(ref_group)} reference rows, {len(source_matches)} existing generations"
-            )
-
-            if match_count > 0:
-                # Combine metadata with existing generations
-                matches_df = pd.concat(
-                    [ref_group.iloc[:match_count][info_cols], source_matches.iloc[:match_count][gen_cols]], axis=1
-                )
-                generated_df = pd.concat([generated_df, matches_df])
-                total_processed += match_count
-
-            # Identify rows needing generation
-            if len(ref_group) > match_count:
-                new_rows = ref_group.iloc[match_count:].copy()
-                remaining_df = pd.concat([remaining_df, new_rows])
-                total_remaining += len(ref_group) - match_count
-
-        self.logger.info(f"Total processed rows: {total_processed}, remaining rows: {total_remaining}")
-        return generated_df, remaining_df
-
-    def process_dataframe(self, df: pd.DataFrame, temp_lst: list[float], resume: bool = False) -> pd.DataFrame:
+    def process_dataframe(self, prompt_df: pd.DataFrame, temp_lst: list[float], resume: bool = False) -> pd.DataFrame | None:
         """Process entire dataframe with intermediate saves."""
         if self.generator.local_rank != -1:
             dist.barrier()
 
-            # Track metadata columns
-        info_cols = df.columns[: df.columns.get_loc("model") + 1].tolist()
-        resume_file = self.save_path / "gen_intermediate.csv"
+        # Track metadata columns
+        info_cols = prompt_df.columns[: prompt_df.columns.get_loc("model") + 1].tolist()
+        resume_file = self.get_save_file(intermidiate=True)
 
-            # Handle resume logic
+        # Handle resume logic
         if resume and resume_file.is_file():
             self.logger.info(f"Attempting to resume from {resume_file}")
-            source_df = pd.read_csv(resume_file)
-            generated_df, remaining_df = self.segment_df(source_df, df)
-            self.logger.info(
-                    f"Resume status: {len(generated_df)} rows recovered, {len(remaining_df)} rows remaining"
-                )
-            df = remaining_df  # Set remaining rows for processing
+            generated_df = pd.read_csv(resume_file)
+            self.logger.info(f"Resume status: {len(generated_df)} rows recovered.")
         else:
             self.logger.info("Starting fresh generation")
             generated_df = pd.DataFrame()
 
-            # Process remaining rows if any
-        total_rows = len(df)
-        if total_rows > 0:
-            self.logger.info(f"Processing {total_rows} rows in chunks of {self.chunk_size}")
-            chunks = [df.iloc[i : i + self.chunk_size] for i in range(0, total_rows, self.chunk_size)]
+        current_line = len(generated_df)
+        # Move prompt to a last generated line
+        prompt_df = prompt_df.iloc[current_line:]
 
-            # Process each chunk
-            print("Starting geneation")
-            for chunk_idx, chunk in enumerate(chunks):
-                if self.generator.local_rank != -1:
-                    dist.barrier()
-
-                # Process batches within chunk
-                processed_chunks = []
-                for i in range(0, len(chunk), self.chunk_size):
-                    batch = chunk.iloc[i : i + self.chunk_size].copy()
-                    processed_batch = self.process_batch(batch, temp_lst)
-
-                    # Preserve metadata columns
-                    for col in info_cols:
-                        processed_batch[col] = batch[col]
-
-                    processed_chunks.append(processed_batch)
-                    torch.cuda.empty_cache()
-
-                    # Combine chunk results
-                processed_df = pd.concat(processed_chunks)
-                generated_df = pd.concat([generated_df, processed_df])
-
-                # Save intermediate results if resuminggit 
-                if resume_file.is_file():
-                    source_df = pd.read_csv(resume_file)
-                    # update the intemediate file: source file + newly generated file
-                    updated_source_df = pd.concat([source_df, processed_df])
-                else:
-                    updated_source_df = generated_df
-                updated_source_df.to_csv(resume_file, index=False)
-                self.logger.info(f"Saved intermediate results - Total rows processed: {len(generated_df)}")
-        else:
+        # Process remaining rows if any
+        total_rows = len(prompt_df)
+        if total_rows <= 0:
             self.logger.info("No new rows to process")
+            return None
+
+        self.logger.info(f"Processing {total_rows} rows in chunks of {self.chunk_size}")
+
+        # Process each chunk
+        self.logger.info("Starting generation...")
+        for current_index in range(0, len(prompt_df), self.chunk_size):
+            current_batch = prompt_df.iloc[current_index: current_index + self.chunk_size]
+            processed_batch = self.process_batch(current_batch, temp_lst)
+
+            # Preserve metadata columns
+            for col in info_cols:
+                processed_batch[col] = current_batch[col]
+            torch.cuda.empty_cache()
+
+            # Append Generation
+            generated_df = pd.concat([generated_df, processed_batch])
+
+            # Save intermediate results if resuminggit
+            generated_df.to_csv(self.get_save_file(intermidiate=True, debug=self.debug))
+            self.logger.info(f"Saved intermediate results - Total rows processed: {len(generated_df)}")
 
         # Ensure consistent column ordering
         if not generated_df.empty:
-                all_cols = info_cols + [col for col in generated_df.columns if col not in info_cols]
-                generated_df = generated_df[all_cols]
+            all_cols = info_cols + [col for col in generated_df.columns if col not in info_cols]
+            generated_df = generated_df[all_cols]
 
         return generated_df
-
 
 
 class LSTMConfig(PretrainedConfig):
