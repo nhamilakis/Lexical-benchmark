@@ -410,3 +410,9 @@ class MultiCharSeqRemover(CharSeqRemover):
 def char2word(chars:str)->str:
         """convert the char string into a word string"""
         return ' '.join(chars.split('|'))
+
+
+
+def segment_sent(data: list[str]) -> list[str]:
+    """Segment sentence list into word list if needed."""
+    return [word for sent in data for word in str(sent).split()]

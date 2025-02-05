@@ -1,5 +1,6 @@
 import argparse
 import contextlib
+import json
 import os
 import platform
 import sys
@@ -8,11 +9,11 @@ import typing as t
 from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Thread
-import json
 
 import humanize
 import psutil
 import tap
+
 try:
     import torch
 except ImportError:

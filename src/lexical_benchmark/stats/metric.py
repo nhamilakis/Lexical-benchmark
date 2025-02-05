@@ -6,6 +6,7 @@ from scipy.optimize import curve_fit
 
 from lexical_benchmark.datasets import childes
 from lexical_benchmark.datasets import utils as dataset_utils
+from lexical_benchmark.datasets.utils.text_cleaning import segment_sent
 from lexical_benchmark.stats import normalised_rejection_rates
 from lexical_benchmark.stats.CDI_scores import CDICalculator
 
@@ -175,9 +176,3 @@ def word_clean_fn(word: str, word_dict: dataset_utils.DictionairyCleaner) -> boo
     """Check if a word is in dict."""
     return word_dict.check(word)
 
-
-def segment_sent(data: list[str]) -> list[str]:
-    """Segment sentence list into word list if needed."""
-    if isinstance(data[0], (str, bytes)):
-        return [word for sent in data for word in str(sent).split()]
-    return data

@@ -6,6 +6,8 @@ from pathlib import Path
 import pandas as pd
 
 from lexical_benchmark import settings
+from lexical_benchmark.datasets.utils.text_cleaning import segment_sent
+from lexical_benchmark.datasets.wordstats.data import WordStatsDataset
 from lexical_benchmark.stats.CDI_scores import CDICalculator
 from lexical_benchmark.stats.metric import WordDictManager, load_dict
 
@@ -23,24 +25,18 @@ def parse_args():
     parser.add_argument(
         "--metric_path",
         type=str,
-        default="gen/merged/",
+        default="datasets/metric",
         help="relative path to save metrics",
-    )
-    parser.add_argument(
-        "--CDI_path",
-        type=str,
-        default="metrics/material/",
-        help="relative path to CDI scores"
     )
     parser.add_argument(
         "--word_est_path",
         type=str,
-        default="metrics/material/vocal_month.csv",
+        default="datasets/metric/vocal_month.csv",
         help="relative path to vocal estimation"
     )
     parser.add_argument(
         "--threshold_lst",
-        default=[1,50,100],
+        default=[1,30,40,50,60,70,80,100],
         type=list,
         help="threshold to compute CDI scores"
         )
@@ -66,7 +62,6 @@ class MetricsProcessor:
         return {
             "metric_dir": settings.PATH.DATA_DIR / self.args.metric_path,
             "ref_dir": settings.PATH.DATA_DIR / self.args.ref_path,
-            "CDI_dir": settings.PATH.DATA_DIR / self.args.CDI_path,
             "word_est_dir": settings.PATH.DATA_DIR / self.args.word_est_path,
         }
 
@@ -80,14 +75,22 @@ class MetricsProcessor:
     def load_CDI_words(self, dataset: str) -> tuple[list[str], dict[str, int]]:
         """Load CDI words for different datasets."""
         if self.CDI_enabled:
-            CDI_frame = pd.read_csv(self.paths["CDI_dir"] / f"{dataset}_CDI.csv")
-            CDI_words = CDI_frame["word"].tolist()
+            CDIdataset = WordStatsDataset()
+            # load based on differnet dataset dict
+            if dataset == "STELATranscriptions2":
+                data = CDIdataset.matched_frequencies_exp.machine.read_csv()
+            if dataset == "CHILDES":
+                data = CDIdataset.matched_frequencies_exp.cdi.read_csv()
+            if dataset == "ChildRealistic":
+                data = CDIdataset.matched_frequencies_exp.human_realistc.read_csv()
+            CDI_words = data['word'].to_list()
             return CDI_words, dict.fromkeys(CDI_words, 0)
         return [], {}
 
     def load_word_count_est(self, month: int) -> float:
         """Load word count estimation for each month."""
         return self.word_est_dict.get(month, 0) if self.CDI_enabled else 0
+
 
     def _compute_monthly_CDI(
         self,
@@ -104,20 +107,21 @@ class MetricsProcessor:
         calculator = CDICalculator(
             CDI_words=CDI_words,
             word_count_est=word_count_est,
-            word_list=sent_lst,
+            word_list=segment_sent(sent_lst),
             previous_words=previous_words,
         )
 
         try:
             cum_counts = calculator.get_combined_counts()
+            df = calculator.compute_freq()
             cdi_scores = []
             for threshold in threshold_lst:
                 cdi_score = calculator.compute_mean_cdi_score(cum_counts, threshold)
                 cdi_scores.append(cdi_score)
-            return cdi_scores, cum_counts
+            return cdi_scores, cum_counts,df
         except Exception as e:
             print(f"Error calculating CDI scores: {e}")
-            return None, None
+            return None, None, None
 
     def _compute_human_metrics(self, ref_data: pd.DataFrame, CDI_words: list[str], word_dict: dict) -> pd.DataFrame:
         """Compute metrics for human reference data with thresholds as columns."""
@@ -138,7 +142,7 @@ class MetricsProcessor:
             sent_lst = gen["text"].fillna("").astype(str).tolist()
 
             # Get CDI scores for all thresholds
-            cdi_scores, cum_counts = self._compute_monthly_CDI(
+            cdi_scores, cum_counts,df = self._compute_monthly_CDI(
                 sent_lst, 
                 CDI_words, 
                 word_count_est,
