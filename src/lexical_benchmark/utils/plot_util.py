@@ -1,40 +1,89 @@
+# load settings
+import re
+import typing as t
+from pathlib import Path
+
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from scipy.optimize import curve_fit
+
+np.random.seed(42)  # For reproducibility
+data_root = "/Users/jliu/workspace/lexical_bencmark/dataset"
+
+# Type aliases
+DataFrameType = pd.DataFrame
+PathType = Path | str
 
 
 class PlotSettings:
-    COLORS = {
+    """Unified plotting settings and styling configuration."""
+    COLORS: dict[str, str] = {
         "human_CDI": "#d62728",
         "CHILDES": "orange",
-        "0.3": "#DCE3E8",
-        "0.6": "#8A9AA0",
-        "0.8": "#3F5C6A",
-        "1.0": "#163B4A",
-        "1.5": "#021518",
-        "LSTM": "#ff9896",
-        "Transformer": "#c49c94",
+        "stela": "blue",
+        "child": "green",
     }
 
-    LINESTYLES = {"CHILDES": "-", "child": "-", "0.3": "-", "0.6": "-.", "0.8": "--", "1.0": ":", "1.5": "-"}
+    LINESTYLES: dict[str, str] = {
+        "CHILDES": "-", 
+        "child": "-", 
+        "LSTM": "-", 
+        "trans": "-."}
 
-    FIG_SIZE = (10, 10)
+    DEFAULTS: dict[str, t.Any] = {
+        "label_fontsize": 18, 
+        "linewidth": 3, 
+        "title_fontsize": 28, 
+        "grid_color": "#bbbbbb", 
+        "figsize": (10, 6), 
+        "default_fill_alpha": 0.25
+        }
+    FILL_ALPHA: dict[str, float] = {
+        "before": 0.1,
+        "after": 0.5,
+        }
 
-    @classmethod
-    def configure_plot(cls, title=None, model=None):
-        plt.figure(figsize=cls.FIG_SIZE)
-
+    @staticmethod
+    def configure_plot(title: str | None = None, model: str | None = None) -> None:
+        """Configure basic plot settings."""
         if title or model:
-            plt.title(title or model, fontsize=18, fontweight="bold")
+            plt.title(title or model, fontsize=PlotSettings.DEFAULTS["label_fontsize"], fontweight="bold")
+        plt.xticks(fontsize=PlotSettings.DEFAULTS["label_fontsize"])
+        plt.yticks(fontsize=PlotSettings.DEFAULTS["label_fontsize"])
+        plt.grid(True, linestyle=":", linewidth=1, color=PlotSettings.DEFAULTS["grid_color"])
 
-        plt.xticks(fontsize=18)
-        plt.yticks(fontsize=18)
-        plt.grid(True, linestyle=":", linewidth=2.5, color="#bbbbbb")
+    @staticmethod
+    def configure_legend() -> None:
+        """Configure legend settings."""
+        plt.legend(
+            title="Settings", title_fontsize=PlotSettings.DEFAULTS["title_fontsize"], fontsize=PlotSettings.DEFAULTS["label_fontsize"], loc="upper left", bbox_to_anchor=(1.01, 1)
+        )
 
-    @classmethod
-    def configure_legend(cls):
-        plt.legend(title="Settings", title_fontsize=28, fontsize=28, loc="upper left", bbox_to_anchor=(1.1, 1))
-
-    @classmethod
-    def save_figure(cls, filepath):
+    @staticmethod
+    def save_figure(filepath: str) -> None:
+        """Save the current figure to file."""
         plt.tight_layout()
         plt.savefig(filepath, bbox_inches="tight")
         plt.close()
+
+    @staticmethod
+    def get_color_palette(n_colors: int) -> list[str]:
+        """Get a color palette for the given number of colors."""
+        return sns.color_palette("husl", n_colors=n_colors).as_hex()
+
+    @staticmethod
+    def apply_style_to_axis(ax: plt.Axes, title: str | None = None) -> None:
+        """Apply styling to an existing axis."""
+        if title:
+            ax.set_title(title, fontsize=PlotSettings.DEFAULTS["title_fontsize"])
+        ax.tick_params(labelsize=PlotSettings.DEFAULTS["label_fontsize"])
+        ax.grid(True, linestyle=":", linewidth=1, color=PlotSettings.DEFAULTS["grid_color"])
+
+
+
+def extract_style(text: str) -> str:
+    """Extract text inside parentheses."""
+    match = re.search(r"\((.*?)\)", text)
+    return match.group(1) if match else ""
