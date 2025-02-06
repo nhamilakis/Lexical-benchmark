@@ -3,9 +3,8 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from lexical_benchmark.datasets.utils.text_cleaning import 
-
-
+from lexical_benchmark.datasets.utils.text_cleaning import segment_sent
+from lexical_benchmark.datasets.wordstats.data import WordStatsDataset
 
 
 class CDITool:

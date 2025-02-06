@@ -9,13 +9,13 @@ def parseargs():
     # Run parameters
     parser = argparse.ArgumentParser(description="Organize generations by month")
     parser.add_argument(
-        "--GenPath",
+        '-g',"--GenPath",
         type=str,
         default="gen/merged",
         help="Generation root directory"
         )
     parser.add_argument(
-        "--hour_per_year",
+        '-e',"--hour_per_year",
         default=1000,
         type=int,
         help="Estimated yearly exposure hours"

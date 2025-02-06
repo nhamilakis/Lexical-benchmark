@@ -19,7 +19,7 @@ def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="compute metrics")
     parser.add_argument(
-        "--gen_path",
+        "-g","--gen_path",
         type=str,
         default="gen/merged",
         help="relative path to the generated texts",
@@ -55,12 +55,15 @@ def parse_args() -> argparse.Namespace:
         help="metric list; ttr,rej_type_rate,CDI",
     )
     parser.add_argument("--temp_lst", type=list, default=[0.3,0.6,1.0,1.5], help="temperature list")
-    parser.add_argument("--hour_per_year", default=1000, type=int, help="Estimated yearly exposure hours")
-    parser.add_argument("--chunk_size", default=1000, type=int, help="Chunk size to normalize the scores")
-    parser.add_argument("--threshold", default=20, type=int, help="threshold to compute CDI scores")
+    parser.add_argument("-e","--hour_per_year", default=1000, type=int, help="Estimated yearly exposure hours")
+    parser.add_argument("-c","--chunk_size", default=1000, type=int, help="Chunk size to normalize the scores")
+    parser.add_argument("--threshold", default=60, type=int, help="threshold to compute CDI scores")
     parser.add_argument("--lang", default="EN", type=str, help="tested language")
     parser.add_argument(
-        "--agg_months", type=int, default=3, help="Number of months to aggregate for rejection rate and TTR computation"
+        "-a","--agg_months",
+        type=int,
+        default=3,
+        help="Number of months to aggregate for rejection rate and TTR computation"
     )
     return parser.parse_args()
 
@@ -104,7 +107,8 @@ class MetricsProcessor:
             if dataset == "STELATranscriptions2":
                 data = CDIdataset.matched_frequencies_exp.machine.read_csv()
             if dataset == "CHILDES":
-                data = CDIdataset.matched_frequencies_exp.cdi.read_csv()
+                #data = CDIdataset.matched_frequencies_exp.cdi.read_csv()
+                data = pd.read_csv(settings.PATH.DATA_DIR/"datasets/metric/cdi_ws_na_childes.csv")
             if dataset == "ChildRealistic":
                 data = CDIdataset.matched_frequencies_exp.human_realistc.read_csv()
             CDI_words = data['word'].to_list()
