@@ -321,9 +321,9 @@ class AZFilter(TextNormalization):
     def __call__(self, line: str) -> str:
         """Clean current line to keep only pure text."""
         if self.clean_diacritics:
-            line_normalised = "".join(map(self.rmdiacritics, line))
+            line = "".join(map(self.rmdiacritics, line))
 
-        unclean_chars = "".join({c.lower() for c in line_normalised if c.lower() not in self.allowed_chars})
+        unclean_chars = "".join({c.lower() for c in line if c.lower() not in self.allowed_chars})
         self.add_word(self.label, unclean_chars)
         clean_line = "".join(c for c in line if c.lower() in self.allowed_chars).lower()
         # Replace hyphen with space

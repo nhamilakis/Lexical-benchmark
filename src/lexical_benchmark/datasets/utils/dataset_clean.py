@@ -9,6 +9,11 @@ class DatasetCleaner:
     """Cleaner recipe for the STELA Transcripts."""
 
     @staticmethod
+    def dump_logs() -> dict:
+        """Export cleaning logs."""
+        return text_cleaning.WordLogger.dumps_logs()
+
+    @staticmethod
     def clean_txt(txt_dirty: list[str], *, ruleset: list[text_cleaning.CleanerFN]) -> list[str]:
         """Clean a the content of a txt file with the given ruleset."""
         return [text_cleaning.piped(f" {line} ", *ruleset) for line in txt_dirty]
@@ -29,6 +34,7 @@ class DatasetCleaner:
             accepted_lines.append(accepted)
             rejected_lines.append(rejected)
         return accepted_lines, rejected_lines
+
 
     @classmethod
     def cleanup_files(

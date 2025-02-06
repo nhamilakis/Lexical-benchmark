@@ -1,4 +1,5 @@
 
+import collections
 import typing as t
 
 import pandas as pd
@@ -47,11 +48,21 @@ def word_to_pos(word: str, pos_model: "Language") -> str | None:  # type: ignore
     return None
 
 
-def batch_word_to_pos(words: list[str], pos_model: "Language", batch_size: int = 32) -> list[str | None]:
+def batch_word_to_pos(words: list[str], pos_model: "Language", n_process: int = 1, batch_size: int = 32) -> list[str | None]:
     """Infer Part of Speech from a given list of words."""
-    docs = pos_model.pipe(words, batch_size=batch_size)
+    docs = pos_model.pipe(words, batch_size=batch_size, n_process=n_process)
     # POS tag list
     return [next(iter(doc), None).pos_ if len(doc) > 0 else None for doc in docs]
+
+
+def batch_phrase_to_pos(phrases: list[str], pos_model: "Language", n_process: int = 1, batch_size: int = 32) -> dict[str, list[str]]:
+    """Infer Part of Speech from a given list of phrases."""
+    docs = pos_model.pipe(phrases, batch_size=batch_size, n_process=n_process)
+    pos_mapping = collections.defaultdict(list)
+    for doc in docs:
+        for token in doc:
+            pos_mapping[token.text].append(token.pos_)
+    return dict(pos_mapping)
 
 
 def segment_synonym(df: pd.DataFrame, header: str) -> pd.DataFrame:

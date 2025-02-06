@@ -14,6 +14,35 @@ import humanize
 import requests
 from rich.console import Console
 
+try:
+    import polars as pl
+    if t.TYPE_CHECKING:
+        from polars import DataFrame as pl_DataFrame
+except ImportError:
+    pl = None
+
+
+
+if pl:
+    def append_to_csv(
+            df: "pl_DataFrame",
+            path: Path | str,
+            *,
+            separator: str = ",",
+            **kwargs
+    ) -> None:
+        """Write a polars DataFrame to a CSV file (Using Append Mode)."""
+        path = Path(path)
+
+        # If file doesn't exist, write with headers
+        if not path.exists():
+            df.write_csv(path, separator=separator, **kwargs)
+            return
+
+        with path.open(mode="a", newline="") as fh:
+            df.write_csv(fh, include_header=False, separator=separator, **kwargs)
+
+
 
 @contextlib.contextmanager
 def nostdout() -> t.Generator[None, None, None]:

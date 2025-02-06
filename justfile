@@ -32,15 +32,10 @@ fetch-notebooks:
     echo "Fetching notebooks..."
     rsync -azP --delete --exclude=".venv" --exclude=".ipynb_checkpoints" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/notebooks/" "{{current_dir}}/notebooks/"
 
-[doc("Deploy experiment code to remote")]
-deploy-experiments:
-    echo "Syncing experiment directory..."
-    rsync -azP --delete --exclude=".venv" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/experiments/" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/experiments/"
-
 [doc("Deploy source code to remote")]
-deploy-source: 
+deploy-oberon: 
     echo "Syncing source-code directory..."
-    rsync -azP --delete --exclude=".venv" --exclude=".mypy_cache" --exclude="notebooks"  --exclude="experiments" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/source/"
+    rsync -azP --delete --exclude=".venv" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/source/"
 
 [doc("Deploy source code to remote")]
 deploy-coml-prod: 
@@ -79,6 +74,17 @@ deploy-jz-test2:
     else
         sshpass -e rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_TEST_2}}"
     fi
+
+[doc("Connect to jean-zay server")]
+connect-jz:
+    #!/bin/bash
+    # SSHPASS not set
+    if [ -z "${SSHPASS}" ]; then
+        ssh jean-zay
+    else
+        sshpass -e ssh jean-zay
+    fi
+
 
 [doc("Install module & dependencies")]
 install:

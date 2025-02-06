@@ -98,3 +98,11 @@ class DictionairyCleaner:
 
         # Return line with only the validated words
         return " ".join(accepted), " ".join(rejected)
+
+
+class DictionairyWordCleaner(DictionairyCleaner):
+    """Filtering words in a word level."""
+
+    def __call__(self, word: str) -> bool:
+        """Check if a word in a dictionairy."""
+        return self.check(word)

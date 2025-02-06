@@ -10,7 +10,7 @@ from .frequency_measures import (
     word_frequency,
     word_frequency_df,
 )
-from .lexicon import DictionairyCleaner, Lexicon
+from .lexicon import DictionairyCleaner, DictionairyWordCleaner, Lexicon
 from .various import (
     batch_word_to_pos,
     merge_word,
@@ -22,21 +22,22 @@ from .various import (
 )
 
 __all__ = [
+    "DatasetCleaner",
+    "DictionairyCleaner",
+    "DictionairyWordCleaner",
+    "Lexicon",
+    "batch_word_to_pos",
+    "extend_wf_pos",
     "merge_word",
+    "merge_word_frequencies",
+    "open_wf",
+    "plot_word_frequency",
     "remove_exp",
+    "safe_load_word_frequency_file",
     "segment_synonym",
     "spacy_model",
-    "word_to_pos",
-    "plot_word_frequency",
-    "word_frequency",
-    "merge_word_frequencies",
     "to_roman",
-    "safe_load_word_frequency_file",
+    "word_frequency",
     "word_frequency_df",
-    "DictionairyCleaner",
-    "Lexicon",
-    "DatasetCleaner",
-    "open_wf",
-    "extend_wf_pos",
-    "batch_word_to_pos"
+    "word_to_pos"
 ]

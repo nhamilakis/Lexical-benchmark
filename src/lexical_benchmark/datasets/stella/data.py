@@ -324,7 +324,7 @@ class STELATranscriptDataset:
         # If source is not present
         if not section_dir.is_dir():
             # use raw
-            section_dir = self.preprocessed_path / "txt" / lang / hour_split
+            section_dir = self.preprocessed_path / lang / hour_split
             # If raw is not present
             if not section_dir.is_dir():
                 # use clean
