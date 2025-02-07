@@ -6,6 +6,23 @@ import pandas as pd
 
 from lexical_benchmark import settings
 
+# NOTE: these models do not produce output during 20h of generation
+# NOTE: there is a bug they should not be add to index while the bug has not been solved
+DO_NOT_RUN = {
+    "ChildRealistic/by_month/EN/02/00/trans",
+    "ChildRealistic/by_month/EN/02/01/trans",
+    "ChildRealistic/by_month/EN/03/00/trans",
+    "ChildRealistic/by_month/EN/03/01/trans",
+    "ChildRealistic/by_month/EN/04/00/trans",
+    "ChildRealistic/by_month/EN/04/01/trans",
+    "ChildRealistic/by_month/EN/05/00/trans",
+    "ChildRealistic/by_month/EN/05/01/trans",
+    "ChildRealistic/by_month/EN/06/01/trans",
+    "ChildRealistic/by_month/EN/15/00/trans",
+    "ChildRealistic/by_month/EN/15/01/trans",
+    "ChildRealistic/by_month/EN/25/00/trans",
+    "ChildRealistic/by_month/EN/25/01/trans"
+}
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
@@ -48,7 +65,7 @@ def has_generation(gen_root: Path, dataset: str, lang: str, month: str, chunk: s
     return (gen_root / dataset / "by_month" / lang / month / chunk / model_type / f"{hour_per_year}_hour_per_year.csv").is_file()
 
 def has_intermidiate(gen_root: Path, dataset: str, lang: str, month: str, chunk: str, model_type: str, hour_per_year: str) -> bool:
-    return (gen_root / dataset / "by_month" / lang / month / chunk / model_type / "gen_intermediate.csv").is_file()
+    return (gen_root / dataset / "by_month" / lang / month / chunk / model_type / f"{hour_per_year}_hour_per_year.intermediate.csv").is_file()
 
 
 def collect_generation_paths(
@@ -83,6 +100,9 @@ def collect_generation_paths(
                 current_chunk = chunk_dir.name
                 # Process each model in chunk
                 for model_dir in chunk_dir.iterdir():
+                    if not model_dir.is_dir():
+                        continue
+
                     current_model = model_dir.name
 
                     # Check if model is trained
@@ -95,8 +115,13 @@ def collect_generation_paths(
                     has_inter = has_intermidiate(gen_root, dataset_name, lang, current_month, current_chunk, current_model, hour_per_year)
 
                     if (not has_inter and not has_gen) or override:
-                        data_dirs.append(Path(dataset_name) / "by_month" / lang / current_month / current_chunk /current_model)
-                        model_dirs.append(Path(dataset_name) / "by_month" / lang / current_month / current_chunk /current_model)
+                        arg_path = Path(dataset_name) / "by_month" / lang / current_month / current_chunk /current_model
+
+                        if str(arg_path) in DO_NOT_RUN:
+                            print(f"Skipping DO NOT RUN {arg_path} !")
+                        else:
+                            data_dirs.append(arg_path)
+                            model_dirs.append(arg_path)
                     else:
                         print(f"Generation exists: {Path(dataset_name) / 'by_month' / lang / current_month / current_chunk /current_model}")
 

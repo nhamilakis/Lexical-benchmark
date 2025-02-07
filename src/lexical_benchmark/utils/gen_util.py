@@ -267,7 +267,6 @@ class TextGenerator:
 
                         # Update generation
                         gen += decoded_token
-                        print(gen)
                         if self.use_vllm:
                             input_ids.extend(token_ids)
 
