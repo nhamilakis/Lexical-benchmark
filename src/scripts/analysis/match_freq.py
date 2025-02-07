@@ -9,6 +9,7 @@ import pandas as pd
 from rich.console import Console
 
 from lexical_benchmark.datasets import wordstats
+from lexical_benchmark.settings import CONTENT_POS
 from lexical_benchmark.utils import stat_tools
 
 try:
@@ -86,6 +87,11 @@ def match_sample(
     stat = pd.concat([refstat, teststat])
     return pidx, lbest, stat
 
+def filter_POS(wf):
+    """Filter content words by given POS lists."""
+    wf_filtered = wf.filter(pl.col("POS").is_in(CONTENT_POS))
+    print(f"{wf.shape[0]-wf_filtered.shape[0]} non-content words are filtered")
+    return wf_filtered
 
 def load_stella_60_00(lang: str = "EN") -> pl.DataFrame:
     """Load Word-Count data for STELA/by_month/60/00."""
@@ -95,6 +101,7 @@ def load_stella_60_00(lang: str = "EN") -> pl.DataFrame:
         has_header=True,
     )
     total_count = wf["count"].sum()
+    wf = filter_POS(wf)
     return wf.with_columns(((pl.col("count") / pl.lit(total_count)) * pl.lit(1_000_000)).alias("freq"))
 
 
@@ -132,6 +139,7 @@ def load_childrealistic_60_00_data(lang: str = "EN") -> pl.DataFrame:
         has_header=True,
     )
     total_count = wf["count"].sum()
+    wf = filter_POS(wf)
     return wf.with_columns(((pl.col("count") / pl.lit(total_count)) * pl.lit(1_000_000)).alias("freq"))
 
 
@@ -200,6 +208,9 @@ def main() -> None:
 
     ## Load CDI Word-Count (Childes) & compute frequencies
     cdi_data_childes = load_cdi_childes_data()
+
+    ## filter by POS tags; TODO: integrate new POS
+
 
     # MATCHING SAMPLES CDI(CHILDES) - Machine
     with console.status("Matching frequencies [CDI - Machine]..."):

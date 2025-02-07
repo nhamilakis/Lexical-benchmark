@@ -56,13 +56,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--temp_lst", type=list, default=[0.3,0.6,1.0,1.5], help="temperature list")
     parser.add_argument("-e","--hour_per_year", default=1000, type=int, help="Estimated yearly exposure hours")
-    parser.add_argument("-c","--chunk_size", default=1000, type=int, help="Chunk size to normalize the scores")
+    parser.add_argument("-c","--chunk_size", default=3500, type=int, help="Chunk size to normalize the scores")
     parser.add_argument("--threshold", default=60, type=int, help="threshold to compute CDI scores")
     parser.add_argument("--lang", default="EN", type=str, help="tested language")
     parser.add_argument(
         "-a","--agg_months",
         type=int,
-        default=3,
+        default=4,
         help="Number of months to aggregate for rejection rate and TTR computation"
     )
     return parser.parse_args()
