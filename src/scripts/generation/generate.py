@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument(
         "--generation_path",
         type=str,
-        default="/scratch1/projects/lexical-benchmark/v2/gen/merged2/STELATranscriptions2/by_month/EN/10/00/trans",
+        default="/scratch1/projects/lexical-benchmark/v2/gen/jz2/STELATranscriptions2/by_month/EN/10/00/trans",
         help="Path to the generated texts",
     )
     parser.add_argument(

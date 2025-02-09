@@ -129,32 +129,6 @@ class WordDictManager:
         return CDI_month_dict
 
 
-class SigmoidFitter:
-    def __init__(self, x_data: list[int], y_data: list[int], target_y: float) -> None:
-        self.x_data = x_data
-        self.y_data = y_data
-        self.target_y = target_y
-
-    def sigmoid(self, x, a, b):
-        return 1 / (1 + np.exp(-(a * x + b)))
-
-    def fit_sigmoid(self):
-        popt, _ = curve_fit(self.sigmoid, self.x_data, self.y_data, maxfev=100000, method="trf")
-        x_fit = np.linspace(0, max(self.x_data), 40)
-        y_fit = self.sigmoid(x_fit, *popt)
-
-        if max(self.y_data) < self.target_y:
-            while y_fit[-1] < self.target_y:
-                x_fit = np.append(x_fit, x_fit[-1] + 1)
-                y_fit = np.append(y_fit, self.sigmoid(x_fit[-1], *popt))
-                if y_fit[-1] >= self.target_y:
-                    break
-
-        target_y_index = np.argmin(np.abs(y_fit - self.target_y))
-        target_x = x_fit[target_y_index]
-
-        return {"target_x": target_x, "slope": popt[0], "offset": popt[1]}
-
 
 def load_dict(dataset_name: str):
     """Load dictionary based on different datasets."""

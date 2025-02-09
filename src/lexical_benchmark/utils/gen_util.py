@@ -1,4 +1,5 @@
 import logging
+import random
 import string
 from pathlib import Path
 
@@ -11,11 +12,6 @@ from transformers import AutoModelForCausalLM, PretrainedConfig, PreTrainedModel
 from vllm import LLM, SamplingParams
 
 from lexical_benchmark.utils import hf_util
-
-"""
-TODO:
-2. test on smaller intervals
-"""
 
 
 class Logger:
@@ -210,17 +206,84 @@ class TextGenerator:
             return input_ids[:-1]
         return input_ids[:, :1]
 
-    def generate_text(self, word_num: int, temp_lst: list[float]) -> dict[str, str]:
+    
+    def _handle_post_generation(
+        self,
+        decoded_token: str,
+        gen: str,
+        consecutive_bars: int,
+        cur_word_len: int,
+        bar_count: int,
+        random_range: list[int],
+        input_ids: torch.Tensor | list,
+        is_vllm: bool,
+        max_retries: int = 3,
+    ) -> tuple[str, str, int, int, int, torch.Tensor | list, bool]:
+        """Handle post-generation conditions and updates."""
+        should_retry = False
+
+        # First handle overly-long words
+        if cur_word_len > self.max_word_len and decoded_token != "|":
+            if not gen.endswith("|"):
+                decoded_token = "|"
+                bar_token_id = self.tokenizer.encode("|")[0]
+                if is_vllm:
+                    input_ids.extend([bar_token_id])
+                else:
+                    new_token = torch.tensor([[bar_token_id]], device=input_ids.device)
+                    input_ids = torch.cat([input_ids, new_token], dim=1)
+                bar_count += 1
+                cur_word_len = 0
+            else:
+                should_retry = True
+                return gen, "", consecutive_bars, cur_word_len, bar_count, input_ids, should_retry
+
+        # Handle consecutive bars with retries
+        if decoded_token == "|":
+            consecutive_bars += 1
+            if gen.endswith("|"):  # Would create consecutive bars
+                if consecutive_bars < (2 + max_retries):
+                    # Still have retries left, signal for retry
+                    should_retry = True
+                    return gen, "", consecutive_bars, cur_word_len, bar_count, input_ids, should_retry
+                else:
+                    # Exhausted retries, use random token
+                    print("Exhausted retries, use random token")
+                    random_token_id = random.randint(random_range[0], random_range[1])
+                    decoded_token = self.tokenizer.decode([random_token_id])
+                    if is_vllm:
+                        input_ids.extend([random_token_id])
+                    else:
+                        new_token = torch.tensor([[random_token_id]], device=input_ids.device)
+                        input_ids = torch.cat([input_ids, new_token], dim=1)
+                    consecutive_bars = 0
+                    cur_word_len = 1  # Start counting new word
+        else:
+            consecutive_bars = 0
+
+        # Update generation
+        gen += decoded_token
+
+        # Update counters for next iteration
+        if decoded_token == "|":
+            bar_count += 1
+            cur_word_len = 0
+        else:
+            cur_word_len += 1
+
+        return gen, decoded_token, consecutive_bars, cur_word_len, bar_count, input_ids, should_retry
+
+    def generate_text(self, word_num: int, temp_lst: list[float], random_range=[0, 25]) -> dict[str, str]:
         """Generate text with different temperatures."""
         try:
             results = {}
             max_retries = 10
-
             for temp in temp_lst:
                 input_ids, gen = self._initialize_generation()
                 bar_count = 0
                 retry_count = 0
                 cur_word_len = 0
+                consecutive_bars = 0
 
                 if self.use_vllm:
                     sampling_params = SamplingParams(
@@ -236,6 +299,7 @@ class TextGenerator:
                         continue
 
                     try:
+                        # Generate next token
                         if self.use_vllm:
                             token_ids, outputs = self.generate_next_token_vllm(input_ids, sampling_params)
                             if token_ids is None:
@@ -244,6 +308,8 @@ class TextGenerator:
                                     raise RuntimeError("Maximum retries exceeded for OOM recovery")
                                 continue
                             decoded_token = self.tokenizer.decode([token_ids[-1]])
+                            if token_ids is not None:
+                                input_ids.extend(token_ids)
                         else:
                             with torch.no_grad():
                                 new_token, outputs = self.generate_next_token_vanilla(input_ids, temp)
@@ -255,27 +321,22 @@ class TextGenerator:
                                 decoded_token = self.tokenizer.decode([new_token])
                                 input_ids = outputs
 
-                        # Handle consecutive bars
-                        if decoded_token == "|" and gen[-1] == "|":
-                            continue  # Skip this token and try again
+                        # Handle post-generation conditions
+                        gen, decoded_token, consecutive_bars, cur_word_len, bar_count, input_ids, should_retry = (
+                            self._handle_post_generation(
+                                decoded_token,
+                                gen,
+                                consecutive_bars,
+                                cur_word_len,
+                                bar_count,
+                                random_range,
+                                input_ids,
+                                self.use_vllm,
+                            )
+                        )
 
-                        # Handle long words before adding new token
-                        if cur_word_len > self.max_word_len and decoded_token != "|":
-                            gen += "|"
-                            bar_count += 1
-                            cur_word_len = 0
-
-                        # Update generation
-                        gen += decoded_token
-                        if self.use_vllm:
-                            input_ids.extend(token_ids)
-
-                        # Update counters
-                        if decoded_token == "|":
-                            bar_count += 1
-                            cur_word_len = 0
-                        else:
-                            cur_word_len += 1
+                        if should_retry:
+                            continue  # Skip this token and generate a new one
 
                         retry_count = 0
 
@@ -287,24 +348,24 @@ class TextGenerator:
                         continue
 
                 results[f"unprompted_{temp}"] = gen
-
             return results
 
         except Exception as e:
             logging.error(f"Fatal error in generate_text: {str(e)}")
             self._handle_oom()
             raise RuntimeError(f"Text generation failed: {str(e)}")
-
         finally:
             torch.cuda.empty_cache()
             if self.use_vllm and hasattr(self.model, "engine"):
                 self.model.engine.empty_cache()
-
+    
 
 class BatchProcessor:
     """Handles batch processing of text generation."""
 
-    def __init__(self, generator: TextGenerator, save_path: Path, hour_per_year: int, chunk_size: int = 10, debug: bool = False) -> None:
+    def __init__(
+        self, generator: TextGenerator, save_path: Path, hour_per_year: int, chunk_size: int = 10, debug: bool = False
+    ) -> None:
         """Initialize batch processor."""
         self.hour_per_year = hour_per_year
         self.generator = generator
@@ -324,7 +385,6 @@ class BatchProcessor:
             file_name = f"{file_name}.debug"
 
         return self.save_path / f"{file_name}.csv"
-
 
     def process_batch(self, batch: pd.DataFrame, temp_lst: list[float]) -> pd.DataFrame:
         """Process a batch of data for text generation."""
@@ -426,8 +486,9 @@ class BatchProcessor:
                     torch.cuda.empty_cache()
         return results
 
-
-    def process_dataframe(self, prompt_df: pd.DataFrame, temp_lst: list[float], resume: bool = False) -> pd.DataFrame | None:
+    def process_dataframe(
+        self, prompt_df: pd.DataFrame, temp_lst: list[float], resume: bool = False
+    ) -> pd.DataFrame | None:
         """Process entire dataframe with intermediate saves."""
         if self.generator.local_rank != -1:
             dist.barrier()
@@ -460,7 +521,7 @@ class BatchProcessor:
         # Process each chunk
         self.logger.info("Starting generation...")
         for current_index in range(0, len(prompt_df), self.chunk_size):
-            current_batch = prompt_df.iloc[current_index: current_index + self.chunk_size]
+            current_batch = prompt_df.iloc[current_index : current_index + self.chunk_size]
             processed_batch = self.process_batch(current_batch, temp_lst)
 
             # Preserve metadata columns

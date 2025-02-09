@@ -284,7 +284,6 @@ class MetricsProcessor:
                         for temp in self.args.temp_lst:
                             try:
                                 monthly_texts = gen[f"unprompted_{temp}"].apply(char2word).tolist()
-                                #monthly_texts = segment_sent(monthly_texts)
                                 word_dict_manager = WordDictManager(
                                     dataset=info_dict["dataset"],
                                     chunk=info_dict["chunk"],

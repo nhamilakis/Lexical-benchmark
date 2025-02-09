@@ -10,7 +10,6 @@ from rich.console import Console
 
 from lexical_benchmark.datasets import wordstats
 from lexical_benchmark.settings import CONTENT_POS
-from lexical_benchmark.stats.metric import load_dict, word_clean_fn
 from lexical_benchmark.utils import stat_tools
 
 try:
@@ -29,10 +28,21 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--lang", type=str, default="EN")
     parser.add_argument("--test-type", type=str, default="exp", choices=["recep", "exp"])
     parser.add_argument("-s", "--sampling-ratio", type=int, default=1)  # To test 1 & 2
-    parser.add_argument("--nbins", type=int, default=6)  # # 6 or 12
+    parser.add_argument("--nbins", type=int, default=100)  # # 6 or 12
     parser.add_argument("-n", "--number-of-iterations", type=int, default=100000)  # needs documentation
 
     return parser.parse_args()
+
+
+def find_closest_unselected(ref_point: float, candidates: np.ndarray, mask: np.ndarray, n: int) -> list[int]:
+    """Find n closest unselected values to the reference point."""
+    available_indices = np.where(mask)[0]
+    if len(available_indices) < n:
+        raise ValueError(f"Not enough unselected values to find {n} matches")
+
+    distances = np.abs(candidates[available_indices] - ref_point)
+    closest_n = np.argpartition(distances, n)[:n]
+    return available_indices[closest_n].tolist()
 
 
 def annotate_freq(cdi_data: pd.DataFrame, human_freq: pd.DataFrame) -> pd.DataFrame:
@@ -73,37 +83,41 @@ def match_sample(
     datastat = stat_tools.bin_stats(data, nbins)
     lbest = stat_tools.loss(refstat, datastat)
 
-    for _ in range(n):
-        pidx1, nidx1 = stat_tools.swap_index(pidx, nidx)
-        data = datasam[pidx1]
-        datastat = stat_tools.bin_stats(data, nbins)
-        l1 = stat_tools.loss(refstat, datastat)
-        if lbest > l1:
-            lbest = l1
-            pidx, nidx = np.array(pidx1, copy=True), np.array(nidx1, copy=True)
+    # modify this part: begin
+    selection_mask = np.ones(lensam, dtype=bool)
+    selected_indices = []
 
+    # For each reference point, find closest unselected matches
+    for ref_point in dataref:
+        # Find indices of unselected points
+        available_indices = np.where(selection_mask)[0]
+        if len(available_indices) < sampling_ratio:
+            raise ValueError(f"Not enough unselected values to find {sampling_ratio} matches")
+        # Calculate distances to reference point
+        distances = np.abs(datasam[available_indices] - ref_point)
+        # Get indices of closest n points
+        closest_n = np.argpartition(distances, sampling_ratio)[:sampling_ratio]
+        matches = available_indices[closest_n]
+        # Update selected indices and mask
+        selected_indices.extend(matches)
+        selection_mask[matches] = False
+        print(f"Closest point to {ref_point}: {closest_n}")
+
+    # Update pidx with selected indices
+    pidx = np.array(selected_indices)
+    nidx = np.where(selection_mask)[0]
+    lbest = stat_tools.loss(refstat, stat_tools.bin_stats(datasam[pidx], nbins))
+    # modify this part: end
     teststat = stat_tools.bin_stats(datasam[pidx], nbins)
     refstat["set"] = "human"
     teststat["set"] = "machine"
     stat = pd.concat([refstat, teststat])
     return pidx, lbest, stat
-
-def filter_nonwords(wf,dataset_name):
-    """Filter content words by given POS lists."""
-    # load dictionary
-    word_dict = load_dict(dataset_name)
-    wf = wf.with_columns(
-        pl.col("word").map_elements(lambda word: word_clean_fn(word, word_dict)).alias("word_valid")
-        )
-    wf_filtered = wf.filter(pl.col("word_valid") == True)
-    print(f"{wf.shape[0]-wf_filtered.shape[0]} nonwords have been filtered")
-    return wf_filtered
-
-
+=
 def filter_POS(wf):
     """Filter content words by given POS lists."""
     wf_filtered = wf.filter(pl.col("POS").is_in(CONTENT_POS))
-    print(f"{wf.shape[0]-wf_filtered.shape[0]} non-content words have been filtered")
+    print(f"{wf.shape[0] - wf_filtered.shape[0]} non-content words are filtered")
     return wf_filtered
 
 
@@ -114,9 +128,8 @@ def load_stella_60_00(lang: str = "EN") -> pl.DataFrame:
         dataset.word_frequencies.stela_by_month_60_00,
         has_header=True,
     )
-    wf = filter_nonwords(wf,"stela")
-    wf = filter_POS(wf)
     total_count = wf["count"].sum()
+    wf = filter_POS(wf)
     return wf.with_columns(((pl.col("count") / pl.lit(total_count)) * pl.lit(1_000_000)).alias("freq"))
 
 
@@ -153,9 +166,8 @@ def load_childrealistic_60_00_data(lang: str = "EN") -> pl.DataFrame:
         dataset.word_frequencies.child_realistic_by_month_60_00,
         has_header=True,
     )
-    wf = filter_nonwords(wf,"child")
-    wf = filter_POS(wf)
     total_count = wf["count"].sum()
+    wf = filter_POS(wf)
     return wf.with_columns(((pl.col("count") / pl.lit(total_count)) * pl.lit(1_000_000)).alias("freq"))
 
 
@@ -224,7 +236,6 @@ def main() -> None:
 
     ## Load CDI Word-Count (Childes) & compute frequencies
     cdi_data_childes = load_cdi_childes_data()
-
 
     # MATCHING SAMPLES CDI(CHILDES) - Machine
     with console.status("Matching frequencies [CDI - Machine]..."):

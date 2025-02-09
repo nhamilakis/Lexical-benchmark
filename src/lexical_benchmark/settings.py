@@ -35,7 +35,7 @@ def month2chunk(month: int, hour_per_year: int, hour_per_chunk: int = 50) -> int
 
 #######################################################
 # Filters for CHILDES content
-CONTENT_POS = {"ADJ", "NOUN", "VERB", "ADV"}
+CONTENT_POS = {"ADJ", "NOUN", "VERB", "ADV","PROPN"}
 CATEGORY = {
     "connecting_words",
     "helping_verbs",
