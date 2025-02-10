@@ -19,9 +19,10 @@ def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="compute metrics")
     parser.add_argument(
-        "-g","--gen_path",
+        "-g",
+        "--gen_path",
         type=str,
-        default="gen/merged",
+        default="gen/v2",
         help="relative path to the generated texts",
     )
     parser.add_argument(
@@ -54,18 +55,68 @@ def parse_args() -> argparse.Namespace:
         default=["type_token_ratio", "rej_type_rate", "rej_token_rate", "CDI"],
         help="metric list; ttr,rej_type_rate,CDI",
     )
-    parser.add_argument("--temp_lst", type=list, default=[0.3,0.6,1.0,1.5], help="temperature list")
-    parser.add_argument("-e","--hour_per_year", default=1000, type=int, help="Estimated yearly exposure hours")
-    parser.add_argument("-c","--chunk_size", default=3500, type=int, help="Chunk size to normalize the scores")
+    parser.add_argument("--temp_lst", type=list, default=[0.3, 0.6, 1.0, 1.5], help="temperature list")
+    parser.add_argument("-e", "--hour_per_year", default=1000, type=int, help="Estimated yearly exposure hours")
+    parser.add_argument("-c", "--chunk_size", default=3500, type=int, help="Chunk size to normalize the scores")
     parser.add_argument("--threshold", default=60, type=int, help="threshold to compute CDI scores")
+    parser.add_argument("-b", "--n_bins", default=12, type=int, help="freq bin number for CDI scores")
     parser.add_argument("--lang", default="EN", type=str, help="tested language")
     parser.add_argument(
-        "-a","--agg_months",
+        "-a",
+        "--agg_months",
         type=int,
         default=4,
-        help="Number of months to aggregate for rejection rate and TTR computation"
+        help="Number of months to aggregate for rejection rate and TTR computation",
     )
     return parser.parse_args()
+
+
+def remap_bins1(df: pd.DataFrame, n_bins: int = 6) -> list[list[str]]:
+    """Remap bins to exactly n bins by combining old bins."""
+    # Store old bin numbers
+    df["bin_nb_old"] = df["bin_nb"]
+    # Calculate quantiles for new bins
+    df["bin_nb"] = pd.qcut(df["freq"], q=n_bins, labels=range(n_bins))
+    # Sort by the group number
+    df = df.sort_values(by="bin_nb", ascending=True)
+    # Get the corresponding words for each bin
+    words_lst = []
+    df_grouped = df.groupby("bin_nb")
+    for _, df_group in df_grouped:
+        words_lst.append(df_group["word"].to_list())
+    return words_lst
+
+
+def remap_bins(data, n_bins: int = 6) -> list[list[str]]:
+    """Remap bins to exactly n bins by combining old bins."""
+    # Convert to pandas if it's a polars DataFrame
+    try:
+        import polars as pl
+
+        if isinstance(data, pl.DataFrame):
+            data = data.to_pandas()
+    except ImportError:
+        pass
+
+    # Ensure we have a pandas DataFrame
+    if not isinstance(data, pd.DataFrame):
+        raise TypeError("Input must be a pandas or polars DataFrame")
+
+    # Calculate quantiles for new bins
+    data = data.copy()  # Create a copy to avoid modifying the original
+    data["bin_nb"] = pd.qcut(data["freq"], q=n_bins, labels=range(n_bins))
+
+    # Sort by the group number
+    data = data.sort_values(by="bin_nb", ascending=True)
+
+    # Get the corresponding words for each bin
+    words_lst = []
+    df_grouped = data.groupby("bin_nb")
+
+    for _, df_group in df_grouped:
+        words_lst.append(df_group["word"].tolist())
+
+    return words_lst
 
 
 class MetricsProcessor:
@@ -81,6 +132,7 @@ class MetricsProcessor:
         self.score_all = pd.DataFrame()
         self.threshold = args.threshold
         self.non_cdi_metrics = ["type_token_ratio", "rej_type_rate", "rej_token_rate"]
+        self.n_bins = args.n_bins
 
     def _setup_paths(self) -> dict[str, Path]:
         """Set up all necessary paths."""
@@ -99,21 +151,28 @@ class MetricsProcessor:
         print(f"Monthly production estimation loaded {word_est_dict}")
         return word_est_dict
 
-    def load_CDI_words(self, dataset: str) -> tuple[list[str], dict[str, int]]:
+    def load_CDI_words(self, dataset: str) -> tuple[list[str], list[list[str]], dict[str, int]]:
         """Load CDI words for different datasets."""
         if self.CDI_enabled:
             CDIdataset = WordStatsDataset()
-            # load based on differnet dataset dict
+            # Load based on different dataset dict
             if dataset == "STELATranscriptions2":
                 data = CDIdataset.matched_frequencies_exp.machine.read_csv()
-            if dataset == "CHILDES":
-                data = CDIdataset.matched_frequencies_exp.cdi.read_csv()
-                #data = pd.read_csv(settings.PATH.DATA_DIR/"datasets/metric/cdi_ws_na_childes.csv")
-            if dataset == "ChildRealistic":
+            elif dataset == "CHILDES":
+                #data = CDIdataset.matched_frequencies_exp.cdi.read_csv()
+                data = "/scratch1/projects/lexical-benchmark/v2/datasets/wordstats/matched/EN/cdi_childes.csv"
+            elif dataset == "ChildRealistic":
                 data = CDIdataset.matched_frequencies_exp.human_realistc.read_csv()
-            CDI_words = data['word'].to_list()
-            return CDI_words, dict.fromkeys(CDI_words, 0)
-        return [], {}
+
+            # Get full list of CDI words
+            CDI_words = data["word"].to_list()
+            # Get binned word lists
+            CDI_words_lst = remap_bins(data, self.n_bins)
+            # Initialize previous words dict with all words
+            previous_words = dict.fromkeys(CDI_words, 0)
+
+            return CDI_words, CDI_words_lst, previous_words
+        return [], [], {}
 
     def load_word_count_est(self, month: int) -> float:
         """Load word count estimation for each month."""
@@ -195,25 +254,40 @@ class MetricsProcessor:
         self,
         sent_lst: list[str],
         CDI_words: list[str],
+        CDI_words_lst: list[list[str]],
         word_count_est: float,
         previous_words: dict[str, int],
-        threshold: int
-    ) -> tuple[list[float] | None, dict | None]:
-        """Compute monthly CDI scores if enabled."""
+        threshold: int,
+    ) -> tuple[float | None, list[float] | None, dict | None, pd.DataFrame | None]:
+        """Compute both overall and binned monthly CDI scores if enabled."""
         if not self.CDI_enabled:
-            return None, None
+            return None, None, None, None
+
+        # Calculate overall CDI score
         calculator = CDICalculator(
             CDI_words=CDI_words,
             word_count_est=word_count_est,
             word_list=segment_sent(sent_lst),
             previous_words=previous_words,
         )
-
         cum_counts = calculator.get_combined_counts()
-        cdi_score = calculator.compute_mean_cdi_score(cum_counts, threshold)
+        overall_cdi_score = calculator.compute_mean_cdi_score(cum_counts, threshold)
         df = calculator.compute_freq()
-        return cdi_score, cum_counts,df
 
+        # Calculate binned CDI scores
+        binned_scores = []
+        for bin_words in CDI_words_lst:
+            bin_calculator = CDICalculator(
+                CDI_words=bin_words,
+                word_count_est=word_count_est,
+                word_list=segment_sent(sent_lst),
+                previous_words={k: v for k, v in previous_words.items() if k in bin_words},
+            )
+            bin_counts = bin_calculator.get_combined_counts()
+            bin_score = bin_calculator.compute_mean_cdi_score(bin_counts, threshold)
+            binned_scores.append(bin_score)
+
+        return overall_cdi_score, binned_scores, cum_counts, df
 
     def process_model_data(self) -> None:
         """Process model-generated data with month aggregation."""
@@ -221,10 +295,17 @@ class MetricsProcessor:
             if not dataset.is_dir():
                 continue
 
-            CDI_words, previous_words = self.load_CDI_words(dataset.name)
+            CDI_words, CDI_words_lst, previous_words = self.load_CDI_words(dataset.name)
             word_dict = load_dict(settings.dataset_name_dict[dataset.name])
             base_path = dataset / f"{self.args.hour_per_year}_hour_per_year" / self.args.lang
-            freq_path = self.paths["freq_dir"] / dataset.name / f"{self.args.hour_per_year}_hour_per_year" / self.args.lang
+            freq_path = (
+                self.paths["freq_dir"] / dataset.name / f"{self.args.hour_per_year}_hour_per_year" / self.args.lang
+            )
+
+            # Create expanded metric list with binned CDI scores
+            metric_columns = self.args.metric_lst.copy()
+            if "CDI" in metric_columns:
+                metric_columns.extend([f"CDI_{i}" for i in range(self.n_bins)])
 
             # First compute aggregated metrics if needed
             agg_metrics = {}
@@ -247,7 +328,6 @@ class MetricsProcessor:
                             # Collect texts for aggregated non-CDI metrics
                             for temp in self.args.temp_lst:
                                 texts = gen_df[f"unprompted_{temp}"].apply(char2word).tolist()
-                                #texts = segment_sent(texts)
                                 agg_metrics[group_key][temp].extend(texts)
 
                 # Compute aggregated metrics once per group
@@ -259,6 +339,7 @@ class MetricsProcessor:
                             agg_metrics[group_key][temp] = self._compute_aggregated_metrics(
                                 texts, word_dict, self.args.chunk_size, non_cdi_metrics
                             )
+
             # Process each month
             for month in base_path.iterdir():
                 month_num = int(month.name)
@@ -292,13 +373,15 @@ class MetricsProcessor:
                                 )
                                 previous_words = word_dict_manager.load_word_dict(self.CDI_month_dict)
 
-                                cdi_score, cum_counts,df = self._compute_monthly_CDI(
+                                overall_cdi, binned_cdi, cum_counts, df = self._compute_monthly_CDI(
                                     monthly_texts,
                                     CDI_words,
+                                    CDI_words_lst,
                                     self.load_word_count_est(month_num),
                                     previous_words,
-                                    self.threshold
+                                    self.threshold,
                                 )
+
                                 if agg_group is not None and (agg_group, chunk.name, model.name) in agg_metrics:
                                     non_cdi_metrics = agg_metrics[(agg_group, chunk.name, model.name)][temp]
                                 else:
@@ -309,15 +392,20 @@ class MetricsProcessor:
                                         [m for m in self.args.metric_lst if m in self.non_cdi_metrics],
                                     )
 
-                                # Create row with metrics and temperature
+                                # Create row with metrics
                                 row = [month_num]
                                 for metric_name in self.args.metric_lst:
                                     if metric_name == "CDI":
-                                        row.append(cdi_score)
+                                        row.append(overall_cdi)
                                     else:
                                         row.append(non_cdi_metrics.get(metric_name))
+
+                                # Add binned CDI scores if CDI is enabled
+                                if "CDI" in self.args.metric_lst and binned_cdi is not None:
+                                    row.extend(binned_cdi)
+
                                 row.append(sum(len(text.split()) for text in monthly_texts))
-                                row.append(temp)  # Add temperature to row
+                                row.append(temp)
                                 scores.append(row)
 
                                 if cum_counts is not None:
@@ -325,42 +413,37 @@ class MetricsProcessor:
                                         cum_counts, self.CDI_month_dict
                                     )
 
+                                # Save frequency data if available
+                                if df is not None:
+                                    df.to_csv(freq_file_path / f"freq_{temp}.csv", index=False)
+
                             except Exception as e:
                                 print(f"Error processing temperature {temp}: {e}")
                                 continue
 
                         if scores:
-                            columns = ["month"] + self.args.metric_lst + ["word_num", "temp"]  # Add temp to columns
+                            columns = ["month"] + metric_columns + ["word_num", "temp"]
                             score = pd.DataFrame(scores, columns=columns)
                             score = score.assign(**info_dict)
                             self.score_all = pd.concat([self.score_all, score])
 
-
-
-    def _calculate_agg_word_est(self, agg_group: int) -> float:
-        """Calculate aggregated word estimation for a group of months."""
-        if not self.CDI_enabled:
-            return 0.0
-
-        start_month = agg_group * self.args.agg_months + 1
-        end_month = (agg_group + 1) * self.args.agg_months
-
-        total_est = sum(self.word_est_dict.get(month, 0) for month in range(start_month, end_month + 1))
-        return total_est
-
     def process_human_data(self) -> None:
         """Process human reference data and compute metrics."""
         ref_data = pd.read_csv(self.paths["ref_dir"])
-        CDI_words, previous_words = self.load_CDI_words("CHILDES")
+        CDI_words, CDI_words_lst, previous_words = self.load_CDI_words("CHILDES")
         word_dict = load_dict("CHILDES")
 
-        score_human = self._compute_human_metrics(ref_data=ref_data, CDI_words=CDI_words, word_dict=word_dict)
+        score_human = self._compute_human_metrics(
+            ref_data=ref_data, CDI_words=CDI_words, CDI_words_lst=CDI_words_lst, word_dict=word_dict
+        )
 
         if not score_human.empty:
             score_human = score_human[self.score_all.columns]
             self.score_all = pd.concat([score_human, self.score_all])
 
-    def _compute_human_metrics(self, ref_data: pd.DataFrame, CDI_words: list[str], word_dict: dict) -> pd.DataFrame:
+    def _compute_human_metrics(
+        self, ref_data: pd.DataFrame, CDI_words: list[str], CDI_words_lst: list[list[str]], word_dict: dict
+    ) -> pd.DataFrame:
         """Compute metrics for human reference data."""
         info_dict = {"dataset": "CHILDES", "chunk": "00", "model_type": "human", "temp": "1.0"}
         scores = []
@@ -369,20 +452,23 @@ class MetricsProcessor:
         # Initialize aggregation metrics dictionary outside the loop
         agg_metrics = {}
 
+        # Create expanded metric list with binned CDI scores
+        metric_columns = self.args.metric_lst.copy()
+        if "CDI" in metric_columns:
+            metric_columns.extend([f"CDI_{i}" for i in range(self.n_bins)])
+
         # Compute aggregated metrics for each group if needed
         if self.args.agg_months > 1:
             for month in gen_grouped.groups:
                 agg_group = (month - 1) // self.args.agg_months
                 if agg_group not in agg_metrics:
                     group_months = range(
-                        agg_group * self.args.agg_months + 1,
-                        (agg_group + 1) * self.args.agg_months + 1
+                        agg_group * self.args.agg_months + 1, (agg_group + 1) * self.args.agg_months + 1
                     )
                     # Collect all text data for this group
                     agg_data = []
                     for m in group_months:
                         if m in gen_grouped.groups:
-                            # Convert to string and handle NaN values
                             month_data = gen_grouped.get_group(m)["text"].fillna("").astype(str).tolist()
                             agg_data.extend(month_data)
 
@@ -408,17 +494,18 @@ class MetricsProcessor:
             previous_words = word_dict_manager.load_word_dict(self.CDI_month_dict)
             sent_lst = gen["text"].fillna("").astype(str).tolist()
 
-            # Get CDI score if enabled
-            cdi_score, cum_counts,df = self._compute_monthly_CDI(
-                sent_lst, CDI_words, word_count_est, previous_words,self.threshold
+            # Get overall and binned CDI scores
+            overall_cdi, binned_cdi, cum_counts, df = self._compute_monthly_CDI(
+                sent_lst, CDI_words, CDI_words_lst, word_count_est, previous_words, self.threshold
             )
+
             # Create row with metrics
             row = [month]
             agg_group = (month - 1) // self.args.agg_months if self.args.agg_months > 1 else None
 
             for metric_name in self.args.metric_lst:
                 if metric_name == "CDI":
-                    row.append(cdi_score)
+                    row.append(overall_cdi)
                 elif self.args.agg_months > 1 and agg_group in agg_metrics:
                     row.append(agg_metrics[agg_group].get(metric_name))
                 else:
@@ -426,6 +513,10 @@ class MetricsProcessor:
                         sent_lst, word_dict, self.args.chunk_size, [metric_name]
                     )
                     row.append(curr_metrics.get(metric_name))
+
+            # Add binned CDI scores if CDI is enabled
+            if "CDI" in self.args.metric_lst and binned_cdi is not None:
+                row.extend(binned_cdi)
 
             row.append(gen["sent_len"].sum())  # word_num
             row.append(info_dict["temp"])  # temperature
@@ -437,14 +528,14 @@ class MetricsProcessor:
         if not scores:
             return pd.DataFrame()
 
-        columns = ["month"] + self.args.metric_lst + ["word_num", "temp"]
+        columns = ["month"] + metric_columns + ["word_num", "temp"]
         score = pd.DataFrame(scores, columns=columns)
         score = score.assign(**info_dict)
         return score
 
     def save_results(self) -> None:
         """Save computed metrics to file."""
-        output_path = self.paths["metric_dir"] / f"metric_{self.args.hour_per_year}_{self.args.agg_months}.csv"
+        output_path = self.paths["metric_dir"] / f"metric_{self.args.hour_per_year}_{self.args.agg_months}_binned.csv"
         self.score_all.to_csv(output_path)
         print(f"Saving the metric to {output_path}")
 

@@ -1,8 +1,6 @@
 import functools
-import typing as t
 
-import numpy as np
-from scipy.optimize import curve_fit
+import pandas as pd
 
 from lexical_benchmark.datasets import childes
 from lexical_benchmark.datasets import utils as dataset_utils
@@ -150,3 +148,18 @@ def word_clean_fn(word: str, word_dict: dataset_utils.DictionairyCleaner) -> boo
     """Check if a word is in dict."""
     return word_dict.check(word)
 
+
+def remap_bins(df, n_bins: int = 6) -> pd.DataFrame:
+    """Remap bins to exactly n bins by combining old bins."""
+    # Store old bin numbers
+    df["bin_nb_old"] = df["bin_nb"]
+    # Calculate quantiles for new bins
+    df["bin_nb"] = pd.qcut(df["freq"], q=n_bins, labels=range(n_bins))
+    # sort by the group number
+    df = df.sort_values(by="bin_nb",ascending=True)
+    # get the corresponding words
+    words_lst = []
+    df_grouped = df.groupby("bin_nb")
+    for bin_nb, df_group in df_grouped:
+        words_lst.append(df_group['word'].to_list())
+    return words_lst
