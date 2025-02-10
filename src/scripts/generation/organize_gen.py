@@ -11,7 +11,7 @@ def parseargs():
     parser.add_argument(
         '-g',"--GenPath",
         type=str,
-        default="gen/merged",
+        default="gen/v2",
         help="Generation root directory"
         )
     parser.add_argument(

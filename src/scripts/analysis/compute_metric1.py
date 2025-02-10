@@ -160,7 +160,8 @@ class MetricsProcessor:
                 data = CDIdataset.matched_frequencies_exp.machine.read_csv()
             elif dataset == "CHILDES":
                 #data = CDIdataset.matched_frequencies_exp.cdi.read_csv()
-                data = "/scratch1/projects/lexical-benchmark/v2/datasets/wordstats/matched/EN/cdi_childes.csv"
+                data_path = "/scratch1/projects/lexical-benchmark/v2/datasets/wordstats/matched/EN/cdi_childes.csv"
+                data = pd.read_csv(data_path)
             elif dataset == "ChildRealistic":
                 data = CDIdataset.matched_frequencies_exp.human_realistc.read_csv()
 
@@ -168,6 +169,7 @@ class MetricsProcessor:
             CDI_words = data["word"].to_list()
             # Get binned word lists
             CDI_words_lst = remap_bins(data, self.n_bins)
+            print("Finished mapping to different bins")
             # Initialize previous words dict with all words
             previous_words = dict.fromkeys(CDI_words, 0)
 

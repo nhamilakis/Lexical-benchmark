@@ -107,8 +107,8 @@ class MetricsProcessor:
             if dataset == "STELATranscriptions2":
                 data = CDIdataset.matched_frequencies_exp.machine.read_csv()
             if dataset == "CHILDES":
-                data = CDIdataset.matched_frequencies_exp.cdi.read_csv()
-                #data = pd.read_csv(settings.PATH.DATA_DIR/"datasets/metric/cdi_ws_na_childes.csv")
+                #data = CDIdataset.matched_frequencies_exp.cdi.read_csv()
+                data = pd.read_csv("/scratch1/projects/lexical-benchmark/v2/datasets/wordstats/matched/EN/cdi_childes.csv")
             if dataset == "ChildRealistic":
                 data = CDIdataset.matched_frequencies_exp.human_realistc.read_csv()
             CDI_words = data['word'].to_list()

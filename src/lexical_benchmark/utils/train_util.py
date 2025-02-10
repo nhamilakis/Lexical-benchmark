@@ -127,13 +127,13 @@ def setup_training_arguments(model_path: Path) -> TrainingArguments:
         max_grad_norm=0.0,
         # Logging and saving
         logging_dir=str(model_path),
-        logging_steps=10,
+        logging_steps=100,
         save_strategy="steps",
-        save_steps=10,
+        save_steps=1000,
         save_total_limit=20,  # Reduce save total limit
         # Evaluation
         evaluation_strategy="steps",
-        eval_steps=10,       #TODO: check whether applie in larger month
+        eval_steps=1000,       #TODO: check whether applie in larger month
         # Early stopping settings
         load_best_model_at_end=True,  # Required for early stopping
         metric_for_best_model="eval_loss",  # Monitor eval loss for early stopping

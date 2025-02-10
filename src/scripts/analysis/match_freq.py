@@ -7,7 +7,6 @@ import warnings
 import numpy as np
 import pandas as pd
 from rich.console import Console
-
 from lexical_benchmark.datasets import wordstats
 from lexical_benchmark.settings import CONTENT_POS
 from lexical_benchmark.stats.metric import load_dict, word_clean_fn
@@ -88,23 +87,6 @@ def match_sample(
     stat = pd.concat([refstat, teststat])
     return pidx, lbest, stat
 
-def filter_nonwords(wf,dataset_name):
-    """Filter content words by given POS lists."""
-    # load dictionary
-    word_dict = load_dict(dataset_name)
-    wf = wf.with_columns(
-        pl.col("word").map_elements(lambda word: word_clean_fn(word, word_dict)).alias("word_valid")
-        )
-    wf_filtered = wf.filter(pl.col("word_valid") == True)
-    print(f"{wf.shape[0]-wf_filtered.shape[0]} nonwords have been filtered")
-    return wf_filtered
-
-
-def filter_POS(wf):
-    """Filter content words by given POS lists."""
-    wf_filtered = wf.filter(pl.col("POS").is_in(CONTENT_POS))
-    print(f"{wf.shape[0]-wf_filtered.shape[0]} non-content words have been filtered")
-    return wf_filtered
 
 
 def load_stella_60_00(lang: str = "EN") -> pl.DataFrame:
@@ -132,6 +114,7 @@ def load_cdi_childes_data(lang: str = "EN") -> pl.DataFrame:
         has_header=True,
     )
     total_count = wf_all["count"].sum()
+    # filter freq
     return wf.with_columns(((pl.col("count") / pl.lit(total_count)) * pl.lit(1_000_000)).alias("freq"))
 
 
@@ -187,27 +170,6 @@ def match_sample_wrap(
     datasam_df = datasam_df.iloc[pidx]
     return pl.from_pandas(datasam_df), pl.from_pandas(stat)
 
-
-def tag_bins(source: pl.DataFrame, bin_frequencies: pl.DataFrame, set_name: str) -> pl.DataFrame:
-    """Tag words with the corresponding bin number."""
-    # Filter given set and keep only min/max
-    bin_frequencies = (
-        bin_frequencies.filter(pl.col("set") == set_name)
-        .select(["min", "max"])
-        .with_row_index("band_index")
-        .with_columns([(10 ** pl.col("min")).alias("min"), (10 ** pl.col("max")).alias("max")])
-    )
-
-    # Create expression to find the correct band
-    expr = pl.when(False).then(None)
-
-    # Build the condition for each range
-    for row in bin_frequencies.iter_rows():
-        band_idx, min_val, max_val = row
-        expr = expr.when((pl.col("freq") >= min_val) & (pl.col("freq") <= max_val)).then(band_idx)
-
-    # Add the bin_nb column to source dataframe
-    return source.with_columns(bin_nb=expr.otherwise(None))
 
 
 def main() -> None:

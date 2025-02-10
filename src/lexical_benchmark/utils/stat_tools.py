@@ -1,11 +1,9 @@
-import collections
 import random
 import typing as t
 from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-from nltk.util import ngrams
 
 T = t.TypeVar("T")
 
@@ -107,28 +105,23 @@ def swap_index(pidx, nidx):
     return p1, n1
 
 
-def extract_ngrams(words:list, n:int):
-    """Generate n-grams from a list of words"""
-    n_grams = list(ngrams(words, n))
-    # convert tuple into a string
-    output = [' '.join(map(str, t)) for t in n_grams]
-    return output
+def tag_bins(source: pl.DataFrame, bin_frequencies: pl.DataFrame, set_name: str) -> pl.DataFrame:
+    """Tag words with the corresponding bin number."""
+    # Filter given set and keep only min/max
+    bin_frequencies = (
+        bin_frequencies.filter(pl.col("set") == set_name)
+        .select(["min", "max"])
+        .with_row_index("band_index")
+        .with_columns([(10 ** pl.col("min")).alias("min"), (10 ** pl.col("max")).alias("max")])
+    )
 
-def count_ngrams(sentences, n:int):
-    """count n-grams from a list of words"""
-    # preprocess of the utt
-    #sentences = col.apply(lowercase_text).tolist() # lower the tokens
-    # Convert list of sentences into a single list of words
-    word_lst = [word for sentence in sentences for word in str(sentence).split()]
-    # extract ngrams
-    ngrams = extract_ngrams(word_lst, n)
-    # get count
-    frequencyDict = collections.Counter(ngrams)
-    freq_lst = list(frequencyDict.values())
-    word_lst = list(frequencyDict.keys())
-    fre_table = pd.DataFrame([word_lst, freq_lst]).T
-    col_Names = ["word", "count"]
-    fre_table.columns = col_Names
-    # get freq per million
-    fre_table['freq_m'] = fre_table['count'] / fre_table['count'].sum() * 1000000
-    return fre_table
+    # Create expression to find the correct band
+    expr = pl.when(False).then(None)
+
+    # Build the condition for each range
+    for row in bin_frequencies.iter_rows():
+        band_idx, min_val, max_val = row
+        expr = expr.when((pl.col("freq") >= min_val) & (pl.col("freq") <= max_val)).then(band_idx)
+
+    # Add the bin_nb column to source dataframe
+    return source.with_columns(bin_nb=expr.otherwise(None))

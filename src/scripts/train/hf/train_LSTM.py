@@ -42,7 +42,7 @@ def parseargs() -> argparse.Namespace:
 
 
 # largest size of each block
-block_size = 128
+block_size =128
 model_max_length = 2048
 
 
