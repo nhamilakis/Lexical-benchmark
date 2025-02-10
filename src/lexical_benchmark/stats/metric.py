@@ -163,3 +163,6 @@ def remap_bins(df, n_bins: int = 6) -> pd.DataFrame:
     for bin_nb, df_group in df_grouped:
         words_lst.append(df_group['word'].to_list())
     return words_lst
+
+
+

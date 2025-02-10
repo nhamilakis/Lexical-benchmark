@@ -1,63 +1,31 @@
 import random
 import typing as t
-from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
 
+from lexical_benchmark.stats.metric import load_dict, word_clean_fn
+
 T = t.TypeVar("T")
-
-
-@dataclass
-class RandomSelector:
-    """Class to handle random selection with seed management.
-
-    Args:
-        seed: Optional random seed for reproducible selections
-
-    """
-
-    seed: int | None = None
-
-    def select_random_chunks(self, chunks: list[T], selection_size: int) -> tuple[list[T], list[T]]:
-        """Select unique random chunks from a list with optional seed.
-
-        Args:
-            chunks: List of items to select from
-            selection_size: Number of items to select
-
-        Returns:
-            List of randomly selected unique items
-
-        Raises:
-            ValueError: If selection_size is larger than available chunks
-
-        """
-        if selection_size > len(chunks):
-            raise ValueError("Selection size cannot be larger than available chunks")
-
-        rng = random.Random(self.seed)
-        indices = sorted(
-            rng.sample(range(len(chunks)), k=selection_size),
-            reverse=True,  # Sort in reverse to remove from end first
-        )
-        # Remove selected items
-        selected = [chunks.pop(idx) for idx in indices]
-        return selected[::-1], chunks
-
-
+try:
+    import polars as pl
+except ImportError:
+    print("Install polars for dataframe loading !")
+    raise
 
 
 def d_stats(x):
-    """"descriptive stats for an array of values"""
-    stats = {'mean': np.mean(x),
-             'median': np.median(x),
-             'min': np.min(x),
-             'max': np.max(x),
-             'stdev': np.std(x, ddof=1),
-             #           'count':len(x),
-             'first': np.percentile(x, 25),
-             'third': np.percentile(x, 75)}
+    """ "descriptive stats for an array of values"""
+    stats = {
+        "mean": np.mean(x),
+        "median": np.median(x),
+        "min": np.min(x),
+        "max": np.max(x),
+        "stdev": np.std(x, ddof=1),
+        #           'count':len(x),
+        "first": np.percentile(x, 25),
+        "third": np.percentile(x, 75),
+    }
     return stats
 
 
@@ -67,7 +35,7 @@ def bin_stats(x, N):
     x_sorted = np.sort(x)
     # Calculate the number of elements in each bin
     n = len(x_sorted) // N
-    bins = [x_sorted[i:i + n] for i in range(0, len(x_sorted), n)]
+    bins = [x_sorted[i : i + n] for i in range(0, len(x_sorted), n)]
     # Ensure we use all elements (important if len(x) is not perfectly divisible by N)
     if len(x_sorted) % N:
         bins[-2] = np.concatenate((bins[-2], bins[-1]))
@@ -125,3 +93,59 @@ def tag_bins(source: pl.DataFrame, bin_frequencies: pl.DataFrame, set_name: str)
 
     # Add the bin_nb column to source dataframe
     return source.with_columns(bin_nb=expr.otherwise(None))
+
+
+class WordFilter:
+    """Filter and process words based on POS tags and dictionary validation."""
+
+    def __init__(self, wf: pl.DataFrame) -> None:
+        """Initialize WordFilter with a polars DataFrame."""
+        self.wf = wf.clone()
+
+    def map_pos(self, pos_df: pl.DataFrame) -> pl.DataFrame:
+        """Match words with their POS tags."""
+        # Handle both 'POS' and 'pos' columns
+        pos_column = "POS" if "POS" in self.wf.columns else "pos"
+        df = self.wf.drop(pos_column) if pos_column in self.wf.columns else self.wf
+        return df.join(pos_df, on="word", how="left")
+
+    def filter_pos(self, df: pl.DataFrame, content_pos: list[str]) -> pl.DataFrame:
+        """Filter content words by POS tags."""
+        initial_count = df.shape[0]
+
+        # Handle both 'POS' and 'pos' columns
+        pos_column = "POS" if "POS" in df.columns else "pos"
+        if pos_column not in df.columns:
+            raise ValueError(f"No POS column found. Available columns: {df.columns}")
+
+        filtered_df = df.filter(pl.col(pos_column).is_in(content_pos))
+
+        filtered_count = initial_count - filtered_df.shape[0]
+        print(f"{filtered_count} non-content words have been filtered")
+
+        return filtered_df
+
+    def filter_nonwords(self, df: pl.DataFrame, dataset_name: str) -> pl.DataFrame:
+        """Filter non-words using dictionary validation."""
+        # Load dictionary
+        word_dict = load_dict(dataset_name)
+
+        # Add word validation column
+        df_with_valid = df.with_columns(
+            pl.col("word").map_elements(lambda word: word_clean_fn(word, word_dict)).alias("word_valid")
+        )
+
+        # Filter valid words
+        initial_count = df_with_valid.shape[0]
+        filtered_df = df_with_valid.filter(pl.col("word_valid") == True)
+
+        filtered_count = initial_count - filtered_df.shape[0]
+        print(f"{filtered_count} nonwords have been filtered")
+
+        return filtered_df
+
+    def filter_words(self, pos_df: pl.DataFrame, content_pos: list[str], dataset_name: str) -> pl.DataFrame:
+        """Apply complete filtering pipeline."""
+        df_with_pos = self.map_pos(pos_df)
+        df_content = self.filter_pos(df_with_pos, content_pos)
+        return self.filter_nonwords(df_content, dataset_name)
