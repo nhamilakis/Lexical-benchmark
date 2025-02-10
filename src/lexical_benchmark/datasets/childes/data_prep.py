@@ -171,9 +171,9 @@ class CHILDESExtrasLexicon:
         "&+",  # Fragments
     )
 
-    def __init__(self, childes_dataset: CHILDESDataset | None) -> None:
+    def __init__(self, childes_dataset: CHILDESDataset | None = None) -> None:
         if childes_dataset is None:
-            self.childes_dataset = CHILDESDataset()
+            self.childes = CHILDESDataset()
         else:
             self.childes = childes_dataset
         self.words: set[str] = set()

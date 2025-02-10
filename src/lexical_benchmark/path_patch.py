@@ -52,7 +52,7 @@ def safe_append_text(self: pathlib.Path, text: str) -> None:
 def safe_readlines(self: pathlib.Path) -> list[str]:
     """Read file safely."""
     try:
-        return self.read_text().splitlines()
+        return self.read_text(encoding="utf-8").splitlines()
     except FileNotFoundError:
         return []
 

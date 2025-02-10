@@ -25,7 +25,7 @@ class POSTag:
     pos: str
     pos_count: int
     pos_list: list[str]
-    pos_count: dict[str, int]
+    pos_maps: dict[str, int]
     is_ambiguous: bool
 
     def as_row(self) -> tuple[t.Any, ...]:
@@ -56,16 +56,26 @@ class PosMapper:
     def _convert_counts(raw_pos_map: dict[str, list[str]]) -> dict[str, POSTag]:
         """Cast pos map for easy access."""
         pos_map = {}
-        for key, pos_tag_list in raw_pos_map:
-            count = collections.Counter(pos_tag_list)
-            most_common1, most_common2 = count.most_common(2)
+        for key, pos_tag_list in raw_pos_map.items():
+            tag_counter = collections.Counter(pos_tag_list)
+
+            if len(tag_counter) > 1:
+                most_common1, most_common2 = tag_counter.most_common(2)
+                is_ambiguous=most_common1[1] == most_common2[1]
+            elif len(tag_counter) == 0:
+                continue
+            else:
+                most_common1 = tag_counter.most_common(1)[0]
+                is_ambiguous=False
+
             pos_map[key] = POSTag(
                 word=key,
                 count=len(pos_tag_list),
                 pos=most_common1[0],
+                pos_count=most_common1[1],
                 pos_list=set(pos_tag_list),
-                pos_count=count,
-                is_ambiguous=most_common1[1] == most_common2[1]
+                pos_maps=tag_counter,
+                is_ambiguous=is_ambiguous,
             )
         return pos_map
 
@@ -146,6 +156,16 @@ class WordStatsDataset:
             stela=self.root_dir / "pos_maps" / "stela_by_month_60_00.json",
             child_realistic=self.root_dir / "pos_maps" / "child_realistic_by_month_60_00.json",
         )
+
+    @property
+    def pos_view(self) -> utils.PathNamespace:
+        """Return the path to the pos mappings in W/C view."""
+        return utils.PathNamespace(
+            childes_adult=self.root_dir / "pos_maps" / "childes_adult.csv",
+            stela=self.root_dir / "pos_maps" / "stela_by_month_60_00.csv",
+            child_realistic=self.root_dir / "pos_maps" / "child_realistic_by_month_60_00.csv",
+        )
+
 
     @property
     def rejection_rates(self) -> Path:

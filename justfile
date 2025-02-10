@@ -33,17 +33,17 @@ fetch-notebooks:
     rsync -azP --delete --exclude=".venv" --exclude=".ipynb_checkpoints" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/notebooks/" "{{current_dir}}/notebooks/"
 
 [doc("Deploy source code to remote")]
-deploy-oberon: 
+deploy-oberon: exec-permissions
     echo "Syncing source-code directory..."
-    rsync -azP --delete --exclude=".venv" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/source/"
+    rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/source/"
 
 [doc("Deploy source code to remote")]
-deploy-coml-prod: 
+deploy-coml-prod: exec-permissions
     echo "Syncing source-code directory..."
     rsync -azP --delete --exclude=".venv" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{COML_CLUSTER}}:{{scratch1_deploy_folder}}"
 
 [doc("Deploy source code to jean-folder test folder !!")]
-deploy-jz-dev:
+deploy-jz-dev: exec-permissions
     #!/bin/bash
     # SSHPASS not set
     echo "Syncing source-code directory..."
@@ -54,7 +54,7 @@ deploy-jz-dev:
     fi
 
 [doc("Deploy source code to jean-folder in test env 1")]
-deploy-jz-test1:
+deploy-jz-test1: exec-permissions
     #!/bin/bash
     # SSHPASS not set
     echo "Syncing source-code directory..."
@@ -65,7 +65,7 @@ deploy-jz-test1:
     fi
 
 [doc("Deploy source code to jean-folder in test env 2")]
-deploy-jz-test2: 
+deploy-jz-test2: exec-permissions
     #!/bin/bash
     # SSHPASS not set
     echo "Syncing source-code directory..."
@@ -85,6 +85,10 @@ connect-jz:
         sshpass -e ssh jean-zay
     fi
 
+[doc("Make executables")]
+exec-permissions:
+    find src/scripts -name "*.py" -exec chmod +x {} \;
+    find experiments -name "*.sh" -exec chmod +x {} \;
 
 [doc("Install module & dependencies")]
 install:

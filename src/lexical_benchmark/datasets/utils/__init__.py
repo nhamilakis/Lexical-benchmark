@@ -12,6 +12,7 @@ from .frequency_measures import (
 )
 from .lexicon import DictionairyCleaner, DictionairyWordCleaner, Lexicon
 from .various import (
+    batch_phrase_to_pos,
     batch_word_to_pos,
     merge_word,
     remove_exp,
@@ -26,6 +27,7 @@ __all__ = [
     "DictionairyCleaner",
     "DictionairyWordCleaner",
     "Lexicon",
+    "batch_phrase_to_pos",
     "batch_word_to_pos",
     "extend_wf_pos",
     "merge_word",
@@ -39,5 +41,5 @@ __all__ = [
     "to_roman",
     "word_frequency",
     "word_frequency_df",
-    "word_to_pos"
+    "word_to_pos",
 ]

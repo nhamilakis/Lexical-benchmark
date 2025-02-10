@@ -2,6 +2,7 @@
 
 import contextlib
 import io
+import logging
 import sys
 import typing as t
 from datetime import datetime
@@ -9,7 +10,6 @@ from pathlib import Path
 from threading import Thread
 from time import sleep
 
-# pip install humanize
 import humanize
 import requests
 from rich.console import Console
@@ -21,7 +21,7 @@ try:
 except ImportError:
     pl = None
 
-
+LOG_LEVELS = t.Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 if pl:
     def append_to_csv(
@@ -51,6 +51,21 @@ def nostdout() -> t.Generator[None, None, None]:
     sys.stdout = io.BytesIO()
     yield
     sys.stdout = save_stdout
+
+
+
+def setup_logging(log_level: LOG_LEVELS, log_file: Path | None = None) -> None:
+    """Configure logging with the specified level and optional file output."""
+    handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
+
+    if log_file:
+        handlers.append(logging.FileHandler(log_file))
+
+    logging.basicConfig(
+        level=getattr(logging, log_level),
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=handlers
+    )
 
 
 def default_json_encoder(obj: t.Any) -> t.Any:

@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
+from torch import chunk
 
 from lexical_benchmark import settings
 from lexical_benchmark.datasets import utils as dataset_utils
@@ -239,6 +240,50 @@ class TranscriptionItem:
         return indx.get_book_index(book_id_list=self.book_names, book_source=source_book_location)
 
 
+
+@dataclass
+class ByMonthTranscriptionItem:
+    """Item representing STELA transcriptions in the by_month structure.
+
+    by_month:
+    └── EN
+        ├── 01
+        │   ├── 00
+        │   │   ├── char_hf.txt
+        │   │   └── transcription.txt
+        │   ├── 01
+            ...
+    """
+
+    lang: str
+    month_split: str
+    chunk: str
+    _stela: "STELATranscriptDataset"
+
+    @property
+    def parts_id(self) -> tuple[str, str, str]:
+        """Id parts of the current item (lang, hour_split, section)."""
+        return (self.lang, self.month_split, self.chunk)
+
+    @property
+    def chunk_id(self) -> str:
+        """Build the section unique id."""
+        return f"{self.lang}_{self.month_split}_{self.chunk}"
+
+    @property
+    def char_hf(self) -> Path:
+        """Return file containing tokenized text."""
+        root_dir = self._stela.by_month_path.extend(self.parts_id)
+        return root_dir / "char_hf.txt"
+
+    @property
+    def transcription(self) -> Path:
+        """Return transcription file."""
+        root_dir = self._stela.by_month_path.extend(self.parts_id)
+        return root_dir / "transcription.txt"
+
+
+
 class STELATranscriptDataset:
     """Accessor class for the STELA Dataset."""
 
@@ -256,7 +301,7 @@ class STELATranscriptDataset:
         return self.root_dir / "src" / "preprocessed"
 
     @property
-    def by_month(self) -> Path:
+    def by_month_path(self) -> Path:
         """Path to the by_month split of the dateset."""
         return self.root_dir / "by_month"
 
@@ -276,12 +321,26 @@ class STELATranscriptDataset:
         return settings.STELA.hour_splits
 
     @property
+    def month_splits(self) -> tuple[str, ...]:
+        """By_month split list for STELA configuration."""
+        return settings.STELA.month_splits
+
+    @property
     def word_frequencies(self) -> t.Any:
         """Word frequency builder."""
-        # TODO
+        self.build_clean_word_frequencies()
+        self.build_preprocess_word_frequencies()
+        self.build_rejected_word_frequencies()
 
-    def item(self, lang: str, hour: str, section: str) -> TranscriptionItem:
+    def item(self, lang: str, hour: str, section: str, *, by_month: bool = False) -> TranscriptionItem:
         """Return a specific Item."""
+        if by_month:
+            return ByMonthTranscriptionItem(
+                lang=lang,
+                month_split=hour, # Here represent month
+                chunk=section, # Here represents chunk
+                _stela=self,
+            )
         return TranscriptionItem(
             lang=lang,
             hour_split=hour,
@@ -289,24 +348,37 @@ class STELATranscriptDataset:
             _stela=self,
         )
 
-    def iter_split(self, lang: str, hour: str) -> t.Iterable[TranscriptionItem]:
+    def iter_split(self, lang: str, hour_month: str, *, by_month: bool = False) -> t.Iterable[TranscriptionItem]:
         """Iter on a specific hour split."""
-        for section in self.sections(lang, hour):
-            yield self.item(
-                lang=lang,
-                hour=hour,
-                section=section,
-            )
+        if by_month:
+            for chunk in self.by_month_chunks(lang, hour_month):
+                yield self.item(
+                    lang=lang,
+                    hour=hour_month,
+                    section=chunk,
+                    by_month=True,
+                )
+        else:
+            for section in self.sections(lang, hour_month):
+                yield self.item(
+                    lang=lang,
+                    hour=hour_month,
+                    section=section,
+                )
 
-    def iter_lang(self, lang: str) -> t.Iterable[TranscriptionItem]:
+    def iter_lang(self, lang: str, *, by_month: bool = False) -> t.Iterable[TranscriptionItem]:
         """Iterator for STELA dataset by language."""
-        for hour in self.hour_splits:
-            yield from self.iter_split(lang=lang, hour=hour)
+        if by_month:
+            for month in self.month_splits:
+                yield from self.iter_split(lang=lang, hour_month=month, by_month=True)
+        else:
+            for hour in self.hour_splits:
+                yield from self.iter_split(lang=lang, hour_month=hour, by_month=False)
 
-    def iter_all(self) -> t.Iterable[TranscriptionItem]:
+    def iter_all(self, *, by_month: bool = False) -> t.Iterable[TranscriptionItem]:
         """Iterator for STELA dataset."""
         for lang in self.languages:
-            yield from self.iter_lang(lang=lang)
+            yield from self.iter_lang(lang=lang, by_month=by_month)
 
     def get_books(self, lang: str) -> dict[str, Path]:
         """Get all books of a language."""
@@ -335,6 +407,14 @@ class STELATranscriptDataset:
                     raise FileNotFoundError("STELA dataset not found on disk")
 
         return tuple([d.name for d in section_dir.iterdir()])
+
+    def by_month_chunks(self, lang: str, month: str) -> tuple[str, ...]:
+        """List chunks in the given month folder."""
+        month_dir = self.by_month_path / lang / month
+        if not month_dir.is_dir():
+            raise FileNotFoundError(f"STELA/by_month/{lang}/{month} chunk not found on disk")
+        return tuple([d.name for d in month_dir.iterdir() if d.is_dir()])
+
 
     def raw2clean_filesmap(self, lang: str) -> t.Iterable[tuple[Path, Path, Path]]:
         """Build FilesMapping that allows to create the clean txt version.

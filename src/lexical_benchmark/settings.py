@@ -260,7 +260,19 @@ class _STELAMetadata:
 
     langs: tuple[str, ...] = ("EN",)
     hour_splits: tuple[str, ...] = "50h", "100h", "200h", "400h", "800h", "1600h", "3200h"
+    month_splits: tuple[str, ...] = (
+        "01",  "02",  "03",  "04",  "05",  "06",  "10",  "15",  "20",  "25",  "30",  "40",  "50",  "60"
+    )
 
+
+@_dataclasses.dataclass
+class _ChildRealisticMetadata:
+    """Metadata linked to the ChildRealistic Dataset."""
+
+    langs: tuple[str, ...] = ("EN",)
+    month_splits: tuple[str, ...] = (
+        "01",  "02",  "03",  "04",  "05",  "06",  "10",  "15",  "20",  "25",  "30",  "40",  "50",  "60"
+    )
 
 #######################################################
 # Instance of Settings
@@ -268,3 +280,4 @@ PATH = _MyPathSettings()
 CHILDES = _CHILDESMetadata()
 STELA = _STELAMetadata()
 WORDBANK_CDI = _CDIMetadata()
+CHILD_REALISTIC = _ChildRealisticMetadata()

@@ -1,5 +1,7 @@
-from .data import WordStatsDataset
+from .data import PosMapper, POSTag, WordStatsDataset
 
 __all__ = [
-    "WordStatsDataset"
+    "POSTag",
+    "PosMapper",
+    "WordStatsDataset",
 ]
