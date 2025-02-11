@@ -133,7 +133,7 @@ class WordStatsDataset:
         )
 
     @property
-    def matched_root(self,)-> Path:
+    def matched_root(self)-> Path:
         """Matched frequencies root directory."""
         return self.root_dir / "matched" / self.lang / str(self.sampling_ratio)
 
@@ -145,7 +145,7 @@ class WordStatsDataset:
             machine_stats=self.matched_root / "stats_stela_cdi.csv",
             human_realistc=self.matched_root / "human_realistic_matched_cdi.csv",
             human_reastic_stats=self.matched_root / "stats_human_realistic_cdi.csv",
-            cdi=self.matched_root / "cdi_ws_na_childes.csv"
+            cdi=self.matched_root / "cdi_childes.csv"
         )
 
     @property

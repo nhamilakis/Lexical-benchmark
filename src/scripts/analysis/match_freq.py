@@ -27,7 +27,7 @@ def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--lang", type=str, default="EN")
     parser.add_argument("--test-type", type=str, default="exp", choices=["recep", "exp"])
-    parser.add_argument("-s", "--sampling-ratio", type=int, default=1)  # To test 1 & 2
+    parser.add_argument("-s", "--sampling_ratio", type=int, default=1)  # To test 1 & 2
     parser.add_argument("--nbins", type=int, default=6)  # # 6 or 12
     parser.add_argument("-n", "--number-of-iterations", type=int, default=100000)  # needs documentation
 

@@ -8,6 +8,12 @@ from lexical_benchmark.datasets.utils.text_cleaning import segment_sent
 from lexical_benchmark.stats import normalised_rejection_rates
 from lexical_benchmark.stats.CDI_scores import CDICalculator
 
+try:
+    import polars as pl
+except ImportError:
+    print("Install polars for dataframe loading !")
+    raise
+
 
 class Metric:
     def __init__(
@@ -69,7 +75,7 @@ class Metric:
         )
         # Calculate mean score
         cum_counts = calculator.get_combined_counts()
-        mean_score = calculator.compute_mean_cdi_score(cum_counts,self.threshold)
+        mean_score = calculator.compute_mean_cdi_score(cum_counts, self.threshold)
 
         return mean_score, cum_counts
 
@@ -127,7 +133,6 @@ class WordDictManager:
         return CDI_month_dict
 
 
-
 def load_dict(dataset_name: str):
     """Load dictionary based on different datasets."""
     if dataset_name == "child":
@@ -149,20 +154,34 @@ def word_clean_fn(word: str, word_dict: dataset_utils.DictionairyCleaner) -> boo
     return word_dict.check(word)
 
 
-def remap_bins(df, n_bins: int = 6) -> pd.DataFrame:
-    """Remap bins to exactly n bins by combining old bins."""
-    # Store old bin numbers
-    df["bin_nb_old"] = df["bin_nb"]
-    # Calculate quantiles for new bins
-    df["bin_nb"] = pd.qcut(df["freq"], q=n_bins, labels=range(n_bins))
-    # sort by the group number
-    df = df.sort_values(by="bin_nb",ascending=True)
-    # get the corresponding words
+def remap_bins(df: pd.DataFrame | pl.DataFrame, n_bins: int = 6) -> list[list[str]]:
+    """Remap bins using Polars quantile binning."""
+    if isinstance(df, pd.DataFrame):
+        df = pl.from_pandas(df)
+
+    # Calculate number of rows
+    n_rows = df.height
+
+    # Use quantile to create bins
+    df = df.with_columns(
+        [
+            (
+                pl.col("freq")
+                .rank(method="average")
+                .mul(n_bins)
+                .truediv(n_rows)  # Use truediv instead of div
+                .floor()
+                .clip(0, n_bins - 1)
+                .cast(pl.Int32)
+                .alias("bin_nb")
+            )
+        ]
+    )
+
+    # Get words for each bin
     words_lst = []
-    df_grouped = df.groupby("bin_nb")
-    for bin_nb, df_group in df_grouped:
-        words_lst.append(df_group['word'].to_list())
+    for bin_idx in range(n_bins):
+        bin_words = df.filter(pl.col("bin_nb") == bin_idx).get_column("word").to_list()
+        words_lst.append(bin_words)
+
     return words_lst
-
-
-
