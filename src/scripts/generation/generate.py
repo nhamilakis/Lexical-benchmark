@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import logging
 import random
 import sys
 from pathlib import Path
@@ -8,14 +9,15 @@ import numpy as np
 import pandas as pd
 import torch
 
-from lexical_benchmark.settings import chunk2month
+from lexical_benchmark import settings, train_lib
+from lexical_benchmark.utils import generic as generic_utils
 from lexical_benchmark.utils import slurm_utils
-from lexical_benchmark.utils.gen_util import BatchProcessor, Logger, TextGenerator
 
 slurm_utils.info_header()
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments."""
     # Run parameters
     parser = argparse.ArgumentParser(description="Finetune decoder-onlyls models")
 
@@ -49,99 +51,98 @@ def parse_args():
     return parser.parse_args()
 
 
-def main(args):
+def main(args) -> None:
     """Main function to run the generation process with the specified arguments."""
+    # Setup paths
+    generation_path = Path(args.generation_path)
+    generation_path.mkdir(parents=True, exist_ok=True)
+
+    model_type = Path(args.generation_path).name
+    # automaitically enable vllm if there is transformer model
+    use_vllm = "trans" in args.model_path.lower() if args.use_vllm else False
+    # Get month from path
     try:
-        # Setup paths
-        generation_path = Path(args.generation_path)
-        generation_path.mkdir(parents=True, exist_ok=True)
+        # convert the chunk_num to month
+        chunk_num = int(Path(args.model_path).parents[1].name)
+        month = settings.chunk2month(chunk_num,args.hour_per_year)
+    except ValueError as e:
+        raise ValueError(f"Parent folder of {args.generation_path} does not contain month info!") from e
+    print(f"{month=}")
 
-        model_type = Path(args.generation_path).name
-        # automaitically enable vllm if there is transformer model
-        use_vllm = "trans" in args.model_path.lower() if args.use_vllm else False
-        # Get month from path
-        try:
-            # convert the chunk_num to month
-            chunk_num = int(Path(args.model_path).parents[1].name)
-            month = chunk2month(chunk_num,args.hour_per_year)
-        except ValueError as e:
-            raise ValueError(f"Parent folder of {args.generation_path} does not contain month info!") from e
-        print(f"{month=}")
+    # Setup logger
+    generic_utils.setup_logging("DEBUG" if args.debug else "INFO")
+    logger = logging.getLogger(Path(__file__).name)
 
-        # Setup logger
-        logger = Logger.setup_stdout(debug=args.debug)
-        logger.info(f"Starting generation with arguments: {args}")
-        logger.info(f"Detected model type: {model_type}, vLLM enabled: {use_vllm}")
+    logger.info(f"Starting generation with arguments: {args}")
+    logger.info(f"Detected model type: {model_type}, vLLM enabled: {use_vllm}")
 
-        # Determine if we're using multiple GPUs
-        random.seed(args.seed)
-        torch.manual_seed(args.seed)
-        np.random.seed(args.seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed(args.seed)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
+    # Determine if we're using multiple GPUs
+    random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(args.seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
-        # Load and filter data by month
-        df = pd.read_csv(args.gen_file).loc[:, "month":]
-        df = df[df["model"] == month]
-        logger.info(f"Loaded input file with {len(df)} rows for month {month}")
+    # Load and filter data by month
+    df = pd.read_csv(args.gen_file).loc[:, "month":]
+    df = df[df["model"] == month]
+    logger.info(f"Loaded input file with {len(df)} rows for month {month}")
 
-        # Debug mode handling
-        if args.debug:
-            df = df.head(20)
-            logger.info("Debug mode: using first 20 rows only")
+    # Debug mode handling
+    if args.debug:
+        df = df.head(20)
+        logger.info("Debug mode: using first 20 rows only")
 
-        # Create generator
-        generator = TextGenerator(
-            model_path=args.model_path,
-            model_type=model_type,
-            use_vllm=use_vllm
+    # Create generator
+    generator = train_lib.generation.TextGenerator(
+        model_path=args.model_path,
+        model_type=model_type,
+        use_vllm=use_vllm
+    )
+
+    # Add special tokens
+    if len(args.added_tokens) > 0:
+        generator.add_special_tokens(args.added_tokens)
+
+    # Create processor
+    processor = train_lib.generation.BatchProcessor(
+        generator=generator,
+        save_path=generation_path,
+        chunk_size=args.save_interval,
+        hour_per_year=args.hour_per_year,
+        debug=args.debug,
+    )
+
+    # Check resume
+    if not args.resume and processor.get_save_file(intermidiate=True, debug=args.debug).is_file() and not args.override:
+        print(
+            "ERROR: current folder has intermiate file but no override or resume flag was passed\n",
+            file=sys.stderr
         )
+        raise ValueError(f"Failed: {processor.get_save_file()}")
 
-        # Add special tokens
-        if len(args.added_tokens) > 0:
-            generator.add_special_tokens(args.added_tokens)
-
-        # Create processor
-        processor = BatchProcessor(
-            generator=generator,
-            save_path=generation_path,
-            chunk_size=args.save_interval,
-            hour_per_year=args.hour_per_year,
-            debug=args.debug,
-        )
-
-        # Check resume
-        if not args.resume and processor.get_save_file(intermidiate=True, debug=args.debug).is_file() and not args.override:
-            print(
-                "ERROR: current folder has intermiate file but no override or resume flag was passed\n",
+    # Check target
+    if processor.get_save_file(debug=args.debug).is_file() and not args.override:
+        print(
+                "ERROR: current folder target file already exists and no override flag was passed\n",
                 file=sys.stderr
             )
-            raise ValueError(f"Failed: {processor.get_save_file()}")
-
-        # Check target
-        if processor.get_save_file(debug=args.debug).is_file() and not args.override:
-            print(
-                    "ERROR: current folder target file already exists and no override flag was passed\n",
-                    file=sys.stderr
-                )
-            raise ValueError(f"Failed: {processor.get_save_file()}")
+        raise ValueError(f"Failed: {processor.get_save_file()}")
 
 
-        # Process data using BatchProcessor
-        result_df = processor.process_dataframe(
-            prompt_df=df,
-            temp_lst=args.temp_lst,
-            resume=args.resume
-        )
-        # Save results
-        if result_df is not None:
-            final_path = processor.get_save_file(debug=args.debug)
-            result_df.to_csv(final_path)
-            logger.info(f"Generation completed. Final results saved to {final_path}")
-    finally:
-        torch.cuda.empty_cache()
+    # Process data using BatchProcessor
+    result_df = processor.process_dataframe(
+        prompt_df=df,
+        temp_lst=args.temp_lst,
+        resume=args.resume
+    )
+    # Save results
+    if result_df is not None:
+        final_path = processor.get_save_file(debug=args.debug)
+        result_df.to_csv(final_path)
+        logger.info(f"Generation completed. Final results saved to {final_path}")
 
 
 
@@ -151,6 +152,5 @@ if __name__ == "__main__":
     try:
         main(args)
     finally:
+        torch.cuda.empty_cache()
         slurm_utils.info_footer()
-
-

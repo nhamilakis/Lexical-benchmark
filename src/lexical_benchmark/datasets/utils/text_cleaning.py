@@ -313,7 +313,7 @@ class AZFilter(TextNormalization):
     def __init__(self, *, allow_basic_punctuation: bool = False, clean_diacritics: bool = False) -> None:
         allowed_chars = string.ascii_lowercase + "-' "
         if allow_basic_punctuation:
-            allowed_chars += ".!?;,:"
+            allowed_chars += ".!?"
         super().__init__(allowed_chars=allowed_chars)
         self.label = "AlphabeticFilter"
         self.clean_diacritics = clean_diacritics
@@ -325,7 +325,7 @@ class AZFilter(TextNormalization):
 
         unclean_chars = "".join({c.lower() for c in line if c.lower() not in self.allowed_chars})
         self.add_word(self.label, unclean_chars)
-        clean_line = "".join(c for c in line if c.lower() in self.allowed_chars).lower()
+        clean_line = "".join(c.lower() for c in line if c.lower() in self.allowed_chars)
         # Replace hyphen with space
         return clean_line.replace("-", " ")
 

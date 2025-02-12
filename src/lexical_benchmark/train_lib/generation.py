@@ -11,7 +11,7 @@ from torch.nn.parallel import DistributedDataParallel
 from transformers import AutoModelForCausalLM, PretrainedConfig, PreTrainedModel
 from vllm import LLM, SamplingParams
 
-from lexical_benchmark.utils import hf_util
+from lexical_benchmark.train_lib import hf_tools
 
 
 class Logger:
@@ -73,7 +73,7 @@ class TextGenerator:
 
         # Tokenizer setup
         chars = string.ascii_letters
-        self.tokenizer = hf_util.CharacterTokenizer(chars=chars, model_max_length=model_max_length)
+        self.tokenizer = hf_tools.CharacterTokenizer(chars=chars, model_max_length=model_max_length)
 
         # Model initialization with distributed support
         if self.use_vllm:

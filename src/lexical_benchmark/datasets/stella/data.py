@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
-from torch import chunk
 
 from lexical_benchmark import settings
 from lexical_benchmark.datasets import utils as dataset_utils
@@ -479,10 +478,9 @@ class STELATranscriptDataset:
             text_cleaning.URLRemover(),  # Remove URLs
             text_cleaning.SpecialCharacterTranscriptions(lang=lang, keep=True),
             text_cleaning.QuotationCleaner(),  # Clean quotes
-            text_cleaning.TextNormalization(),  # Fix accents
             text_cleaning.NumberFixer(keep_as_text=True),  # Convert Numbers into text
             text_cleaning.RomanNumerals(),  # Remove Roman Numerals
-            text_cleaning.AZFilter(allow_basic_punctuation=True),  # Removes any special character
+            text_cleaning.AZFilter(allow_basic_punctuation=True, clean_diacritics=True),  # Removes any special character
             text_cleaning.PrefixSuffixFixer(stem="'"),  # Remove prefix or suffix char(')
         ]
 

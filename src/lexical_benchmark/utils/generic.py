@@ -175,3 +175,28 @@ class PathNamespace:
         """
         return iter(self._paths.items())
 
+
+
+def str_to_bool(value: t.Any) -> bool:
+    """Convert string representation of boolean to actual boolean value.
+
+    Raises
+    ------
+        ValueError: when value cannot be converted into bool
+
+    """
+    if isinstance(value, bool):
+        return value
+
+    value = str(value).lower().strip()
+
+    true_values = {"true", "1", "yes", "y", "on"}
+    false_values = {"false", "0", "no", "n", "off"}
+
+    if value in true_values:
+        return True
+
+    if value in false_values:
+        return False
+
+    raise ValueError(f"Cannot convert '{value}' to boolean")

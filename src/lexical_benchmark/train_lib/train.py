@@ -1,33 +1,22 @@
-#!/usr/bin/env python
-import logging
-import os
 from pathlib import Path
-import string
 
 import torch
-from lexical_benchmark.utils import hf_util
 from torch import nn
 from transformers import (
-    DataCollatorForLanguageModeling,
-    EarlyStoppingCallback,
+    LineByLineTextDataset,
     PretrainedConfig,
     PreTrainedModel,
-    Trainer,
     TrainingArguments,
-    LineByLineTextDataset, 
-    PreTrainedTokenizer
 )
 
 
-
-def tokenize_data(tokenizer, data_path, block_size: int):
+def tokenize_data(tokenizer, data_path, block_size: int) -> LineByLineTextDataset:
     """Tokenize the dataset."""
     return LineByLineTextDataset(
         tokenizer=tokenizer,
         file_path=data_path,
         block_size=block_size,
     )
-
 
 
 class LSTMConfig(PretrainedConfig):
@@ -43,7 +32,7 @@ class LSTMConfig(PretrainedConfig):
         num_layers: int = 3,
         dropout: float = 0.1,
         **kwargs,
-    ):
+    ) -> None:
         """Initialize LSTM Config."""
         super().__init__(**kwargs)
         self.vocab_size = vocab_size
@@ -60,7 +49,7 @@ class LSTMForLanguageModeling(PreTrainedModel):
 
     config_class = LSTMConfig
 
-    def __init__(self, config: LSTMConfig):
+    def __init__(self, config: LSTMConfig) -> None:
         super().__init__(config)
 
         self.embedding = nn.Embedding(config.vocab_size, config.embedding_dim)
@@ -81,6 +70,7 @@ class LSTMForLanguageModeling(PreTrainedModel):
         *,
         return_dict: bool = True,
     ) -> dict[str, torch.Tensor]:
+        """Forward."""
         embeddings = self.embedding(input_ids)
         lstm_output, _ = self.lstm(embeddings)
         logits = self.output(lstm_output)

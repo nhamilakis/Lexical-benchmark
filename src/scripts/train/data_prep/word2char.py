@@ -10,7 +10,6 @@ That way we know that the totals are always the same.
 from pathlib import Path
 from lexical_benchmark import settings
 from tqdm import tqdm
-from lexical_benchmark.utils.format_util import format_text_with_boundaries
 
 
 model_type = "hf"  # no need to add space in huggingface models
@@ -27,6 +26,9 @@ if model_type == "hf":
 else:
     out_filename = "char.txt"
     add_space = True
+
+"train.txt" -> "train.tokenized.hf"
+"dev.txt" -> "dev.tokenized.hf"
 
 
 text_lst = []

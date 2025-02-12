@@ -13,9 +13,7 @@ from transformers import (
     Trainer,
 )
 
-from lexical_benchmark import settings
-from lexical_benchmark.utils.hf_util import load_char_tokenizer
-from lexical_benchmark.utils.train_util import setup_training_arguments, tokenize_data
+from lexical_benchmark import settings, train_lib
 
 
 def parseargs() -> argparse.Namespace:
@@ -100,7 +98,7 @@ def main() -> None:
     print("######################")
 
     # Load tokenizer and create data collator
-    tokenizer = load_char_tokenizer(model_max_length=2048, special_token_lst=args.AddedTokens)
+    tokenizer = train_lib.load_char_tokenizer(model_max_length=2048, special_token_lst=args.AddedTokens)
     print("Character tokenizer has been loaded")
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
     logger.info(f"Vocabulary size: {len(tokenizer.get_vocab())}")
@@ -109,8 +107,8 @@ def main() -> None:
     print("Tokenizing the dataset")
     print("######################")
 
-    train_dataset = tokenize_data(tokenizer, train_path, block_size)
-    val_dataset = tokenize_data(tokenizer, validation_path, block_size)
+    train_dataset = train_lib.tokenize_data(tokenizer, train_path, block_size)
+    val_dataset = train_lib.tokenize_data(tokenizer, validation_path, block_size)
     logger.info(f"Training dataset size: {len(train_dataset)}")
     logger.info(f"Validation dataset size: {len(val_dataset)}")
 
@@ -124,7 +122,7 @@ def main() -> None:
     # Initialize trainer
     trainer = Trainer(
         model=model,
-        args=setup_training_arguments(model_path),
+        args=train_lib.setup_training_arguments(model_path),
         data_collator=data_collator,
         train_dataset=train_dataset,  # You'll need to implement dataset loading
         eval_dataset=val_dataset,
