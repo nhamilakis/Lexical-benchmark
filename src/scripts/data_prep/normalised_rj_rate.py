@@ -31,6 +31,7 @@ class POSCleanArgs(Tap):
     skip_child_realistic: bool = False
     skip_merge: bool = False
     run_childes_extra: bool = False
+    csv_float_precision: int | None = None
     log_level: str
 
     def configure(self) -> None:
@@ -42,6 +43,8 @@ class POSCleanArgs(Tap):
             default="INFO",
             help="Set the logging level"
         )
+
+        self.add_argument("-p", "--csv_float_precision", type=int)
 
 
 ## Arguments setup

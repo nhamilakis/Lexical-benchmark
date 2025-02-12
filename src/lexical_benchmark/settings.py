@@ -15,7 +15,7 @@ PLACEHOLDER_MONTH = "placeholder"
 #######################################################
 # Dataset abbreviation dict
 dataset_name_dict = {
-    "ChildRealistic": "child", 
+    "ChildRealistic": "child",
     "CHILDES": "child",
     "STELATranscriptions2": "stela",
     }
@@ -29,6 +29,26 @@ def chunk2month(chunk_num: int, hour_per_year: int, hour_per_chunk: int = 50) ->
 def month2chunk(month: int, hour_per_year: int, hour_per_chunk: int = 50) -> int:
     """Convert month into chunk numbersbased on estimation per year."""
     return int((month / 12) * hour_per_year / hour_per_chunk)
+
+
+
+BY_MONTH_CHUNK_SIZE = 578_461  # Size of a single chunk for by_month split in number of words
+BY_MONTH_CHUNKS_PER_CHUNK = { # Number of chunks to concatenate in each split
+    "01": 1,
+    "02": 2,
+    "03": 3,
+    "04": 4,
+    "05": 5,
+    "06": 6,
+    "10": 10,
+    "15": 15,
+    "20": 20,
+    "25": 25,
+    "30": 30,
+    "40": 40,
+    "50": 50,
+    "60": 60,
+}
 
 
 #######################################################

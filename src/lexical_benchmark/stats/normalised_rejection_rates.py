@@ -1,10 +1,12 @@
 import typing as t
+import warnings
 from dataclasses import dataclass
 
-import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-import seaborn as sns
+
+from lexical_benchmark.text_lib import chunk_splitter
+
+__all__ = ["chunk_splitter"]
 
 
 @dataclass
@@ -14,6 +16,17 @@ class ChunkStats:
     total_tokens: list[str]
     rejected_tokens: list[str]
     accepted_tokens: list[str]
+
+    def check_validity(self, chunk_id: str) -> None:
+        """Validity of a chunk requires it to not be Empty."""
+        if len(self.rejected_tokens) <= 0:
+            warnings.warn(f"A chunk in {chunk_id} has no rejected items", stacklevel=1)
+
+        if len(self.accepted_tokens) <= 0:
+            warnings.warn(f"A chunk in {chunk_id} has no accepted items", stacklevel=1)
+
+        if len(self.total_tokens) <= 0:
+            raise ValueError(f"Computing on empty chunk in {chunk_id} ({self.total_tokens=})")
 
     def type_token_ratio(self) -> float:
         """Get type/token per chunk."""
@@ -40,6 +53,16 @@ class CleaningStats:
     dataset_name: str
     chunk_stats: list[ChunkStats]
 
+    def __post_init__(self) -> None:
+        my_id = f"{self.dataset_name}/{self.chunk_id}"
+        block_len = [len(ck.total_tokens) for ck in self.chunk_stats]
+        if not all(x == block_len[0] for x in block_len[1:]):
+            raise ValueError(f"Chunk {my_id} has been cut into unequal chunks")
+
+        for ck in self.chunk_stats:
+            ck.check_validity(my_id)
+
+
     def mean_type_token_ratio(self) -> float:
         """Calculate mean type/token ratio across chunk list."""
         return np.mean([ck.type_token_ratio() for ck in self.chunk_stats])
@@ -60,16 +83,23 @@ class CleaningStats:
         """Count the total number of types in all chunks."""
         return np.sum([len(ck.total_tokens) for ck in self.chunk_stats])
 
-    def as_row(self) -> tuple[t.Any, ...]:
+    def as_row(self, round_digits: int | None = None) -> tuple[t.Any, ...]:
         """Convert into a Dataframe row."""
+
+        def round_number(n: float) -> float:
+            if round_digits is None:
+                return n
+            return round(n, round_digits)
+
         return (
             self.chunk_id,
             self.dataset_name,
+            len(self.chunk_stats),
             self.total_tokens(),
             self.total_types(),
-            self.mean_token_rejection_rate(),
-            self.mean_type_rejection_rate(),
-            self.mean_type_token_ratio(),
+            round_number(self.mean_token_rejection_rate()),
+            round_number(self.mean_type_rejection_rate()),
+            round_number(self.mean_type_token_ratio()),
         )
 
     @staticmethod
@@ -78,6 +108,7 @@ class CleaningStats:
         return [
             "chunk_id",
             "dataset",
+            "nb_chunks",
             "TOTAL_TOKENS",
             "TOTAL_TYPES",
             "MEAN_TOKEN_REJECTION_RATE",
@@ -85,18 +116,6 @@ class CleaningStats:
             "MEAN_TYPE_TOKEN_RATIO",
         ]
 
-
-def chunk_splitter(words: list[str], chunk_size: int = 16_000) -> list[list[str]]:
-    """Break a list of words into evenly sized chunks.
-
-    Note:
-    ----
-        Discard any un-even chunk.
-
-    """
-    num_chunks = len(words) // chunk_size
-
-    return [words[i * chunk_size : (i + 1) * chunk_size] for i in range(num_chunks)]
 
 
 def word_clean_chunk(chunk: list[str], filter_fn: t.Callable[[str], bool]) -> ChunkStats:

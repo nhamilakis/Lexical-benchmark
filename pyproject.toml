@@ -122,7 +122,7 @@ ignore = [
     "TRY003",  # allow Exceptions to contain long messages
     "EM101",   # allow Exceptions to contain literals
     "ANN003",  # allow **kwargs to be without type-hints
-    "D107",    # allow __init__ without docstring
+    "D107", "D105", # allow __init__  and all python __magic__ functions to be without a docstring
     "ANN101", "ANN102", "ANN001",  # "self" & "cls" need no typing (rule is Deprecated)
     "T201", "T203",    # allow 'print' & 'pprint' statements
     "FIX002",  # allow todos

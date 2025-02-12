@@ -86,7 +86,7 @@ class ChildRealisticDataset:
                 yield item.preprocess_item("adult").processed
 
     def item_by_month(self, lang: str, month: str, chunk: str) -> ChildRealisticByMonthItem:
-        """Return a specific item & its metadata."""
+        """Return a specific item q& its metadata."""
         return ChildRealisticByMonthItem(
             lang=lang,
             month=month,

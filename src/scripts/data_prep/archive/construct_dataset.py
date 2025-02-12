@@ -32,7 +32,7 @@ def cut_sent(sentences, target_words):
 
 
 
-# cut into different 
+# cut into different
 
 def split_by_wordcount(sentences, target_words):
     word_counts = [len(sentence.split()) for sentence in sentences]
