@@ -27,7 +27,7 @@ except ImportError:
 try:
     import polars as pl  # type: ignore[import-not-found, import-untyped]
 except ImportError:
-    pl = None # type: ignore[assignment]
+    pl = None  # type: ignore[assignment]
 
 
 def mk_parent(self: pathlib.Path) -> None:
@@ -111,6 +111,7 @@ def read_yaml(self: pathlib.Path) -> t.Any:
 
 
 if pl:
+
     def read_csv(
         self: pathlib.Path,
         columns: list[str] | None = None,
@@ -126,6 +127,7 @@ if pl:
             return pd.read_csv(self, columns=columns, sep=sep, **kwargs)
         return pl.read_csv(self, columns=columns, separator=sep, **kwargs)
 else:
+
     def read_csv(
         self: pathlib.Path,
         columns: list[str] | None = None,
@@ -142,7 +144,6 @@ else:
             raise OSError("polars library not installed, can only use pandas !!")
 
         return pd.read_csv(self, columns=columns, sep=sep, **kwargs)
-
 
 
 def extend(self: pathlib.Path, parts: tuple[str, ...]) -> pathlib.Path:

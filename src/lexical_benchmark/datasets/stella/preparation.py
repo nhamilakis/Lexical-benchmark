@@ -180,6 +180,15 @@ class STELAPrepTranscripts:
         self.books: dict[str, Path] = {}
         self.asr_location = with_asr
 
+    def make_source(self) -> None:
+        """Creates corresponding symlinks to create the dataset."""
+        self.dataset.source_path.parent.mkdir(exist_ok=True, parents=True)
+        try:
+            if not self.dataset.source_path.is_symlink():
+                self.dataset.source_path.symlink_to(settings.PATH.stela_original)
+        except SystemError as err:
+            raise ValueError("Could not locate SOURCE of STELATranscriptDataset") from err
+
     def associations_df(self) -> pd.DataFrame:
         """Load asscociations as a DataFrame."""
         if self.associations_file.is_file():

@@ -18,7 +18,7 @@ dataset_name_dict = {
     "ChildRealistic": "child",
     "CHILDES": "child",
     "STELATranscriptions2": "stela",
-    }
+}
 
 
 def chunk2month(chunk_num: int, hour_per_year: int, hour_per_chunk: int = 50) -> int:
@@ -31,9 +31,8 @@ def month2chunk(month: int, hour_per_year: int, hour_per_chunk: int = 50) -> int
     return int((month / 12) * hour_per_year / hour_per_chunk)
 
 
-
 BY_MONTH_CHUNK_SIZE = 578_461  # Size of a single chunk for by_month split in number of words
-BY_MONTH_CHUNKS_PER_CHUNK = { # Number of chunks to concatenate in each split
+BY_MONTH_CHUNKS_PER_CHUNK = {  # Number of chunks to concatenate in each split
     "01": 1,
     "02": 2,
     "03": 3,
@@ -55,7 +54,7 @@ BY_MONTH_CHUNKS_PER_CHUNK = { # Number of chunks to concatenate in each split
 
 #######################################################
 # Filters for CHILDES content
-CONTENT_POS = {"ADJ", "NOUN", "VERB", "ADV","PROPN"}
+CONTENT_POS = {"ADJ", "NOUN", "VERB", "ADV", "PROPN"}
 CATEGORY = {
     "connecting_words",
     "helping_verbs",
@@ -99,6 +98,7 @@ class _MyPathSettings:
     DATA_DIR: _Path = _Path(_os.environ.get("DATA_DIR", "data/"))
     COML_SERVERS: tuple = tuple({"oberon", "oberon2", "habilis", *[f"puck{i}" for i in range(1, 7)]})
     KNOWN_HOSTS: tuple[str, ...] = (*COML_SERVERS, "nicolass-mbp")
+    CURRENT_STELA_VERSION: int = _dataclasses.field(default_factory=lambda: int(_os.environ.get("STELA_VERSION", 3)))
 
     def __post_init__(self) -> None:
         if "DATA_DIR" not in _os.environ:
@@ -148,11 +148,9 @@ class _MyPathSettings:
 
     @property
     def stela(self) -> _Path:
+        if self.CURRENT_STELA_VERSION > 0:
+            return self.dataset_root / f"STELATranscriptions{self.CURRENT_STELA_VERSION}"
         return self.dataset_root / "STELATranscriptions"
-
-    @property
-    def stela2(self) -> _Path:
-        return self.dataset_root / "STELATranscriptions2"
 
     @property
     def word_stats(self) -> _Path:
@@ -164,6 +162,12 @@ class _MyPathSettings:
 
         return _Path(lexical_benchmark.__file__).parents[1]
 
+    @property
+    def stela_original(self) -> _Path:
+        if _platform.node() in self.COML_SERVERS:
+            return "/scratch1/projects/InfTrain/dataset"
+        raise SystemError("InfTrain project not present on current server.")
+
 
 ###################
 # CHILDES Metadata
@@ -174,8 +178,9 @@ class _CHILDESMetadata:
     ACCENTS: tuple[str, ...] = ("Eng-NA", "Eng-UK")
     LANG_ACCENT: dict[str, tuple[str, ...]] = _dataclasses.field(
         default_factory=lambda: {
-        "EN": ("Eng-NA", "Eng-UK"),
-    })
+            "EN": ("Eng-NA", "Eng-UK"),
+        }
+    )
     MAX_AGE: int = 40  # In months
     AGE_RANGES: tuple[tuple[int, int], ...] = _dataclasses.field(
         default_factory=lambda: tuple((x, x + 1) for x in range(39))
@@ -280,9 +285,7 @@ class _STELAMetadata:
 
     langs: tuple[str, ...] = ("EN",)
     hour_splits: tuple[str, ...] = "50h", "100h", "200h", "400h", "800h", "1600h", "3200h"
-    month_splits: tuple[str, ...] = (
-        "01",  "02",  "03",  "04",  "05",  "06",  "10",  "15",  "20",  "25",  "30",  "40",  "50",  "60"
-    )
+    month_splits: tuple[str, ...] = ("01", "02", "03", "04", "05", "06", "10", "15", "20", "25", "30", "40", "50", "60")
 
 
 @_dataclasses.dataclass
@@ -290,9 +293,8 @@ class _ChildRealisticMetadata:
     """Metadata linked to the ChildRealistic Dataset."""
 
     langs: tuple[str, ...] = ("EN",)
-    month_splits: tuple[str, ...] = (
-        "01",  "02",  "03",  "04",  "05",  "06",  "10",  "15",  "20",  "25",  "30",  "40",  "50",  "60"
-    )
+    month_splits: tuple[str, ...] = ("01", "02", "03", "04", "05", "06", "10", "15", "20", "25", "30", "40", "50", "60")
+
 
 #######################################################
 # Instance of Settings

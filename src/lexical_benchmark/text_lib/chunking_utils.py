@@ -1,6 +1,3 @@
-from lexical_benchmark import settings
-
-
 def chunk_splitter(words: list[str], chunk_size: int = 16_000) -> list[list[str]]:
     """Break a list of words into evenly sized chunks.
 
@@ -50,13 +47,13 @@ def chunk_group_merging(chunk_list: list[list[str]], group_size: int) -> list[li
     current = []
 
     for i, chunk in enumerate(chunk_list):
-
+        current.extend(chunk)
         if (i + 1) % group_size == 0:
             merged.append(current)
             current = []
-        current.extend(chunk)
 
     return merged
+
 
 def split_dev_train(txt: list[str], dev_proportion: float) -> tuple[list[str], list[str]]:
     """Split a given text file proportionally into dev & train."""
@@ -66,6 +63,9 @@ def split_dev_train(txt: list[str], dev_proportion: float) -> tuple[list[str], l
     # no proportion in empty text
     if not txt:
         return [], []
+
+    # Remove all blank lines
+    txt = [line for line in txt if line.strip()]
 
     # Calculate split index (rounds to lower value)
     dev_size = int(len(txt) * dev_proportion)

@@ -1,14 +1,21 @@
 """Common util func for all the packages."""
 
 import contextlib
+import functools
 import io
 import logging
 import sys
 import typing as t
+import warnings
 from datetime import datetime
 from pathlib import Path
 from threading import Thread
 from time import sleep
+import functools
+import warnings
+import typing as t
+from pathlib import Path
+import inspect
 
 import humanize
 import requests
@@ -51,6 +58,63 @@ def nostdout() -> t.Generator[None, None, None]:
     sys.stdout = io.BytesIO()
     yield
     sys.stdout = save_stdout
+
+
+rT = t.TypeVar("rT")  # noqa: N816
+pT = t.ParamSpec("pT")  # noqa: N816
+
+def deprecated(
+    message: str | None = None,
+    *,
+    since: str | None = None,
+) -> t.Callable[[t.Callable[pT, rT]], t.Callable[pT, rT]]:
+    """Mark functions as deprecated with additional context.
+
+    Allows specifying a custom message and version since deprecation.
+
+    Usage
+    -----
+
+        @deprecated()
+        def func():
+            pass
+
+        @deprecated(message="This has been migrated to X")
+        def func2():
+            pass
+
+        @deprecated(since="0.5.6")
+        def func3():
+            pass
+
+        @deprecated(message="Rejected section was remove from dataset", since="0.5.9")
+        def func4():
+            pass
+
+    Raises
+    ------
+        ValueError: If since is provided but not in valid format (x.y.z)
+
+    """
+    def decorator(func: t.Callable[pT, rT]) -> t.Callable[pT, rT]:
+
+        @functools.wraps(func)
+        def wrapper(*args: pT.args, **kwargs: pT.kwargs) -> rT:
+            qualified_name = f"{func.__module__}.{func.__qualname__}"
+            warning_message = [f"Call to deprecated function {qualified_name}"]
+            if since:
+                warning_message.append(f"(since version {since})")
+            if message:
+                warning_message.append(f": {message}")
+
+            warnings.warn(
+                " ".join(warning_message),
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
 
 

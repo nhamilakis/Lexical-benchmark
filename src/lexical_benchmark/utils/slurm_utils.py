@@ -1,6 +1,7 @@
 import argparse
 import contextlib
 import json
+import logging
 import os
 import platform
 import sys
@@ -21,6 +22,7 @@ except ImportError:
 
 
 START_TIME: datetime | None = None
+T = t.TypeVar("T")
 
 
 class ProgressTask:
@@ -58,6 +60,7 @@ class ProgressTask:
         to_file: bool = True,
         appends: bool = True,
         target_file: Path | None = None,
+        use_logger: logging.Logger | None = None,
     ) -> None:
         """Initialize progress tracker."""
         self.total = total
@@ -68,6 +71,7 @@ class ProgressTask:
         self.update_interval = update_interval
         self.to_file = to_file
         self.appends = appends
+        self.curr_logger = use_logger
 
         # Get SLURM job ID or use 'local' if not in SLURM
         self.job_id = os.environ.get("SLURM_JOB_ID", "local")
@@ -83,6 +87,8 @@ class ProgressTask:
             self.log_file.safe_append_text(progress_msg + "\n")
         elif self.to_file and not self.appends:
             self.log_file.safe_write_text(progress_msg)
+        elif self.curr_logger:
+            self.curr_logger.info(progress_msg)
         else:
             print(progress_msg, flush=True)
 
@@ -153,14 +159,14 @@ class ProgressTask:
         self._write_msg(progress_msg)
         self.last_update = current_time
 
-    def iter_progress(self, it: t.Iterable[t.Any]) -> t.Iterable[t.Any]:
+    def iter_progress(self, it: t.Iterable[T]) -> t.Iterable[T]:
         """Progress of an iterable."""
         self.total = None
         for item in it:
             yield item
             self.update()
 
-    def sequence_progress(self, seq: t.Sequence[t.Any]) -> t.Iterable[t.Any]:
+    def sequence_progress(self, seq: t.Sequence[T]) -> t.Iterable[T]:
         """Progress on a sequence of items."""
         self.total = len(seq)
         for item in seq:
@@ -198,21 +204,21 @@ def info_header() -> None:
 
     torch_info = "Torch was not installed !!"
     if torch:
-        torch_info = f"""GPU Info: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'No GPU'}"""
+        torch_info = f"""GPU Info: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else "No GPU"}"""
 
     print(
         f"""
 -----------------------------------------------------------
-RUNNING JOB {os.environ.get('SLURM_JOB_ID', '-')}
+RUNNING JOB {os.environ.get("SLURM_JOB_ID", "-")}
 RUNNING Via SLURM on {platform.node()}
 
 SLURM Details:
-Job Name: {os.environ.get('SLURM_JOB_NAME', '-')}
-Array Task ID: {os.environ.get('SLURM_ARRAY_TASK_ID', '-')}
-Partition: {os.environ.get('SLURM_JOB_PARTITION', '-')}
-Num Tasks: {os.environ.get('SLURM_NTASKS', '-')}
-Num CPUs: {os.environ.get('SLURM_CPUS_ON_NODE', '-')}
-GPU Count: {os.environ.get('SLURM_GPUS_ON_NODE', '-')}
+Job Name: {os.environ.get("SLURM_JOB_NAME", "-")}
+Array Task ID: {os.environ.get("SLURM_ARRAY_TASK_ID", "-")}
+Partition: {os.environ.get("SLURM_JOB_PARTITION", "-")}
+Num Tasks: {os.environ.get("SLURM_NTASKS", "-")}
+Num CPUs: {os.environ.get("SLURM_CPUS_ON_NODE", "-")}
+GPU Count: {os.environ.get("SLURM_GPUS_ON_NODE", "-")}
 Working Directory: {Path.cwd()}
 
 System Details:
@@ -237,7 +243,7 @@ def info_footer() -> None:
     print(
         f"""
 -----------------------------------------------------------
-JOB {os.environ.get('SLURM_JOB_ID', '-')} Completed Running
+JOB {os.environ.get("SLURM_JOB_ID", "-")} Completed Running
 End Time: {datetime.now()}
 -----------------------------------------------------------
 """,
@@ -258,7 +264,6 @@ def info_args(args: argparse.Namespace | tap.Tap, separator: str = "-", width: i
     print(separator * width, flush=True)
 
 
-
 def save_run(items: dict, *, root_dir: Path | None = None, end: bool = False) -> None:
     """Save run related items as json dict."""
     global START_TIME  # noqa: PLW0603
@@ -270,7 +275,7 @@ def save_run(items: dict, *, root_dir: Path | None = None, end: bool = False) ->
 
     TOTAL_TIME = None
     if END_TIME and START_TIME:
-        TOTAL_TIME= END_TIME - START_TIME
+        TOTAL_TIME = END_TIME - START_TIME
 
     JOB_ID = os.environ.get("SLURM_JOB_ID", "-")
 
@@ -282,7 +287,7 @@ def save_run(items: dict, *, root_dir: Path | None = None, end: bool = False) ->
         "START": START_TIME.isoformat() if START_TIME else None,
         "END": END_TIME.isoformat() if END_TIME else None,
         "TOTAL_RUNTIME": humanize.naturaldelta(TOTAL_TIME) if TOTAL_TIME else None,
-        **items
+        **items,
     }
     with (root_dir / f"run_{JOB_ID}.json").open("w") as fh:
         try:

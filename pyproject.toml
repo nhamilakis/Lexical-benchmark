@@ -105,6 +105,7 @@ exclude = ["parser.py", "*.pyi"] # Exclude parser.py -> sly does not lint proper
 [tool.ruff.lint]
 select = ["ALL"] # Be brave use all rules
 fixable = ["ALL"]
+unfixable = []
 # remove the ones that make no sense
 ignore = [
     "ARG001",  # No need to type kwargs as they are dynamicly set.

@@ -1,15 +1,18 @@
+import logging
 import typing as t
 from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
 
-from lexical_benchmark import settings
+from lexical_benchmark import settings, text_lib, utils
 from lexical_benchmark.datasets import utils as dataset_utils
 from lexical_benchmark.datasets.utils import text_cleaning
 
 TXT_TYPES = t.Literal["clean", "rejected", "unvalidated", "raw"]
 WORD_TYPES = t.Literal["clean", "rejected", "raw"]
+
+logger = logging.getLogger(Path(__file__).name)
 
 
 class MetaLogHandler:
@@ -44,11 +47,21 @@ class CleanItem(t.NamedTuple):
     word_frequencies: Path
 
 
+@utils.deprecated(message="rejected section was removed from STELA")
 class RejectedItem(t.NamedTuple):
     """Struct containing rejected speech."""
 
     transcription: Path
     word_frequencies: Path
+
+
+class ChunkMappingItem(t.NamedTuple):
+    """Struct containing by_month individual chunks."""
+
+    idx: int  # chunk id
+    month: str  # current month
+    by_month_path: Path  # root location of the current by_month
+    chunk: list[str]
 
 
 @dataclass
@@ -71,6 +84,7 @@ class MetaDir:
         """Word Frequencies per split."""
         return self.meta_root_path / "wf" / lang / hour_split / "word-frequency.csv"
 
+    @utils.deprecated(message="rejected section was removed from STELA")
     def rejected_word_frequencies(self, lang: str, hour_split: str) -> Path:
         """Rejected Word Frequency per split."""
         return self.meta_root_path / "rjwf" / lang / hour_split / "word-frequency.csv"
@@ -83,6 +97,7 @@ class MetaDir:
         """Word Frequencies per lang."""
         return self.meta_root_path / "wf" / lang / "word-frequency.csv"
 
+    @utils.deprecated(message="rejected section was removed from STELA")
     def lang_rejected_word_frequency(self, lang: str) -> Path:
         """Rejected Word Frequencies per lang."""
         return self.meta_root_path / "rjwf" / lang / "word-frequency.csv"
@@ -150,7 +165,7 @@ class STELAAudioTextSourceIndex:
 
 
 @dataclass
-class TranscriptionItem:
+class TXTTranscriptionItem:
     """Item representing STELA transcriptions across the dataset.
 
     CLEAN TXT:
@@ -209,12 +224,13 @@ class TranscriptionItem:
         """Path to directory with clean items."""
         root_dir = (self._stela.root_dir / "txt").extend(self.parts_id)
         return CleanItem(
-            transcription=root_dir / "trancription.txt",
+            transcription=root_dir / "transcription.txt",
             books=root_dir / "books.txt",
             word_frequencies=root_dir / "word-frequencies.csv",
         )
 
     @property
+    @utils.deprecated(message="rejected section was removed from STELA")
     def rejected(self) -> RejectedItem:
         """Path to directory with rejected items."""
         root_dir = (self._stela.root_dir / "rj_txt").extend(self.parts_id)
@@ -237,7 +253,6 @@ class TranscriptionItem:
         source_book_location = self._stela.source_path / "text" / self.lang
         indx = STELAAudioTextSourceIndex(index_path=self._stela.meta.wav_text_associations)
         return indx.get_book_index(book_id_list=self.book_names, book_source=source_book_location)
-
 
 
 @dataclass
@@ -270,17 +285,32 @@ class ByMonthTranscriptionItem:
         return f"{self.lang}_{self.month_split}_{self.chunk}"
 
     @property
-    def char_hf(self) -> Path:
-        """Return file containing tokenized text."""
-        root_dir = self._stela.by_month_path.extend(self.parts_id)
-        return root_dir / "char_hf.txt"
+    def root_dir(self) -> Path:
+        """Path to current chunk root dir."""
+        return self._stela.by_month_path.extend(self.parts_id)
 
     @property
     def transcription(self) -> Path:
-        """Return transcription file."""
-        root_dir = self._stela.by_month_path.extend(self.parts_id)
-        return root_dir / "transcription.txt"
+        """Path to transcription file."""
+        return self.root_dir / "transcription.txt"
 
+    @property
+    def dev_txt(self) -> Path:
+        """Path to dev.txt file."""
+        return self.root_dir / "dev.txt"
+
+    @property
+    def train_txt(self) -> Path:
+        """Path to train.txt file."""
+        return self.root_dir / "train.txt"
+
+    def dev_tokenized(self, protocol: str = "hf") -> Path:
+        """Path to tokenized file."""
+        return self.root_dir / f"dev.tokenized.{protocol}"
+
+    def train_tokenized(self, protocol: str = "hf") -> Path:
+        """Path to tokenized file."""
+        return self.root_dir / f"train.tokenized.{protocol}"
 
 
 class STELATranscriptDataset:
@@ -329,67 +359,72 @@ class STELATranscriptDataset:
         """Word frequency builder."""
         self.build_clean_word_frequencies()
         self.build_preprocess_word_frequencies()
-        self.build_rejected_word_frequencies()
+        # TODO: deprecated
+        # self.build_rejected_word_frequencies()
 
-    def item(self, lang: str, hour: str, section: str, *, by_month: bool = False) -> TranscriptionItem:
-        """Return a specific Item."""
-        if by_month:
-            return ByMonthTranscriptionItem(
-                lang=lang,
-                month_split=hour, # Here represent month
-                chunk=section, # Here represents chunk
-                _stela=self,
-            )
-        return TranscriptionItem(
+    def txt_item(self, lang: str, hour: str, section: str) -> TXTTranscriptionItem:
+        """Accessor for a single chunk, in the txt structure."""
+        return TXTTranscriptionItem(
             lang=lang,
             hour_split=hour,
             section=section,
             _stela=self,
         )
 
-    def iter_split(self, lang: str, hour_month: str, *, by_month: bool = False) -> t.Iterable[TranscriptionItem]:
+    def by_month_item(self, lang: str, month: str, chunk: str) -> ByMonthTranscriptionItem:
+        """Accessor for a single by_month chunk."""
+        return ByMonthTranscriptionItem(
+            lang=lang,
+            month_split=month,
+            chunk=chunk,
+            _stela=self,
+        )
+
+    def iter_by_month_chunks(self, lang: str, month: str) -> t.Iterable[ByMonthTranscriptionItem]:
+        """Iterate on all the chunks if a month in the by_month structure."""
+        for chunk in self.by_month_chunks(lang, month):
+            yield self.by_month_item(lang=lang, month=month, chunk=chunk)
+
+    def iter_txt_split(self, lang: str, hour: str) -> t.Iterable[TXTTranscriptionItem]:
         """Iter on a specific hour split."""
-        if by_month:
-            for chunk in self.by_month_chunks(lang, hour_month):
-                yield self.item(
-                    lang=lang,
-                    hour=hour_month,
-                    section=chunk,
-                    by_month=True,
-                )
-        else:
-            for section in self.sections(lang, hour_month):
-                yield self.item(
-                    lang=lang,
-                    hour=hour_month,
-                    section=section,
-                )
+        for section in self.txt_sections(lang, hour):
+            yield self.txt_item(
+                lang=lang,
+                hour=hour,
+                section=section,
+            )
 
-    def iter_lang(self, lang: str, *, by_month: bool = False) -> t.Iterable[TranscriptionItem]:
-        """Iterator for STELA dataset by language."""
-        if by_month:
-            for month in self.month_splits:
-                yield from self.iter_split(lang=lang, hour_month=month, by_month=True)
-        else:
-            for hour in self.hour_splits:
-                yield from self.iter_split(lang=lang, hour_month=hour, by_month=False)
+    def iter_txt_hour(self, lang: str) -> t.Iterable[TXTTranscriptionItem]:
+        """Iterator for STELA dataset in the txt split of a given language."""
+        for hour in self.hour_splits:
+            yield from self.iter_txt_split(lang=lang, hour=hour)
 
-    def iter_all(self, *, by_month: bool = False) -> t.Iterable[TranscriptionItem]:
-        """Iterator for STELA dataset."""
+    def iter_by_month_month(self, lang: str) -> t.Iterable[ByMonthTranscriptionItem]:
+        """Iterator over each month in the by_month split of given language."""
+        for month in self.month_splits:
+            yield from self.iter_by_month_chunks(lang=lang, month=month)
+
+    def iter_txt(self) -> t.Iterable[TXTTranscriptionItem]:
+        """Iterator for STELA/txt dataset."""
         for lang in self.languages:
-            yield from self.iter_lang(lang=lang, by_month=by_month)
+            yield from self.iter_txt_hour(lang=lang)
+
+    def iter_by_month(self) -> t.Iterable[ByMonthTranscriptionItem]:
+        """Iterator for STELA/by_month dataset."""
+        for lang in self.languages:
+            yield from self.iter_by_month_month(lang=lang)
 
     def get_books(self, lang: str) -> dict[str, Path]:
         """Get all books of a language."""
         book_ids = []
-        for item in self.iter_lang(lang):
+        for item in self.iter_txt_hour(lang):
             book_ids.extend(item.book_names)
 
         source_book_location = self.source_path / "text" / lang
         indx = STELAAudioTextSourceIndex(index_path=self.meta.wav_text_associations)
         return indx.get_book_index(book_id_list=list(set(book_ids)), book_source=source_book_location)
 
-    def sections(self, lang: str, hour_split: str) -> tuple[str, ...]:
+    def txt_sections(self, lang: str, hour_split: str) -> tuple[str, ...]:
         """List of sections per split."""
         section_dir = self.source_path / "symlinks" / lang / hour_split
         # If source is not present
@@ -414,7 +449,6 @@ class STELATranscriptDataset:
             raise FileNotFoundError(f"STELA/by_month/{lang}/{month} chunk not found on disk")
         return tuple([d.name for d in month_dir.iterdir() if d.is_dir()])
 
-
     def raw2clean_filesmap(self, lang: str) -> t.Iterable[tuple[Path, Path, Path]]:
         """Build FilesMapping that allows to create the clean txt version.
 
@@ -426,14 +460,51 @@ class STELATranscriptDataset:
             meta: <Path>
                 a target file to write processing logs (json format)
         """
-        for item in self.iter_lang(lang):
+        for item in self.iter_txt_hour(lang):
             yield (
                 item.preprocess.raw,
                 item.preprocess.processed,
                 item.preprocess.meta,
             )
 
-    def word_validation_filesmap(self, lang: str) -> t.Iterable[tuple[Path, Path, Path]]:
+    def txt2by_month_chunkmap(
+        self,
+        lang: str,
+        chunk_size: int,
+        threshold: float = 0.95,
+        source_split: str = "50h",
+    ) -> t.Iterable[ChunkMappingItem]:
+        """Extract the chunks for building the by_month split."""
+        stela_50h: list[str] = []
+        current_dir = self.by_month_path / lang
+        count = 0
+
+        for item in self.iter_txt_split(lang=lang, hour=source_split):
+            count += 1
+            stela_50h.extend(item.clean.transcription.safe_readlines())
+
+        logger.debug(f"Extracted {len(stela_50h)=} lines from {count} files !")
+        splitted_stela_50h: list[list[str]] = text_lib.chunk_line_splitter(
+            stela_50h, nb_words=chunk_size, threshold=threshold
+        )
+        logger.debug(f"Managed to extract {len(splitted_stela_50h)} chunks sized ~{chunk_size:,}nb words.")
+        logger.debug(f"LEN of n°1 {len(splitted_stela_50h[0])=}")
+
+        for month in settings.BY_MONTH_CHUNKS_PER_CHUNK:
+            N = settings.BY_MONTH_CHUNKS_PER_CHUNK[month]
+
+            # For each month group
+            merged_chunks = text_lib.chunk_group_merging(splitted_stela_50h, N)
+            logger.debug(f"For {month=} obtained {len(merged_chunks)}")
+            for idx, chunk in enumerate(merged_chunks):
+                yield ChunkMappingItem(
+                    idx=idx,
+                    month=month,
+                    by_month_path=current_dir / month,
+                    chunk=chunk,
+                )
+
+    def processed2clean_filesmap(self, lang: str) -> t.Iterable[tuple[Path, Path, Path]]:
         """Build word validation step filesmap.
 
         The word validator script requires the following :
@@ -444,11 +515,10 @@ class STELATranscriptDataset:
             rejected transcription: <Path>
                 target file were to write rejected words.
         """
-        for item in self.iter_lang(lang):
+        for item in self.iter_txt_hour(lang):
             yield (
                 item.preprocess.processed,
                 item.clean.transcription,
-                item.rejected.transcription,
             )
 
     def book_wav_filemap(self, lang: str) -> dict[str, list[Path]]:
@@ -457,7 +527,7 @@ class STELATranscriptDataset:
             f"{wav.name}": wav for wav in (self.source_path / "wav" / lang.upper()).rglob("*.wav")
         }
         book_ids = []
-        for item in self.iter_lang(lang):
+        for item in self.iter_txt_hour(lang):
             book_ids.extend(item.book_names)
         book_ids = list(set(book_ids))
 
@@ -480,7 +550,9 @@ class STELATranscriptDataset:
             text_cleaning.QuotationCleaner(),  # Clean quotes
             text_cleaning.NumberFixer(keep_as_text=True),  # Convert Numbers into text
             text_cleaning.RomanNumerals(),  # Remove Roman Numerals
-            text_cleaning.AZFilter(allow_basic_punctuation=True, clean_diacritics=True),  # Removes any special character
+            text_cleaning.AZFilter(
+                allow_basic_punctuation=True, clean_diacritics=True
+            ),  # Removes any special character
             text_cleaning.PrefixSuffixFixer(stem="'"),  # Remove prefix or suffix char(')
         ]
 
@@ -492,7 +564,7 @@ class STELATranscriptDataset:
             for hour in self.hour_splits:
                 hour_files = []
                 hour_wf_file = self.meta.word_frequencies(lang, hour)
-                for section in self.sections(lang=lang, hour_split=hour):
+                for section in self.txt_sections(lang=lang, hour_split=hour):
                     # Add to all hour files
                     item = self.item(lang, hour, section)
                     # Compute local word-frequencies
@@ -524,7 +596,7 @@ class STELATranscriptDataset:
             for hour in self.hour_splits:
                 hour_files = []
                 hour_wf_file = self.meta.rejected_word_frequencies(lang, hour)
-                for section in self.sections(lang=lang, hour_split=hour):
+                for section in self.txt_sections(lang=lang, hour_split=hour):
                     # Add to all hour files
                     item = self.item(lang, hour, section)
                     # Compute local word-frequencies
@@ -556,7 +628,7 @@ class STELATranscriptDataset:
             for hour in self.hour_splits:
                 hour_files = []
                 hour_wf_file = self.meta.preprocessed_word_frequencies(lang, hour)
-                for section in self.sections(lang=lang, hour_split=hour):
+                for section in self.txt_sections(lang=lang, hour_split=hour):
                     # Add to all hour files
                     item = self.item(lang, hour, section)
                     # Compute local word-frequencies
