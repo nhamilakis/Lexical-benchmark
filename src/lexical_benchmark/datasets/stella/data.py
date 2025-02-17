@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from lexical_benchmark import settings, text_lib, utils
+from lexical_benchmark.datasets import DataSchemaType, data_id2items
 from lexical_benchmark.datasets import utils as dataset_utils
 from lexical_benchmark.datasets.utils import text_cleaning
 
@@ -379,6 +380,31 @@ class STELATranscriptDataset:
             chunk=chunk,
             _stela=self,
         )
+
+    def get_item_by_id(self, schema_type: DataSchemaType, lang: str, data_id: str) -> ChildRealisticByMonthItem:
+        """Get item from given parameters.
+
+        Info
+        ----
+            data_id: must be a valid ID, containing two information (month, chunk) separated
+            by a '_'
+
+        Raises
+        ------
+            ValueError:
+                - if schema given is not valid
+                - if data_id is not correctly formatted
+
+        """
+        if schema_type == "by_month":
+            month, chunk = data_id2items(data_id, nb=2)
+            return self.by_month_item(lang=lang, month=month, chunk=chunk)
+
+        if schema_type == "txt":
+            hour, chunk = data_id2items(data_id, nb=2)
+            return self.txt_item(lang=lang, hour=hour, section=chunk)
+
+        raise ValueError(f"Schema type ({schema_type}) is not valid !!")
 
     def iter_by_month_chunks(self, lang: str, month: str) -> t.Iterable[ByMonthTranscriptionItem]:
         """Iterate on all the chunks if a month in the by_month structure."""

@@ -111,3 +111,4 @@ notebooks/**/*.xlsx
 # W&B 
 wandb/
 LD_FLAGS
+*.lock

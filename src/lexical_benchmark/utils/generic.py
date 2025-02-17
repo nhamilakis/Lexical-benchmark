@@ -11,11 +11,6 @@ from datetime import datetime
 from pathlib import Path
 from threading import Thread
 from time import sleep
-import functools
-import warnings
-import typing as t
-from pathlib import Path
-import inspect
 
 import humanize
 import requests
@@ -23,6 +18,7 @@ from rich.console import Console
 
 try:
     import polars as pl
+
     if t.TYPE_CHECKING:
         from polars import DataFrame as pl_DataFrame
 except ImportError:
@@ -31,13 +27,8 @@ except ImportError:
 LOG_LEVELS = t.Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 if pl:
-    def append_to_csv(
-            df: "pl_DataFrame",
-            path: Path | str,
-            *,
-            separator: str = ",",
-            **kwargs
-    ) -> None:
+
+    def append_to_csv(df: "pl_DataFrame", path: Path | str, *, separator: str = ",", **kwargs) -> None:
         """Write a polars DataFrame to a CSV file (Using Append Mode)."""
         path = Path(path)
 
@@ -48,7 +39,6 @@ if pl:
 
         with path.open(mode="a", newline="") as fh:
             df.write_csv(fh, include_header=False, separator=separator, **kwargs)
-
 
 
 @contextlib.contextmanager
@@ -62,6 +52,7 @@ def nostdout() -> t.Generator[None, None, None]:
 
 rT = t.TypeVar("rT")  # noqa: N816
 pT = t.ParamSpec("pT")  # noqa: N816
+
 
 def deprecated(
     message: str | None = None,
@@ -96,8 +87,8 @@ def deprecated(
         ValueError: If since is provided but not in valid format (x.y.z)
 
     """
-    def decorator(func: t.Callable[pT, rT]) -> t.Callable[pT, rT]:
 
+    def decorator(func: t.Callable[pT, rT]) -> t.Callable[pT, rT]:
         @functools.wraps(func)
         def wrapper(*args: pT.args, **kwargs: pT.kwargs) -> rT:
             qualified_name = f"{func.__module__}.{func.__qualname__}"
@@ -113,22 +104,36 @@ def deprecated(
                 stacklevel=2,
             )
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
+def setup_logging(log_level: LOG_LEVELS, *, log_file: Path | None = None, no_stdout: bool = False) -> None:
+    """Configure logging with the specified level and optional file output.
 
-def setup_logging(log_level: LOG_LEVELS, log_file: Path | None = None) -> None:
-    """Configure logging with the specified level and optional file output."""
-    handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
+    Raises
+    ------
+        ValueError: if arguments prevent from defining all types of handlers.
+
+    """
+    handlers: list[logging.Handler] = []
+
+    if not no_stdout:
+        handlers.append(logging.StreamHandler(sys.stdout))
 
     if log_file:
         handlers.append(logging.FileHandler(log_file))
 
+    if len(handlers) <= 0:
+        raise ValueError("No log handlers specified !!!")
+
     logging.basicConfig(
         level=getattr(logging, log_level),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=handlers
+        datefmt="%m/%d/%Y %H:%M:%S",
+        handlers=handlers,
     )
 
 
@@ -196,7 +201,6 @@ def timed_status(
     worker.join()
 
 
-
 class PathNamespace:
     """A Namespace holding a variety of paths."""
 
@@ -228,7 +232,6 @@ class PathNamespace:
         """Access paths using dictionary-style access."""
         return self.__getattr__(key)
 
-
     def __iter__(self) -> t.Iterator[tuple[str, Path]]:
         """Iterate over path names and objects.
 
@@ -238,7 +241,6 @@ class PathNamespace:
 
         """
         return iter(self._paths.items())
-
 
 
 def str_to_bool(value: t.Any) -> bool:

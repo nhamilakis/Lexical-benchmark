@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from lexical_benchmark import settings
-from lexical_benchmark.datasets import childes
+from lexical_benchmark.datasets import DataSchemaType, childes, data_id2items
 
 
 @dataclass
@@ -36,16 +36,27 @@ class ChildRealisticByMonthItem:
         return f"{self.lang}_{self.month}_{self.chunk}"
 
     @property
+    def root_dir(self) -> Path:
+        """Path to current chunk root dir."""
+        return self._root_dt.by_month_path.extend(self.parts_id)
+
+    @property
     def char_hf(self) -> Path:
         """Return file containing tokenized text."""
-        root_dir = self._root_dt.by_month_path.extend(self.parts_id)
-        return root_dir / "char_hf.txt"
+        return self.root_dir / "char_hf.txt"
 
     @property
     def transcription(self) -> Path:
         """Return transcription file."""
-        root_dir = self._root_dt.by_month_path.extend(self.parts_id)
-        return root_dir / "transcription.txt"
+        return self.root_dir / "transcription.txt"
+
+    def dev_tokenized(self, protocol: str = "hf") -> Path:
+        """Path to tokenized file."""
+        return self.root_dir / f"dev.tokenized.{protocol}"
+
+    def train_tokenized(self, protocol: str = "hf") -> Path:
+        """Path to tokenized file."""
+        return self.root_dir / f"train.tokenized.{protocol}"
 
 
 @dataclass
@@ -93,6 +104,26 @@ class ChildRealisticDataset:
             chunk=chunk,
             _root_dt=self,
         )
+
+    def get_item_by_id(self, schema_type: DataSchemaType, lang: str, data_id: str) -> ChildRealisticByMonthItem:
+        """Get item from given parameters.
+
+        Info
+        ----
+            data_id: must be a valid ID, containing two information (month, chunk) separated
+            by a '_'
+
+        Raises
+        ------
+            ValueError:
+                - if schema given is not valid
+                - if data_id is not correctly formatted
+
+        """
+        if schema_type == "by_month":
+            month, chunk = data_id2items(data_id, nb=2)
+            return self.item_by_month(lang=lang, month=month, chunk=chunk)
+        raise ValueError(f"Schema type ({schema_type}) is not valid !!")
 
     def iter_chunk(self, lang: str, month: str) -> t.Iterable[ChildRealisticByMonthItem]:
         """Yield items from a given lang/month."""
