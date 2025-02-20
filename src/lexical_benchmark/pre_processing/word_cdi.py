@@ -1,17 +1,12 @@
-# ruff: noqa
-# type: ignore
 """Loader and extractor for Human CDI."""
 
 import enum
-import functools
 from pathlib import Path
 
 import pandas as pd
-import spacy
 
 from lexical_benchmark import settings
-from lexical_benchmark.datasets import utils as dataset_utils
-from lexical_benchmark.datasets.utils import text_cleaning
+from lexical_benchmark.text_lib import text_cleaners
 
 
 class POSTypes(str, enum.Enum):
@@ -24,6 +19,30 @@ class POSTypes(str, enum.Enum):
     def __str__(self) -> str:
         """As string."""
         return self.value
+
+
+def segment_synonym(df: pd.DataFrame, header: str) -> pd.DataFrame:
+    """Seperate lines for synonyms."""
+    df = df.assign(Column_Split=df[header].str.split("/")).explode("Column_Split")
+    return df.drop(header, axis=1).rename(columns={"Column_Split": header})
+
+
+def remove_exp(df: pd.DataFrame, header: str) -> pd.DataFrame:
+    """Remove expressions with more than one word."""
+    return df[~df[header].str.contains(r"\s", regex=True)]
+
+
+def merge_word(df: pd.DataFrame, header: str) -> pd.DataFrame:
+    """Merge same word in different semantic senses."""
+    merged_df = df.groupby(header).first().reset_index()
+    # Aggregate other columns
+    for col in df.columns:
+        if col != header:
+            if df[col].dtype == "object":
+                merged_df[col] = df.groupby(header)[col].first().reset_index()[col]
+            else:
+                merged_df[col] = df.groupby(header)[col].sum().reset_index()[col]
+    return merged_df
 
 
 class CDIPreparation:
@@ -53,11 +72,6 @@ class CDIPreparation:
             - the cell values correspond to score based on knowledge of the word
 
     """
-
-    @property
-    def pos_model_load(self) -> spacy.Language:
-        """Load POS model from spacy."""
-        return dataset_utils.spacy_model("en_core_web_trf")
 
     def __init__(
         self,
@@ -108,10 +122,10 @@ class CDIPreparation:
     ) -> pd.DataFrame:
         """Add POS tag to the dataframe."""
         # Load POS inference model and inject it into the word_to_pos function
-        word_to_pos = functools.partial(dataset_utils.word_to_pos, pos_model=self.pos_model_load)
-
+        # word_to_pos = functools.partial(dataset_utils.word_to_pos, pos_model=self.pos_model_load)
         # Create a column POS using previous function
-        df["POS"] = df["word"].apply(word_to_pos)
+        # df["POS"] = df["word"].apply(word_to_pos)
+        # TODO: POS tags need to be derived from CHILDES || Child_Realistic
 
         if do_type_filtering:
             # Filter words by PoS
@@ -136,14 +150,16 @@ class CDIPreparation:
         columns = self.columns
 
         # Explode multidefinition words, clean item definition
-        df = dataset_utils.segment_synonym(df, "item_definition")
+        df = segment_synonym(df, "item_definition")
 
         # Clean words (normalise accents and non-printable characters)
-        word_cleaning = text_cleaning.AZFilter(clean_diacritics=True)
+        word_cleaning = text_cleaners.AZFilter(clean_diacritics=True)
+        _ = text_cleaners.AZFilter.dump_logs()
+
         df["word"] = df["item_definition"].apply(word_cleaning)
 
         # remove expressions (multi-word lines)
-        df = dataset_utils.remove_exp(df, "word")
+        df = remove_exp(df, "word")
 
         # Calculate Word length
         df["word_length"] = df["word"].apply(len)
@@ -162,7 +178,7 @@ class CDIPreparation:
             df = df[~df["item_definition"].isin(settings.WORD)]
 
         # merge different word senses by adding the prop
-        df = dataset_utils.merge_word(df, "word")
+        df = merge_word(df, "word")
         df = df.drop(["item_id"], axis=1)
 
         return df[columns].copy()

@@ -2,7 +2,7 @@ import re
 import typing as t
 
 from lexical_benchmark import settings
-from lexical_benchmark.datasets.utils import text_cleaning as txt
+from lexical_benchmark.text_lib import text_cleaners as txt
 
 
 class TagCleaner(txt.TextActionFN):

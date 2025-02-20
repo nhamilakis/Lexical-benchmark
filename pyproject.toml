@@ -8,7 +8,7 @@ authors = [
 ]
 license = { text = "MIT License" }
 readme = { file = "README.md", content-type = "text/markdown" }
-requires-python = ">=3.9"
+requires-python = ">=3.11,<3.12"
 keywords = ["python"]
 classifiers = [
     "License :: OSI Approved :: MIT License",
@@ -25,7 +25,7 @@ repository = "https://github.com/Jing-L97/Lexical-benchmark"
 
 
 [project.optional-dependencies]
-dev = ["ruff", "mypy", "ipython", "jupyter"]
+dev = ["ruff", "mypy", "ipython", "jupyter", "pytest>=8.3.4",]
 # polyglot = ["polyglot", "pyicu", "pycld2", "morfessor"]
 asr = ["openai-whisper"]
 # This requires a cuda>12.1.1 to be available in the current env
@@ -34,23 +34,29 @@ asr = ["openai-whisper"]
 # Worked on cuda/12.1.1 on Oberon (??)
 optimised = [
     "polars",
-    "torch==2.5.1",
+    "torch==2.5.1; sys_platform == 'linux' or sys_platform == 'linux2'",
     "spacy[cuda12x]; sys_platform == 'linux' or sys_platform == 'linux2'",
     "spacy; sys_platform == 'darwin'",
 ]
 train = [
     "accelerate==1.3.0",
     "tokenizers==0.21.0",
-    "torch==2.5.1",
-    "torchtyping==0.1.4",
-    "transformers==4.48.0",
+    "torch==2.5.1; sys_platform == 'linux' or sys_platform == 'linux2'",
+    "torchtyping==0.1.4; sys_platform == 'linux' or sys_platform == 'linux2'",
+    "vllm==0.6.6; sys_platform == 'linux' or sys_platform == 'linux2'",
+    "transformers==4.48.0; sys_platform == 'linux' or sys_platform == 'linux2'",
     "wandb",
-    "vllm==0.6.6",
 ]
 
 # Dependency groups not yet supported as optionals
 [dependency-groups]
-dev = ["ruff", "mypy", "ipython", "jupyter"]
+dev = [
+    "ruff",
+    "mypy",
+    "ipython",
+    "jupyter",
+    "pytest>=8.3.4",
+]
 # polyglot = ["polyglot", "pyicu", "pycld2", "morfessor"]
 asr = ["openai-whisper"]
 # This requires a cuda>12.1.1 to be available in the current env
@@ -59,15 +65,15 @@ asr = ["openai-whisper"]
 # Worked on cuda/12.1.1 on Oberon (??)
 optimised = [
     "polars",
-    "torch==2.5.1",
+    "torch==2.5.1; sys_platform == 'linux' or sys_platform == 'linux2'",
     "spacy[cuda12x]; sys_platform == 'linux' or sys_platform == 'linux2'",
     "spacy; sys_platform == 'darwin'",
 ]
 train = [
     "accelerate==1.3.0",
     "tokenizers==0.21.0",
-    "torch==2.5.1",
-    "torchtyping==0.1.4",
+    "torch==2.5.1; sys_platform == 'linux' or sys_platform == 'linux2'",
+    "torchtyping==0.1.4; sys_platform == 'linux' or sys_platform == 'linux2'",
     "transformers==4.48.0",
     "wandb",
     "vllm==0.6.6",
@@ -95,6 +101,10 @@ exclude = [
 [tool.uv]
 default-groups = ["train", "optimised"]
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+addopts = ["--import-mode=importlib", "--ignore=src/scripts", "--ignore=notebooks", "--ignore=experiments", "--ignore=docs"]
+
 
 [tool.ruff]
 target-version = "py311"
@@ -117,7 +127,7 @@ ignore = [
     "D401",    # imperative mood in docstring is ambiguous
     "D203", "D213", # Conflicting rules about docstrings
     "S324",    # allow md5, as this is a non critical usage
-    "DTZ005",  # no need for timezones in datetimes
+    "DTZ005", "DTZ011",  # no need for timezones in datetimes
     "S603",    # allow subprocess to be called using literals
     "PLR0913", # allow functions to have more tha 12 arguments
     "TRY003",  # allow Exceptions to contain long messages
@@ -126,17 +136,14 @@ ignore = [
     "D107", "D105", # allow __init__  and all python __magic__ functions to be without a docstring
     "ANN101", "ANN102", "ANN001",  # "self" & "cls" need no typing (rule is Deprecated)
     "T201", "T203",    # allow 'print' & 'pprint' statements
-    "FIX002",  # allow todos
-    "TD003",   # not all todos require a issue
-    "TD002",   # allow todos without author
+    "FIX002", "TD002", "TD003",  # allow todos + todos without issue + todos without author
     "D104",    # allow scripts not to have docstring on top
     "EM102",   # allow exception to use f-strings
-    "DTZ011",  # allow datetimes without timezone
-    "PLR2004", # Allow magic numbers (should be avoided, except some math contexts)
     "S311",    # No cryptography done here random is safe enough
     "PD901",   # Allow df variable name
     "COM812",  # Allow trailing comma to be missing
     "G004",    # Allow f-strings in logger (reasonable, but not here)
+    "PLR2004", # Allow magic numbers (should be avoided, except some math contexts)
 ]
 
 

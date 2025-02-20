@@ -70,5 +70,6 @@ def split_dev_train(txt: list[str], dev_proportion: float) -> tuple[list[str], l
     # Calculate split index (rounds to lower value)
     dev_size = int(len(txt) * dev_proportion)
 
+    # TODO: make it random
     # dev, train
     return txt[:dev_size], txt[dev_size:]

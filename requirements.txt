@@ -7,7 +7,6 @@ polyglot
 requests
 nltk
 rich
-spacy
 scipy
 statsmodels
 num2words
@@ -18,5 +17,6 @@ typed-argument-parser
 openpyxl
 python-dateutil
 PyYAML
-tqdm
 pyarrow
+tomli; python_version < "3.11"
+tomli-w

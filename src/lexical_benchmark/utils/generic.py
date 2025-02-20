@@ -41,6 +41,52 @@ if pl:
             df.write_csv(fh, include_header=False, separator=separator, **kwargs)
 
 
+def load_toml(path: Path | str) -> dict[str, t.Any]:
+    """Safe TOML loader with version compatibility.
+
+    Attempts to load TOML using tomli for Python <3.11 or tomllib for 3.11+
+
+    Raises:
+        ImportError: When no TOML parser is available
+        FileNotFoundError: When file doesn't exist
+        ValueError: When TOML is invalid
+
+    """
+    path = Path(path)
+
+    try:
+        import tomllib  # type: ignore[missing-imports]
+    except ImportError:
+        try:
+            import tomli as tomllib  # type: ignore[missing-imports]
+        except ImportError as err:
+            raise ImportError("No TOML parser found. Install 'tomli' package") from err
+
+    with path.open("rb") as f:
+        return tomllib.load(f)
+
+
+def write_toml(data: dict[str, t.Any], path: Path | str) -> None:
+    """Safe TOML writer with version compatibility.
+
+    Writes dictionary data to TOML format using tomli-w for Python <3.11 or tomllib for 3.11+
+
+    Raises:
+        ImportError: When no TOML writer is available
+        OSError: When file can't be written
+        TypeError: When data contains types that can't be serialized to TOML
+
+    """
+    try:
+        import tomli_w  # type: ignore[missing-imports]
+    except ImportError as err:
+        raise ImportError("No TOML writer found. Install 'tomli-w' package") from err
+
+    path = Path(path)
+    with path.open("wb") as f:
+        tomli_w.dump(data, f)
+
+
 @contextlib.contextmanager
 def nostdout() -> t.Generator[None, None, None]:
     """Redirect stdout to /dev/null."""

@@ -2,7 +2,7 @@ import typing as t
 import warnings
 from pathlib import Path
 
-from . import lexicon, text_cleaning
+from lexical_benchmark.text_lib import lexicon, text_cleaners
 
 
 class DatasetCleaner:
@@ -11,15 +11,15 @@ class DatasetCleaner:
     @staticmethod
     def dump_logs() -> dict:
         """Export cleaning logs."""
-        return text_cleaning.WordLogger.dumps_logs()
+        return text_cleaners.WordLogger.dumps_logs()
 
     @staticmethod
-    def clean_txt(txt_dirty: list[str], *, ruleset: list[text_cleaning.CleanerFN]) -> list[str]:
+    def clean_txt(txt_dirty: list[str], *, ruleset: list[text_cleaners.CleanerFN]) -> list[str]:
         """Clean a the content of a txt file with the given ruleset."""
-        return [text_cleaning.piped(f" {line} ", *ruleset) for line in txt_dirty]
+        return [text_cleaners.piped(f" {line} ", *ruleset) for line in txt_dirty]
 
     @staticmethod
-    def word_validator(txt: list[str], *, cleaner: lexicon.DictionairyCleaner) -> tuple[list[str], list[str]]:
+    def line_filter(txt: list[str], *, line_filter_fn: lexicon.DictionairyCleaner) -> tuple[list[str], list[str]]:
         """Validate words from a text by passing them through a dictionairy.
 
         Returns
@@ -30,30 +30,20 @@ class DatasetCleaner:
         accepted_lines = []
         rejected_lines = []
         for line in txt:
-            accepted, rejected = cleaner(line)
+            accepted, rejected = line_filter_fn(line)
             accepted_lines.append(accepted)
             rejected_lines.append(rejected)
         return accepted_lines, rejected_lines
-
 
     @classmethod
     def cleanup_files(
         cls,
         *,
         filemap: t.Sequence[tuple[Path, Path, Path]] | t.Iterable[tuple[Path, Path, Path]],
-        ruleset: list[text_cleaning.CleanerFN],
+        ruleset: list[text_cleaners.CleanerFN],
         save_logs: bool = True,
     ) -> None:
-        """Clean files using given ruleset.
-
-        Args:
-        ----
-            filemap: Path objects with the files to clean in a list, paired with their correspondint target
-                     for cleaned text.
-            ruleset: the list of rules to use for cleaning.
-            save_logs: deactivate log saving
-
-        """
+        """Clean files using given ruleset."""
         for _, (source_file, target_file, logfile) in enumerate(filemap):
             # Load source text
 
@@ -67,26 +57,18 @@ class DatasetCleaner:
             target_file.safe_write_text("\n".join(clean_txt))
 
             # Save section logs
-            logs = text_cleaning.WordLogger.dumps_logs()
+            logs = text_cleaners.WordLogger.dumps_logs()
             if save_logs:
                 logfile.dump_json(logs)
 
     @classmethod
-    def word_validate_files(
+    def filter_files(
         cls,
         *,
         filemap: t.Sequence[tuple[Path, Path, Path]] | t.Iterable[tuple[Path, Path, Path]],
-        cleaner: lexicon.DictionairyCleaner,
+        lex: lexicon.DictionairyCleaner,
     ) -> None:
-        """Filter given files through a Dictionairy validator.
-
-        Args:
-        ----
-            filemap: Path objects with the files to clean in a list, paired with their correspondint target
-                     for accepted & rejected text.
-            cleaner: the dictionairy to use for validation filtering.
-
-        """
+        """Filter given files through a Dictionairy validator."""
         for _, (source_file, clean_target, reject_target) in enumerate(filemap):
             # Load source text
 
@@ -94,7 +76,7 @@ class DatasetCleaner:
             if _txt is None:
                 warnings.warn(f"File {source_file} does not exist !!", category=UserWarning, stacklevel=1)
                 continue
-            accepted_text, rejected_text = cls.word_validator(_txt, cleaner=cleaner)
+            accepted_text, rejected_text = cls.line_filter(_txt, line_filter_fn=lex)
 
             # Write cleaned @ rejected text into corresponding files
             clean_target.safe_write_text("\n".join(accepted_text))  # type: ignore[attr-defined] # ducktyping

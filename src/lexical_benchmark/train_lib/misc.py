@@ -3,10 +3,9 @@ import typing as t
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lexical_benchmark import settings
-from lexical_benchmark.datasets import DataSchemaType, DatasetLoader, child_realistic, data_id2items, stella
+from lexical_benchmark import lb_types
+from lexical_benchmark.datasets import DataSchemaType, DatasetLoader, ModelItem, child_realistic, data_id2items, stella
 
-ModelType = t.Literal["lstm", "transformer"]
 DatasetType = t.Literal["childrealistic", "stela"]
 LogLevelType = t.Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
@@ -15,13 +14,12 @@ LogLevelType = t.Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 class TrainArgs:
     """Arguments necessairy for training."""
 
-    model_type: ModelType
+    model_type: lb_types.ModelType
     dataset: DatasetType
     data_id: str
     resume: bool = False
     override: bool = False
     resume_id: int | None = None
-    output_root: str = "models"
     lang: str = "EN"
     schema_type: DataSchemaType = "by_month"
     log_level: LogLevelType = "INFO"
@@ -41,7 +39,7 @@ class TrainArgs:
     @property
     def model_root_path(self) -> Path:
         """Build the path to the root directory containing the models."""
-        return settings.PATH.DATA_DIR / self.output_root / self.dataset
+        return self._dataset.model_root
 
     @property
     def current_model_path(self) -> Path:
@@ -178,12 +176,6 @@ class TrainArgs:
         parser.add_argument("--override", action="store_true", help="Override existing files")
         parser.add_argument("--log-to-std", action="store_true", help="Logs are redirected to std")
         parser.add_argument(
-            "--output-root",
-            type=str,
-            default="models",
-            help="Root directory for model outputs",
-        )
-        parser.add_argument(
             "--lang",
             type=str,
             default="EN",
@@ -218,7 +210,6 @@ class TrainArgs:
                 "data_id": args.data_id,
                 "resume": args.resume,
                 "override": args.override,
-                "output_root": args.output_root,
                 "lang": args.lang,
                 "schema_type": args.schema_type,
                 "added_tokens": args.added_tokens,
@@ -226,6 +217,41 @@ class TrainArgs:
                 "resume_id": args.resume_id,
             }
         )
+
+    @classmethod
+    def from_model(
+        cls,
+        model: ModelItem,
+        *,
+        dataset_name: DatasetType,
+        resume: bool | None = None,
+        resume_id: str | None = None,
+        override: bool | None = None,
+        added_tokens: list[str] | None = None,
+        log_level: LogLevelType = "INFO",
+    ) -> "TrainArgs":
+        """Build training arguments from a model-item."""
+        data = {
+            "model_type": model.model_type,
+            "dataset": dataset_name,
+            "data_id": f"{model.month}_{model.chunk}",
+            "lang": model.lang,
+            "schema_type": model.schema,
+            "log_level": log_level,
+        }
+        if resume is not None:
+            data["resume"] = resume
+
+        if override is not None:
+            data["override"] = override
+
+        if resume_id is not None:
+            data["resume_id"] = resume_id
+
+        if added_tokens is not None:
+            data["added_tokens"] = added_tokens
+
+        return cls.from_dict(data)
 
     @classmethod
     def from_dict(cls, data: dict[str, t.Any]) -> "TrainArgs":
@@ -246,7 +272,6 @@ class TrainArgs:
             "data_id": self.data_id,
             "resume": self.resume,
             "override": self.override,
-            "output_root": self.output_root,
             "lang": self.lang,
             "schema_type": self.schema_type,
             "added_tokens": self.added_tokens,
