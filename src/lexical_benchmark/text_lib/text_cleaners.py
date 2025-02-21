@@ -343,10 +343,17 @@ class AZFilter(TextNormalization):
 
     """
 
-    def __init__(self, *, allow_basic_punctuation: bool = False, clean_diacritics: bool = False) -> None:
+    def __init__(
+        self, *, allow_basic_punctuation: bool = False, clean_diacritics: bool = False, extra_chars: str | None = None
+    ) -> None:
         allowed_chars = string.ascii_lowercase + "-' "
+
         if allow_basic_punctuation:
-            allowed_chars += ".!?"
+            allowed_chars += ".!?,:;"
+
+        if extra_chars is not None:
+            allowed_chars += extra_chars
+
         super().__init__(allowed_chars=allowed_chars)
         self.label = "AlphabeticFilter"
         self.clean_diacritics = clean_diacritics

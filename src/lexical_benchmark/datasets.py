@@ -1,9 +1,11 @@
 import abc
+import itertools
 import os
 import typing as t
 from pathlib import Path
 
 from lexical_benchmark import exc, settings
+from lexical_benchmark.text_lib import text_cleaners
 
 CHILDES_SPEECH_TYPES = t.Literal["adult", "child"]
 DATASET_NAMES = t.Literal["childes", "stela", "child_realistic", "word-cdi"]
@@ -41,6 +43,11 @@ class DatasetConfig(abc.ABC):
         else:
             self.root_dir = settings.PATH.dataset_root / dataset_name
 
+    @staticmethod
+    @abc.abstractmethod
+    def clean_up_rules(lang: str) -> list[text_cleaners.CleanerFN]:
+        """Rules for cleaning Text."""
+
 
 class CHILDESDatasetConfig(DatasetConfig):
     """Configurations for the CHILDES dataset."""
@@ -51,8 +58,54 @@ class CHILDESDatasetConfig(DatasetConfig):
     }
     SPEECH_TYPES: tuple[str, ...] = ("adult", "child")
 
+    @property
+    def original_root(self) -> Path:
+        """Path to source files."""
+        return self.root_dir / "src/original"
+
+    @property
+    def preprocessed_root(self) -> Path:
+        """Path to pre-processed dataset(intermediary step, between source & target dataset)."""
+        return self.root_dir / "src/preprocessed"
+
+    @property
+    def all_accents(self) -> tuple[str, ...]:
+        """A tuple containing all lang_accents."""
+        return tuple(itertools.chain(*self.LANG_ACCENT.values()))
+
     def __init__(self) -> None:
         super().__init__(dataset_name="childes")
+
+    def id2cha(self, lang_accent: str, item_id: str) -> Path:
+        """Get original CHA file from a given ID."""
+        if lang_accent not in self.all_accents:
+            raise exc.UnknownDatasetLangError(lang=lang_accent)
+
+        id_parts = tuple(item_id.split("_"))
+        location = self.original_root / lang_accent
+        if not location.is_dir():
+            raise exc.UnknownDatasetLangError(lang=lang_accent)
+
+        location: Path = location.extend(id_parts).with_suffix(".cha")
+        if location.is_file():
+            raise exc.ItemNotFoundInDatasetError(item_id)
+        return location
+
+    @staticmethod
+    def clean_up_rules(lang: str) -> list[text_cleaners.CleanerFN]:  # noqa: ARG004
+        """Rules for cleaning Text."""
+        from lexical_benchmark import _childes_cleanup_rules
+
+        return {
+            "child": _childes_cleanup_rules.cleaning_child_speech_rules,
+            "adult": _childes_cleanup_rules.cleaning_adult_speech_rules,
+        }
+
+    def id_list(self, lang_accent: str) -> t.Iterator[tuple[str, ...]]:
+        """Return the raw ID list."""
+        items = (self.root_dir / "metadata" / f"ids_{lang_accent}.txt").safe_readlines()
+        for i in items:
+            yield i.split(",")
 
 
 class ChildRealisticDatasetConfig(DatasetConfig):
@@ -63,6 +116,22 @@ class ChildRealisticDatasetConfig(DatasetConfig):
 
     def __init__(self) -> None:
         super().__init__(dataset_name="child_realistic")
+
+    @staticmethod
+    def clean_up_rules(lang: str) -> list[text_cleaners.CleanerFN]:
+        """Rules for cleaning Text."""
+        return [
+            text_cleaners.IllustrationRemoval(),  # Removes Illustration Tagging
+            text_cleaners.URLRemover(),  # Remove URLs
+            text_cleaners.SpecialCharacterTranscriptions(lang=lang, keep=True),
+            text_cleaners.QuotationCleaner(),  # Clean quotes
+            text_cleaners.NumberFixer(keep_as_text=True),  # Convert Numbers into text
+            text_cleaners.RomanNumerals(),  # Remove Roman Numerals
+            text_cleaners.AZFilter(
+                allow_basic_punctuation=True, clean_diacritics=True
+            ),  # Removes any special character
+            text_cleaners.PrefixSuffixFixer(stem="'"),  # Remove prefix or suffix char(')
+        ]
 
 
 class STELADatasetConfig(DatasetConfig):
@@ -99,19 +168,19 @@ class STELADatasetConfig(DatasetConfig):
         return tuple([d.name for d in section_dir.iterdir()])
 
     @staticmethod
-    def clean_up_rules(lang: str) -> list[text_cleaning.CleanerFN]:
+    def clean_up_rules(lang: str) -> list[text_cleaners.CleanerFN]:
         """Rules for cleaning Text."""
         return [
-            text_cleaning.IllustrationRemoval(),  # Removes Illustration Tagging
-            text_cleaning.URLRemover(),  # Remove URLs
-            text_cleaning.SpecialCharacterTranscriptions(lang=lang, keep=True),
-            text_cleaning.QuotationCleaner(),  # Clean quotes
-            text_cleaning.NumberFixer(keep_as_text=True),  # Convert Numbers into text
-            text_cleaning.RomanNumerals(),  # Remove Roman Numerals
-            text_cleaning.AZFilter(
+            text_cleaners.IllustrationRemoval(),  # Removes Illustration Tagging
+            text_cleaners.URLRemover(),  # Remove URLs
+            text_cleaners.SpecialCharacterTranscriptions(lang=lang, keep=True),
+            text_cleaners.QuotationCleaner(),  # Clean quotes
+            text_cleaners.NumberFixer(keep_as_text=True),  # Convert Numbers into text
+            text_cleaners.RomanNumerals(),  # Remove Roman Numerals
+            text_cleaners.AZFilter(
                 allow_basic_punctuation=True, clean_diacritics=True
             ),  # Removes any special character
-            text_cleaning.PrefixSuffixFixer(stem="'"),  # Remove prefix or suffix char(')
+            text_cleaners.PrefixSuffixFixer(stem="'"),  # Remove prefix or suffix char(')
         ]
 
 

@@ -1,9 +1,10 @@
 import abc
+import itertools
 import typing as t
 from dataclasses import dataclass
 from pathlib import Path
 
-from lexical_benchmark import datasets
+from lexical_benchmark import datasets, exc
 
 from .definitions import DatasetItemsLoader
 
@@ -13,8 +14,15 @@ class PreprocessedItemsLoader(DatasetItemsLoader):
 
     @classmethod
     @abc.abstractmethod
+    def iter_items(cls, **kwargs) -> t.Iterable["PreprocessedItemsLoader"]:
+        """Iterate over items of the dataset."""
+        ...
+
+    @classmethod
+    @abc.abstractmethod
     def raw2processed_filesmap(cls, lang: str, *, include_meta: bool = True) -> t.Iterable[tuple[Path, Path, Path]]:
         """Filemap used for conversion of Raw -> Processed."""
+        ...
 
 
 @dataclass
@@ -95,6 +103,86 @@ class STELAPreprocessedItems(PreprocessedItemsLoader):
             meta: <Path>
                 a target file to write processing logs (json format)
         """
+        for item in cls.iter_items(langs=(lang,)):
+            yield (
+                item.raw,
+                item.processed,
+                item.cleanup_meta if include_meta else None,
+            )
+
+
+@dataclass
+class CHILDESPreprocessedItems(PreprocessedItemsLoader):
+    """Loader for accesing Preprocessed items for CHILDES."""
+
+    lang_accent: str
+    item_id: str
+    speech_type: datasets.CHILDES_SPEECH_TYPES
+
+    @property
+    def root_dir(self) -> Path:
+        """Path to root dir for item."""
+        return self._dt_cfg.preprocessed_root / self.lang_accent / self.speech_type
+
+    @property
+    def raw(self) -> Path:
+        """Path to raw text file."""
+        return self.root_dir / f"{self.item_id}.raw"
+
+    @property
+    def processed(self) -> Path:
+        """Path to raw text file."""
+        return self.root_dir / f"{self.item_id}.processed"
+
+    @property
+    def cleanup_meta(self) -> Path:
+        """Path to cleanup-metadata file."""
+        return self.root_dir / f"{self.item_id}.meta.json"
+
+    @property
+    def id_parts(self) -> tuple[str, ...]:
+        """Split ID to individual parts."""
+        return tuple(self.item_id.split("_"))
+
+    def __post_init__(self) -> None:
+        super().__init__("childes")
+
+    @classmethod
+    def iter_items(cls, **kwargs) -> t.Iterable["PreprocessedItemsLoader"]:
+        """Iterate over items of the dataset."""
+        cfg: datasets.CHILDESDatasetConfig = datasets.get_config("childes")
+        langs_list = kwargs.get("langs", cfg.langs)
+        speech_types = kwargs.get("speech_types", cfg.SPEECH_TYPES)
+        if "lang_accents" not in kwargs:
+            lang_accents = [cfg.LANG_ACCENT.get(lang, ()) for lang in langs_list]
+            lang_accents = tuple(itertools.chain(*lang_accents))
+        else:
+            lang_accents = kwargs.get("lang_accents")
+
+        for lg_accent in lang_accents:
+            if lg_accent not in cfg.all_accents:
+                continue
+
+            for item_parts in cfg.id_list(lang_accent=lg_accent):
+                item_id = "_".join(item_parts)
+
+                for spt in speech_types:
+                    if spt not in cfg.SPEECH_TYPES:
+                        continue
+                    # Return invidivual items
+                    yield cls(
+                        lang_accent=lg_accent,
+                        speech_type=spt,
+                        item_id=item_id,
+                    )
+
+    @classmethod
+    def raw2processed_filesmap(cls, lang: str, *, include_meta: bool = True) -> t.Iterable[tuple[Path, Path, Path]]:
+        """Build filesmap for preprocessing of text files."""
+        cfg: datasets.CHILDESDatasetConfig = datasets.get_config("childes")
+        if lang not in cfg.langs:
+            raise exc.UnknownDatasetLangError(lang)
+
         for item in cls.iter_items(langs=(lang,)):
             yield (
                 item.raw,
