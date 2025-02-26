@@ -33,6 +33,11 @@ class DatasetConfig(abc.ABC):
         return self.root_dir / "src/preprocessed"
 
     @property
+    def meta_dir(self) -> Path:
+        """Path to dataset metadata."""
+        return self.root_dir / "metadata"
+
+    @property
     @abc.abstractmethod
     def langs(self) -> tuple[str, ...]:
         """List available languages."""
@@ -69,9 +74,29 @@ class CHILDESDatasetConfig(DatasetConfig):
         return self.root_dir / "src/preprocessed"
 
     @property
+    def by_turn(self) -> Path:
+        """Path to turn-taking formatted data."""
+        return self.root_dir / "by_turn"
+
+    @property
+    def by_dialogs(self) -> Path:
+        """Path to data formatted as_dialog."""
+        return self.root_dir / "by_dialog"
+
+    @property
+    def by_speech_type(self) -> Path:
+        """Path to data formatted by speech-type."""
+        return self.root_dir / "by_type"
+
+    @property
     def all_accents(self) -> tuple[str, ...]:
         """A tuple containing all lang_accents."""
         return tuple(itertools.chain(*self.LANG_ACCENT.values()))
+
+    @property
+    def meta_dir(self) -> Path:
+        """Path to the metadata directory."""
+        return self.root_dir / "metadata"
 
     def __init__(self) -> None:
         super().__init__(dataset_name="childes")
@@ -140,6 +165,30 @@ class STELADatasetConfig(DatasetConfig):
     langs: tuple[str, ...] = ("EN",)
     hour_splits: tuple[str, ...] = "50h", "100h", "200h", "400h", "800h", "1600h", "3200h"
     month_splits: tuple[str, ...] = ("01", "02", "03", "04", "05", "06", "10", "15", "20", "25", "30", "40", "50", "60")
+
+    @property
+    def by_hour(self) -> Path:
+        """Path to by hour split."""
+        return self.root_dir / "by_hour"
+
+    @property
+    def by_chunk(self) -> Path:
+        """Path to by chunk split."""
+        return self.root_dir / "by_chunk"
+
+    @property
+    def source_matched_csv(self) -> Path:
+        """Path to the matched CSV in the InfTrain dataset.
+
+        Notes
+        -----
+            This csv is used to match the audiobook splits from InfTrain,
+            with the book transcriptions.
+            :: InfTrain/metadata/matched2.csv
+            Information about this csv is kind of shady, no documentation.
+
+        """
+        return self.original_root / "metadata" / "matched2.csv"
 
     @property
     def asr_books_path(self) -> Path:

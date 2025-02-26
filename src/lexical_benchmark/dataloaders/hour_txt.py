@@ -1,6 +1,8 @@
 import typing as t
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+
+from lexical_benchmark import datasets
 
 from .definitions import ItemsLoader
 
@@ -52,3 +54,25 @@ class HourTxtItemsLoader(ItemsLoader):
     def word_counts(self) -> Path:
         """Path to Word-Count CSV."""
         return self.root_dir / "word-count.csv"
+
+
+@dataclass
+class StelaHourTxtItemsLoader(HourTxtItemsLoader):
+    """Override of HourTxtItems to add management for books."""
+
+    dt_cfg: DatasetWithTxt = field(default_factory=lambda: datasets.get_config("stela"))
+
+    @property
+    def book_dir(self) -> Path:
+        """Transcription directory."""
+        return self.root_dir / "books"
+
+    @property
+    def book_path(self) -> list[Path]:
+        """Return booklist."""
+        return [file.stem for file in self.book_dir.glob("*.txt")]
+
+    @property
+    def book_names(self) -> list[str]:
+        """Booklist."""
+        return [file.stem for file in self.book_path]

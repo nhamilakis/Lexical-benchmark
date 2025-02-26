@@ -58,7 +58,7 @@ class DatasetCleaner:
 
             # Save section logs
             logs = text_cleaners.WordLogger.dumps_logs()
-            if save_logs:
+            if save_logs and logfile:
                 logfile.dump_json(logs)
 
     @classmethod

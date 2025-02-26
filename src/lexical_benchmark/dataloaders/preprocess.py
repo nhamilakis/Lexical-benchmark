@@ -36,27 +36,34 @@ class STELAPreprocessedItems(PreprocessedItemsLoader):
     @property
     def root_dir(self) -> Path:
         """Chunk root directory."""
-        return self._dt_cfg.preprocessed_root / self.lang / self.hour_split / self.chunk
+        return self._dt_cfg.preprocessed_root / "by_hour" / self.lang / self.hour_split / self.chunk
 
     @property
-    def raw(self) -> Path:
+    def book_dir(self) -> Path:
+        """Path to book transcriptions."""
+        return self.root_dir / "books"
+
+    @property
+    def raw_books(self) -> list[Path]:
         """Path to raw file."""
-        return self.root_dir / "transcription.raw"
+        return list(self.book_dir.glob("*.raw"))
 
     @property
-    def processed(self) -> Path:
-        """Path to preprocessed file."""
-        return self.root_dir / "transcription.preprocessed"
-
-    @property
-    def cleanup_meta(self) -> Path:
+    def cleanup_meta(self) -> list[Path]:
         """Path to cleanup-metadata file."""
-        return self.root_dir / "transcription.meta.json"
+        return list(self.book_dir.glob("*.meta.json"))
 
     @property
-    def book_list(self) -> Path:
+    def book_list(self) -> list[str]:
         """Path to booklist of current chunk."""
-        return self.root_dir / "books.txt"
+        return [file.name for file in self.raw_books]
+
+    def get_raw_transcript(self) -> list[str]:
+        """Load raw transcriptions."""
+        txt_lines = []
+        for book_path in self.raw_books:
+            txt_lines.extend(book_path.safe_readlines())
+        return txt_lines
 
     def __post_init__(self) -> None:
         super().__init__("stela")
@@ -103,12 +110,16 @@ class STELAPreprocessedItems(PreprocessedItemsLoader):
             meta: <Path>
                 a target file to write processing logs (json format)
         """
+        cfg: datasets.STELADatasetConfig = datasets.get_config("stela")
         for item in cls.iter_items(langs=(lang,)):
-            yield (
-                item.raw,
-                item.processed,
-                item.cleanup_meta if include_meta else None,
-            )
+            equivalent_chunk = cfg.by_hour / item.lang / item.hour_split / item.chunk / "books"
+            for book_path in item.raw_books:
+                clean_path = item.book_dir / f"{book_path.stem}.meta.json"
+                yield (
+                    book_path,
+                    equivalent_chunk / book_path.with_suffix(".txt").name,
+                    clean_path if include_meta else None,
+                )
 
 
 @dataclass
@@ -148,7 +159,7 @@ class CHILDESPreprocessedItems(PreprocessedItemsLoader):
         super().__init__("childes")
 
     @classmethod
-    def iter_items(cls, **kwargs) -> t.Iterable["PreprocessedItemsLoader"]:
+    def iter_items(cls, **kwargs) -> t.Iterable["CHILDESPreprocessedItems"]:
         """Iterate over items of the dataset."""
         cfg: datasets.CHILDESDatasetConfig = datasets.get_config("childes")
         langs_list = kwargs.get("langs", cfg.langs)

@@ -1,0 +1,181 @@
+import itertools
+import json
+import typing as t
+from dataclasses import dataclass
+from pathlib import Path
+
+try:
+    import polars as pl
+except ImportError:
+    import pandas as pd
+
+    pl = None
+
+from lexical_benchmark import datasets
+
+DialogFormatType = list[tuple[str, str]]
+
+
+@dataclass
+class CHILDESTextLoader:
+    """Loader for clean txt items in the CHILDES dataset."""
+
+    lang_accent: str
+    item_id: str
+    speech_type: datasets.CHILDES_SPEECH_TYPES
+
+    @property
+    def root_dir(self) -> Path:
+        """Root directory of current sub-set."""
+        return self.dt_cfg.root_dir / self.speech_type / self.lang_accent
+
+    @property
+    def text(self) -> Path:
+        """Path to the text of the current item."""
+        return self.root_dir / f"{self.item_id}.txt"
+
+    def __post_init__(self) -> None:
+        self.dt_cfg = datasets.get_config("childes")
+
+
+@dataclass
+class CHILDESDialogLoader:
+    """Loader for Dialog formatted data."""
+
+    lang_accent: str
+    item_id: str
+
+    @property
+    def root_dir(self) -> Path:
+        """Current item root dir."""
+        return self.dt_cfg.by_dialogs / self.lang_accent
+
+    @property
+    def dialog_file(self) -> Path:
+        """Path to dialog file (JSON format)."""
+        return self.root_dir / f"{self.item_id}.json"
+
+    def __post_init__(self) -> None:
+        self.dt_cfg: datasets.CHILDESDatasetConfig = datasets.get_config("childes")
+
+    @classmethod
+    def iter_items(cls, **kwargs) -> t.Iterable["CHILDESDialogLoader"]:
+        """Iterator over dialog items."""
+        cfg: datasets.CHILDESDatasetConfig = datasets.get_config("childes")
+        langs_list = kwargs.get("langs", cfg.langs)
+        if "lang_accents" not in kwargs:
+            lang_accents = [cfg.LANG_ACCENT.get(lang, ()) for lang in langs_list]
+            lang_accents = tuple(itertools.chain(*lang_accents))
+        else:
+            lang_accents = kwargs.get("lang_accents")
+
+        for lg_accent in lang_accents:
+            if lg_accent not in cfg.all_accents:
+                continue
+
+            for item_parts in cfg.id_list(lang_accent=lg_accent):
+                item_id = "_".join(item_parts)
+
+                # Return invidivual items
+                yield cls(
+                    lang_accent=lg_accent,
+                    item_id=item_id,
+                )
+
+    @classmethod
+    def item_dialogs(cls, **kwargs) -> t.Iterable[tuple["CHILDESDialogLoader", DialogFormatType]]:
+        """Iterator that load dialogs."""
+        for item in cls.iter_items(**kwargs):
+            with item.dialog_file.open() as fh:
+                data = json.load(fh)
+            yield (item, data)
+
+
+@dataclass
+class TurnTakingCSVData:
+    """Struct containing turn-taking format."""
+
+    adult_label: str
+    adult: t.Literal["<EMPTY>"] | str  # noqa: PYI051
+    child: t.Literal["<EMPTY>"] | str  # noqa: PYI051
+    COLUMNS: t.ClassVar[tuple[str, ...]] = ("label", "adult_speech", "child_speech")
+
+    def as_row(self) -> tuple[str, str, str]:
+        """Row used to build turn-take data as csv."""
+        return self.adult_label, self.adult, self.child
+
+
+@dataclass
+class TurnTakeDataLoader:
+    """Representation of turn-taking format."""
+
+    lang_accent: str
+    file_id: str
+
+    @property
+    def root_dir(self) -> Path:
+        """Location of the current root dir."""
+        return self.dt_cfg.by_turn / self.lang_accent
+
+    @property
+    def csv_path(self) -> Path:
+        """Path to the current set data."""
+        return self.root_dir / f"{self.file_id}.csv"
+
+    def __post_init__(self) -> None:
+        self.dt_cfg: datasets.CHILDESDatasetConfig = datasets.get_config("childes")
+
+    if pl:
+
+        def load_df(self) -> "pl.DataFrame":
+            """Load as dataframe."""
+            return pl.read_csv(self.csv_path)
+    else:
+
+        def load_df(self) -> pd.DataFrame:
+            """Load as dataframe."""
+            return pd.read_csv(self.csv_path)
+
+    def load(self) -> list[TurnTakingCSVData]:
+        """Load data from CSV."""
+        df = self.load_df()
+
+        # Get field names from the dataclass
+        expected_columns = set(TurnTakingCSVData.COLUMNS)
+        found_columns = set(df.columns)
+        if not expected_columns.issubset(found_columns):
+            missing = expected_columns - found_columns
+            raise ValueError(f"Missing columns in CSV: {missing}")
+
+        # Only select columns that are in the dataclass
+        df_filtered = df.select([col for col in df.columns if col in expected_columns])
+        return [TurnTakingCSVData(**row) for row in df_filtered.to_dicts()]
+
+    def save(self, rows: list[TurnTakingCSVData]) -> None:
+        """Save a list of rows into the csv form."""
+        df = pl.DataFrame(rows, schema=TurnTakingCSVData.COLUMNS)
+        df.write_csv(self.csv_path, include_header=True)
+
+    @classmethod
+    def iter_items(cls, **kwargs) -> t.Iterable["TurnTakeDataLoader"]:
+        """Iterate over all by_turn items."""
+        cfg: datasets.CHILDESDatasetConfig = datasets.get_config("childes")
+        langs_list = kwargs.get("langs", cfg.langs)
+        if "lang_accents" not in kwargs:
+            lang_accents = [cfg.LANG_ACCENT.get(lang, ()) for lang in langs_list]
+            lang_accents = tuple(itertools.chain(*lang_accents))
+        else:
+            lang_accents = kwargs.get("lang_accents")
+
+        for lg_accent in lang_accents:
+            if lg_accent not in cfg.all_accents:
+                continue
+
+            for item_parts in cfg.id_list(lang_accent=lg_accent):
+                item_id = "_".join(item_parts)
+
+                # Return invidivual items
+                yield cls(
+                    lang_accent=lg_accent,
+                    item_id=item_id,
+                )

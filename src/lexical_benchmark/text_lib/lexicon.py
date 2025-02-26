@@ -15,7 +15,7 @@ import warnings
 from pathlib import Path
 
 from lexical_benchmark import settings
-from lexical_benchmark.datasets import childes
+from lexical_benchmark.build_preprocess.childes import CHILDESExtrasLexicon
 
 
 class Lexicon:
@@ -72,7 +72,7 @@ class DictionairyCleaner:
         self.lang = lang
         if childes_extra_id:
             try:
-                self.childes_lexique: childes.CHILDESExtrasLexicon | None = childes.CHILDESExtrasLexicon.from_cache(
+                self.childes_lexique: CHILDESExtrasLexicon | None = CHILDESExtrasLexicon.from_cache(
                     hash_id=childes_extra_id,
                     childes_dataset=None,
                 )
