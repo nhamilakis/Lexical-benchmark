@@ -1,4 +1,5 @@
 """Tools to collect and use transcriptions from the Geenration dataset."""
+
 from pathlib import Path
 
 import pandas as pd
@@ -37,12 +38,14 @@ class GenerationMerger:
                             gen = gen.assign(**info_dict)
                             gen_all = pd.concat([gen_all, gen])
 
-                            if month.name == '24' and self.hour_per_year == 1000:    # note here we hard_coded the generatin!
+                            if (
+                                month.name == "24" and self.hour_per_year == 1000
+                            ):  # note here we hard_coded the generatin!
                                 print("Duplicating the generation from month 24")
                                 gen = pd.read_csv(gen_path).loc[:, "month":]
                                 # remove the code that is higher than 24 (included)
                                 print(f"before removing the additional rows {gen.shape[0]}")
-                                gen = gen[gen['month']<24]
+                                gen = gen[gen["month"] < 24]
                                 print(f"after removing the additional rows {gen.shape[0]}")
 
                                 info_dict = {"dataset": dataset.name, "chunk": "01", "model_type": model.name}
@@ -50,11 +53,10 @@ class GenerationMerger:
                                 gen_all = pd.concat([gen_all, gen])
 
         if not gen_all.empty:
-            filename_prefix, filename_suffix = self.filename.split('.')[0], self.filename.split('.')[1]
+            filename_prefix, filename_suffix = self.filename.split(".")[0], self.filename.split(".")[1]
             out_path = self.gen_dir / f"{filename_prefix}_hour_per_year.{filename_suffix}"
             gen_all.to_csv(out_path)
         return gen_all, info_dict
-
 
     def save_grouped_files(self, df: pd.DataFrame, info_dict: dict) -> None:
         """Save the monthly gen."""
@@ -193,7 +195,7 @@ class CHILDESMonth:
         for n in range(meta_df.shape[0]):
             file = meta_df["file_id"].iloc[n]
             try:
-                with open(text_dir / f"{file}.txt", "r") as f:
+                with open(text_dir / f"{file}.txt") as f:
                     text = [line.strip() for line in f.readlines() if line.strip()]
                 if text:
                     text_df = pd.DataFrame(text, columns=["text"])

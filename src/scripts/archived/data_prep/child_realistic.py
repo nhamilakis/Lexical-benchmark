@@ -13,15 +13,14 @@ from lexical_benchmark.utils import slurm_utils
 class STELACleanArgs(Tap):
     """CMD args for ChildRealistic Cleanup PIPELINE."""
 
-    #TODO: replace it with the root dir
+    # TODO: replace it with the root dir
     location: str = "/scratch1/projects/lexical-benchmark/v2/datasets/ChildRealistic/"
     extras_id: str | None = None  # CHILDES Extra dict
     save_args: bool = True  # Save arguments
     skip_cleaning: bool = False  # Skip Dataset Cleaning
     skip_word_cleaning: bool = True  # Skip Dataset Word Cleaning
-    skip_word_frequencies: bool = True # Skip Extraction of Word Frequencies
+    skip_word_frequencies: bool = True  # Skip Extraction of Word Frequencies
     lang: str = "EN"
-
 
 
 ## Arguments setup
@@ -33,11 +32,9 @@ else:
     args = args_loader.parse_args()
 
 
-
-
 dataset = child_realistic.ChildRealDataset(root_dir=Path(args.location))
 prog_file = Path.cwd() / "stela.progress"
-print('Dataset loaded')
+print("Dataset loaded")
 
 
 if not args.skip_cleaning:
@@ -46,10 +43,10 @@ if not args.skip_cleaning:
     progress = slurm_utils.ProgressTask(task_name="stela_clean", target_file=prog_file)
     files_iter = progress.iter_progress(dataset.raw2clean_filesmap())
     dataset_utils.DatasetCleaner.cleanup_files(
-        filemap=files_iter, ruleset=dataset.clean_up_rules('adult'), save_logs=True
+        filemap=files_iter, ruleset=dataset.clean_up_rules("adult"), save_logs=True
     )
 
-    print('Dataset cleaned')
+    print("Dataset cleaned")
     # Build extras dictionairy from tags;
     # TODO: note here we need to verify whether it is still necessary
     dataset = childes.CHILDESDataset()
@@ -63,12 +60,11 @@ else:
     print("Skipping Text Cleaning...", flush=True)
 
 
-
 # TODO: update other parts
 if not args.skip_word_cleaning:
     # Load full dictionairy
     childes_word_cleaner = dataset_utils.DictionairyCleaner(lang="EN", childes_extra_id=args.extras_id)
-    
+
     progress = slurm_utils.ProgressTask(task_name="childes_word_clean", update_interval=30, target_file=prog_file)
     with progress.parallel_progress("ADULT"):
         dataset_utils.DatasetCleaner.word_validate_files(
@@ -121,5 +117,3 @@ if not args.skip_word_frequencies:
     progress.complete()
 else:
     print("Skipping Word-Frequency build...")
-
-

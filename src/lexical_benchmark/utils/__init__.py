@@ -16,5 +16,5 @@ __all__ = [
     "download_file",
     "split_df_col",
     "str_to_bool",
-    "timed_status"
+    "timed_status",
 ]

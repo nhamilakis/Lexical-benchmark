@@ -15,7 +15,7 @@ filename = "transcription.txt"
 data_all = []
 for file in source_dir.iterdir():
     if file.name.endswith(f"{file_mode}.preprocessed"):
-        with open(file, "r") as f:
+        with open(file) as f:
             print(file)
             data = f.readlines()
             data_all.extend(data)

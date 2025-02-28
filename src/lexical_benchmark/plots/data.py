@@ -8,6 +8,7 @@ import pandas as pd
 DataFrameType = pd.DataFrame
 PathType = Path | str
 
+
 class DataLoader:
     """Unified data loading and preprocessing functionality."""
 
@@ -21,7 +22,7 @@ class DataLoader:
         return df.dropna()
 
     @staticmethod
-    def load_df(df: DataFrameType, metric: str,temp: float | None = None) -> DataFrameType:
+    def load_df(df: DataFrameType, metric: str, temp: float | None = None) -> DataFrameType:
         """Load and aggregate data based on metric while handling duplicates."""
         df = df.copy()
         # Filter the given temperature
@@ -36,14 +37,24 @@ class DataLoader:
             df[metric] = df[metric].fillna(method="ffill")
             df = (
                 df.groupby(["condition", metric])
-                .agg({"dataset": "first", "model_type": "first", "temp": "first", "word_num": "mean", "chunk": "first", "month": "last"})
+                .agg(
+                    {
+                        "dataset": "first",
+                        "model_type": "first",
+                        "temp": "first",
+                        "word_num": "mean",
+                        "chunk": "first",
+                        "month": "last",
+                    }
+                )
                 .reset_index()
             )
         return df
 
-
     @staticmethod
-    def calculate_statistics(df: DataFrameType, group_header: str, x_header: str, y_header: str | None = None) -> DataFrameType:
+    def calculate_statistics(
+        df: DataFrameType, group_header: str, x_header: str, y_header: str | None = None
+    ) -> DataFrameType:
         """Calculate mean, standard deviation, and confidence intervals."""
         df = df.copy()
         if y_header:

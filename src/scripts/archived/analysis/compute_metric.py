@@ -72,7 +72,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-
 class MetricsProcessor:
     """Compute and manage metrics for both model-generated and human data."""
 
@@ -102,11 +101,11 @@ class MetricsProcessor:
     def _load_word_est_dict(self) -> dict[int, float]:
         """Load and return the word estimation dictionary."""
         df_est = pd.read_csv(self.paths["word_est_dir"])
-        word_est_dict = dict(zip(df_est["month"], df_est["child_month_est"]))
+        word_est_dict = dict(zip(df_est["month"], df_est["child_month_est"], strict=False))
         print(f"Monthly production estimation loaded {word_est_dict}")
         return word_est_dict
 
-    def load_CDI_words(self,dataset: str) -> tuple[list[str], list[list[str]], dict[str, int]]:
+    def load_CDI_words(self, dataset: str) -> tuple[list[str], list[list[str]], dict[str, int]]:
         """Load CDI words for different datasets."""
         if self.CDI_enabled:
             CDIdataset = WordStatsDataset(sampling_ratio=self.sampling_ratio)
@@ -495,7 +494,7 @@ class MetricsProcessor:
             CDIdataset = WordStatsDataset(sampling_ratio=self.sampling_ratio)
             output_dir = CDIdataset.matched_root
         else:
-            output_dir = self.paths["metric_dir"] 
+            output_dir = self.paths["metric_dir"]
         output_path = output_dir / f"metric_{self.args.hour_per_year}_{self.args.agg_months}_{self.args.chunk_size}.csv"
         self.score_all.to_csv(output_path)
         print(f"Saving the metric to {output_path}")

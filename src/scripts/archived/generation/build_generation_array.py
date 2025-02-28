@@ -21,16 +21,17 @@ DO_NOT_RUN = {
     "ChildRealistic/by_month/EN/15/00/trans",
     "ChildRealistic/by_month/EN/15/01/trans",
     "ChildRealistic/by_month/EN/25/00/trans",
-    "ChildRealistic/by_month/EN/25/01/trans"
+    "ChildRealistic/by_month/EN/25/01/trans",
 }
+
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Get array script for generation")
-    parser.add_argument("-g","--gen-path", type=str, default="gen/merged", help="Generation directory")
-    parser.add_argument("-m","--model-path", type=str, default="models", help="Model directory")
-    parser.add_argument("-o","--output-path", type=str, default="generation-args.index", help="Output file path")
-    parser.add_argument("-e","--hour-per-year", type=int, default=1000, help="Yearly exposure hours")
+    parser.add_argument("-g", "--gen-path", type=str, default="gen/merged", help="Generation directory")
+    parser.add_argument("-m", "--model-path", type=str, default="models", help="Model directory")
+    parser.add_argument("-o", "--output-path", type=str, default="generation-args.index", help="Output file path")
+    parser.add_argument("-e", "--hour-per-year", type=int, default=1000, help="Yearly exposure hours")
     parser.add_argument("--override", action="store_true", help="Override previous generation")
     parser.add_argument(
         "--target_months", type=int, nargs="+", default=[6, 12, 18, 24, 30, 36], help="Target months for generation"
@@ -38,7 +39,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max_num", type=int, default=2, help="Max chunks per month")
     parser.add_argument("--lang", type=str, default="EN", help="Language to test")
     return parser.parse_args()
-
 
 
 def get_chunk_number(chunk_dir: Path) -> int:
@@ -60,16 +60,38 @@ def has_model_been_trained(model_root: Path, dataset: str, lang: str, month: str
     return (model_root / dataset / "by_month" / lang / month / chunk / model_type / "training_args.bin").is_file()
 
 
-def has_generation(gen_root: Path, dataset: str, lang: str, month: str, chunk: str, model_type: str, hour_per_year: str) -> bool:
+def has_generation(
+    gen_root: Path, dataset: str, lang: str, month: str, chunk: str, model_type: str, hour_per_year: str
+) -> bool:
     """Check if model has been generated."""
-    return (gen_root / dataset / "by_month" / lang / month / chunk / model_type / f"{hour_per_year}_hour_per_year.csv").is_file()
+    return (
+        gen_root / dataset / "by_month" / lang / month / chunk / model_type / f"{hour_per_year}_hour_per_year.csv"
+    ).is_file()
 
-def has_intermidiate(gen_root: Path, dataset: str, lang: str, month: str, chunk: str, model_type: str, hour_per_year: str) -> bool:
-    return (gen_root / dataset / "by_month" / lang / month / chunk / model_type / f"{hour_per_year}_hour_per_year.intermediate.csv").is_file()
+
+def has_intermidiate(
+    gen_root: Path, dataset: str, lang: str, month: str, chunk: str, model_type: str, hour_per_year: str
+) -> bool:
+    return (
+        gen_root
+        / dataset
+        / "by_month"
+        / lang
+        / month
+        / chunk
+        / model_type
+        / f"{hour_per_year}_hour_per_year.intermediate.csv"
+    ).is_file()
 
 
 def collect_generation_paths(
-    root_model_dir: Path, gen_root: Path, target_months: list[int], hour_per_year: int, lang: str, max_num: int, override: bool
+    root_model_dir: Path,
+    gen_root: Path,
+    target_months: list[int],
+    hour_per_year: int,
+    lang: str,
+    max_num: int,
+    override: bool,
 ) -> tuple[list[Path], list[Path]]:
     """Collect paths for model generation."""
     data_dirs: list[Path] = []
@@ -106,16 +128,24 @@ def collect_generation_paths(
                     current_model = model_dir.name
 
                     # Check if model is trained
-                    if not has_model_been_trained(root_model_dir, dataset_name, lang, current_month, current_chunk, current_model):
+                    if not has_model_been_trained(
+                        root_model_dir, dataset_name, lang, current_month, current_chunk, current_model
+                    ):
                         print(f"Skip untrained model: {model_dir}")
                         continue
 
                     # Check if generation needed
-                    has_gen = has_generation(gen_root, dataset_name, lang, current_month, current_chunk, current_model, hour_per_year)
-                    has_inter = has_intermidiate(gen_root, dataset_name, lang, current_month, current_chunk, current_model, hour_per_year)
+                    has_gen = has_generation(
+                        gen_root, dataset_name, lang, current_month, current_chunk, current_model, hour_per_year
+                    )
+                    has_inter = has_intermidiate(
+                        gen_root, dataset_name, lang, current_month, current_chunk, current_model, hour_per_year
+                    )
 
                     if (not has_inter and not has_gen) or override:
-                        arg_path = Path(dataset_name) / "by_month" / lang / current_month / current_chunk /current_model
+                        arg_path = (
+                            Path(dataset_name) / "by_month" / lang / current_month / current_chunk / current_model
+                        )
 
                         if str(arg_path) in DO_NOT_RUN:
                             print(f"Skipping DO NOT RUN {arg_path} !")
@@ -123,7 +153,9 @@ def collect_generation_paths(
                             data_dirs.append(arg_path)
                             model_dirs.append(arg_path)
                     else:
-                        print(f"Generation exists: {Path(dataset_name) / 'by_month' / lang / current_month / current_chunk /current_model}")
+                        print(
+                            f"Generation exists: {Path(dataset_name) / 'by_month' / lang / current_month / current_chunk / current_model}"
+                        )
 
     return data_dirs, model_dirs
 

@@ -43,7 +43,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hour_per_year", default=1000, type=int, help="Estimated yearly exposure hours")
     parser.add_argument("--seed", type=int, default=42, help="random seed")
     parser.add_argument("--added_tokens", default=["'", "|"], help="A list of added special tokens")
-    parser.add_argument("--use_vllm",  action="store_true", help="if true, apply vllm for transformer model")
+    parser.add_argument("--use_vllm", action="store_true", help="if true, apply vllm for transformer model")
     parser.add_argument("--save_interval", default=1024, type=int, help="The number of rows to save")
     parser.add_argument("--resume", action="store_true", help="if true, resume from intermediate generation")
     parser.add_argument("--override", action="store_true", help="if true, erase previous generation and replace it.")
@@ -64,7 +64,7 @@ def main(args) -> None:
     try:
         # convert the chunk_num to month
         chunk_num = int(Path(args.model_path).parents[1].name)
-        month = settings.chunk2month(chunk_num,args.hour_per_year)
+        month = settings.chunk2month(chunk_num, args.hour_per_year)
     except ValueError as e:
         raise ValueError(f"Parent folder of {args.generation_path} does not contain month info!") from e
     print(f"{month=}")
@@ -96,11 +96,7 @@ def main(args) -> None:
         logger.info("Debug mode: using first 20 rows only")
 
     # Create generator
-    generator = train_lib.generation.TextGenerator(
-        model_path=args.model_path,
-        model_type=model_type,
-        use_vllm=use_vllm
-    )
+    generator = train_lib.generation.TextGenerator(model_path=args.model_path, model_type=model_type, use_vllm=use_vllm)
 
     # Add special tokens
     if len(args.added_tokens) > 0:
@@ -117,34 +113,21 @@ def main(args) -> None:
 
     # Check resume
     if not args.resume and processor.get_save_file(intermidiate=True, debug=args.debug).is_file() and not args.override:
-        print(
-            "ERROR: current folder has intermiate file but no override or resume flag was passed\n",
-            file=sys.stderr
-        )
+        print("ERROR: current folder has intermiate file but no override or resume flag was passed\n", file=sys.stderr)
         raise ValueError(f"Failed: {processor.get_save_file()}")
 
     # Check target
     if processor.get_save_file(debug=args.debug).is_file() and not args.override:
-        print(
-                "ERROR: current folder target file already exists and no override flag was passed\n",
-                file=sys.stderr
-            )
+        print("ERROR: current folder target file already exists and no override flag was passed\n", file=sys.stderr)
         raise ValueError(f"Failed: {processor.get_save_file()}")
 
-
     # Process data using BatchProcessor
-    result_df = processor.process_dataframe(
-        prompt_df=df,
-        temp_lst=args.temp_lst,
-        resume=args.resume
-    )
+    result_df = processor.process_dataframe(prompt_df=df, temp_lst=args.temp_lst, resume=args.resume)
     # Save results
     if result_df is not None:
         final_path = processor.get_save_file(debug=args.debug)
         result_df.to_csv(final_path)
         logger.info(f"Generation completed. Final results saved to {final_path}")
-
-
 
 
 if __name__ == "__main__":

@@ -140,7 +140,7 @@ class TextGenerator:
                 return None, None
             raise
         except Exception as e:
-            raise RuntimeError(f"vLLM token generation failed: {str(e)}")
+            raise RuntimeError(f"vLLM token generation failed: {e!s}")
 
     def generate_next_token_vanilla(self, input_ids, temperature):
         """Generate next token using vanilla generation."""
@@ -168,7 +168,7 @@ class TextGenerator:
                 return None, None
             raise
         except Exception as e:
-            raise RuntimeError(f"Vanilla token generation failed: {str(e)}")
+            raise RuntimeError(f"Vanilla token generation failed: {e!s}")
 
     def _handle_oom(self):
         """Handle out of memory errors."""
@@ -206,7 +206,6 @@ class TextGenerator:
             return input_ids[:-1]
         return input_ids[:, :1]
 
-    
     def _handle_post_generation(
         self,
         decoded_token: str,
@@ -246,18 +245,17 @@ class TextGenerator:
                     # Still have retries left, signal for retry
                     should_retry = True
                     return gen, "", consecutive_bars, cur_word_len, bar_count, input_ids, should_retry
+                # Exhausted retries, use random token
+                print("Exhausted retries, use random token")
+                random_token_id = random.randint(random_range[0], random_range[1])
+                decoded_token = self.tokenizer.decode([random_token_id])
+                if is_vllm:
+                    input_ids.extend([random_token_id])
                 else:
-                    # Exhausted retries, use random token
-                    print("Exhausted retries, use random token")
-                    random_token_id = random.randint(random_range[0], random_range[1])
-                    decoded_token = self.tokenizer.decode([random_token_id])
-                    if is_vllm:
-                        input_ids.extend([random_token_id])
-                    else:
-                        new_token = torch.tensor([[random_token_id]], device=input_ids.device)
-                        input_ids = torch.cat([input_ids, new_token], dim=1)
-                    consecutive_bars = 0
-                    cur_word_len = 1  # Start counting new word
+                    new_token = torch.tensor([[random_token_id]], device=input_ids.device)
+                    input_ids = torch.cat([input_ids, new_token], dim=1)
+                consecutive_bars = 0
+                cur_word_len = 1  # Start counting new word
         else:
             consecutive_bars = 0
 
@@ -341,24 +339,24 @@ class TextGenerator:
                         retry_count = 0
 
                     except Exception as e:
-                        logging.warning(f"Error during token generation: {str(e)}")
+                        logging.warning(f"Error during token generation: {e!s}")
                         retry_count += 1
                         if retry_count >= max_retries:
-                            raise RuntimeError(f"Maximum retries exceeded: {str(e)}")
+                            raise RuntimeError(f"Maximum retries exceeded: {e!s}")
                         continue
 
                 results[f"unprompted_{temp}"] = gen
             return results
 
         except Exception as e:
-            logging.error(f"Fatal error in generate_text: {str(e)}")
+            logging.exception(f"Fatal error in generate_text: {e!s}")
             self._handle_oom()
-            raise RuntimeError(f"Text generation failed: {str(e)}")
+            raise RuntimeError(f"Text generation failed: {e!s}")
         finally:
             torch.cuda.empty_cache()
             if self.use_vllm and hasattr(self.model, "engine"):
                 self.model.engine.empty_cache()
-    
+
 
 class BatchProcessor:
     """Handles batch processing of text generation."""
@@ -399,7 +397,7 @@ class BatchProcessor:
                 try:
                     results.extend(self._process_subbatch(batch, temp_lst, temp_columns))
                 except Exception as e:
-                    self.logger.error(f"Error in vLLM batch processing: {str(e)}")
+                    self.logger.error(f"Error in vLLM batch processing: {e!s}")
                     empty_results = [pd.Series({col: "" for col in temp_columns})] * len(batch)
                     results.extend(empty_results)
             else:
@@ -425,7 +423,7 @@ class BatchProcessor:
                                 results.extend(sub_results)
 
                         except Exception as e:
-                            self.logger.error(f"Error processing sub-batch on GPU {gpu_idx}: {str(e)}")
+                            self.logger.error(f"Error processing sub-batch on GPU {gpu_idx}: {e!s}")
                             empty_results = [pd.Series({col: "" for col in temp_columns})] * len(sub_batch)
                             results.extend(empty_results)
 
@@ -447,11 +445,11 @@ class BatchProcessor:
                 return result_df
 
             except Exception as e:
-                self.logger.error(f"Error creating result DataFrame: {str(e)}")
+                self.logger.error(f"Error creating result DataFrame: {e!s}")
                 return pd.DataFrame(columns=temp_columns, index=batch.index)
 
         except Exception as e:
-            self.logger.exception(f"Critical error in batch processing: {str(e)}")
+            self.logger.exception(f"Critical error in batch processing: {e!s}")
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
@@ -460,7 +458,7 @@ class BatchProcessor:
                     self.generator.model.module.zero_grad(set_to_none=True)
                 else:
                     self.generator.model.zero_grad(set_to_none=True)
-            raise RuntimeError(f"Batch processing failed: {str(e)}")
+            raise RuntimeError(f"Batch processing failed: {e!s}")
 
         finally:
             if torch.cuda.is_available():
@@ -477,7 +475,7 @@ class BatchProcessor:
                 result = self.generator.generate_text(row["sent_len"], temp_lst)
                 results.append(pd.Series(result))
             except Exception as e:
-                self.logger.error(f"Error processing row on device {device_idx}: {str(e)}")
+                self.logger.error(f"Error processing row on device {device_idx}: {e!s}")
                 # Add empty result for failed row
                 results.append(pd.Series({col: "" for col in temp_columns}))
             finally:
@@ -622,7 +620,7 @@ class LSTMForLanguageModeling(PreTrainedModel):
             )
 
         except Exception as e:
-            logging.error(f"Generation failed: {str(e)}")
+            logging.exception(f"Generation failed: {e!s}")
             torch.cuda.empty_cache()
             raise
 
@@ -645,7 +643,7 @@ class LSTMForLanguageModeling(PreTrainedModel):
                     next_token = torch.argmax(next_token_logits, dim=-1, keepdim=True)
                     generated = torch.cat([generated, next_token], dim=1)
         except Exception as e:
-            logging.error(f"Error in greedy generation: {str(e)}")
+            logging.exception(f"Error in greedy generation: {e!s}")
             raise
 
         return generated
@@ -692,7 +690,7 @@ class LSTMForLanguageModeling(PreTrainedModel):
                     generated = torch.cat([generated, next_token], dim=1)
 
         except Exception as e:
-            logging.error(f"Error in sampling generation: {str(e)}")
+            logging.exception(f"Error in sampling generation: {e!s}")
             raise
 
         return generated

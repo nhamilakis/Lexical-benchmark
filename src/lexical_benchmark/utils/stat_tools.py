@@ -15,14 +15,13 @@ except ImportError:
 
 
 def d_stats(x):
-    """ "descriptive stats for an array of values"""
+    """Descriptive stats for an array of values."""
     stats = {
         "mean": np.mean(x),
         "median": np.median(x),
         "min": np.min(x),
         "max": np.max(x),
         "stdev": np.std(x, ddof=1),
-        #           'count':len(x),
         "first": np.percentile(x, 25),
         "third": np.percentile(x, 75),
     }
@@ -53,7 +52,7 @@ def loss(refstats, teststats):
 
 
 def init_index(N, P):
-    """returns two indexes, one for positives, one for negatives"""
+    """Returns two indexes, one for positives, one for negatives"""
     idx = np.arange(N)
     result_list = [True] * P + [False] * (N - P)
 

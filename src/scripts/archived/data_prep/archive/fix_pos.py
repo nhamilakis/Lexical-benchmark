@@ -8,6 +8,7 @@ from lexical_benchmark.datasets import wordstats
 
 console = Console()
 
+
 def contains_uppercase(text: str) -> bool:
     """Check if string contains at least one uppercase character."""
     return any(char.isupper() for char in text)

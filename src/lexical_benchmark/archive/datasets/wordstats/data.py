@@ -10,6 +10,7 @@ from lexical_benchmark import settings, utils
 
 try:
     import polars as pl
+
     if t.TYPE_CHECKING:
         from polars import DataFrame as pl_DataFrame
 except ImportError:
@@ -30,9 +31,7 @@ class POSTag:
 
     def as_row(self) -> tuple[t.Any, ...]:
         """Convert to dataframe row."""
-        return (
-            self.word, self.count, self.pos, self.pos_count, self.is_ambiguous
-        )
+        return (self.word, self.count, self.pos, self.pos_count, self.is_ambiguous)
 
     @staticmethod
     def df_header() -> tuple[str, ...]:
@@ -61,12 +60,12 @@ class PosMapper:
 
             if len(tag_counter) > 1:
                 most_common1, most_common2 = tag_counter.most_common(2)
-                is_ambiguous=most_common1[1] == most_common2[1]
+                is_ambiguous = most_common1[1] == most_common2[1]
             elif len(tag_counter) == 0:
                 continue
             else:
                 most_common1 = tag_counter.most_common(1)[0]
-                is_ambiguous=False
+                is_ambiguous = False
 
             pos_map[key] = POSTag(
                 word=key,
@@ -104,7 +103,6 @@ class PosMapper:
         return pl.DataFrame(rows, schema=columns, orient="row")
 
 
-
 class WordStatsDataset:
     """Path & accessor mapping for word stats."""
 
@@ -125,15 +123,18 @@ class WordStatsDataset:
     def word_frequencies(self) -> utils.PathNamespace:
         """Word Frequency mapping filenames."""
         return utils.PathNamespace(
-            stela_by_month_60_00=self.root_dir / "word_frequencies" / self.lang  / "stela_bm_60_00.csv",
+            stela_by_month_60_00=self.root_dir / "word_frequencies" / self.lang / "stela_bm_60_00.csv",
             childes_adult=self.root_dir / "word_frequencies" / self.lang / "childes_adult.csv",
-            child_realistic_by_month_60_00=self.root_dir / "word_frequencies" / self.lang / "childrealistic_bm_60_00.csv",
-            cdi_childrealistic=self.root_dir / "word_frequencies" / self.lang /"cdi_ws_na_childlike.csv",
+            child_realistic_by_month_60_00=self.root_dir
+            / "word_frequencies"
+            / self.lang
+            / "childrealistic_bm_60_00.csv",
+            cdi_childrealistic=self.root_dir / "word_frequencies" / self.lang / "cdi_ws_na_childlike.csv",
             cdi_childes=self.root_dir / "word_frequencies" / self.lang / "cdi_ws_na_childes.csv",
         )
 
     @property
-    def matched_root(self)-> Path:
+    def matched_root(self) -> Path:
         """Matched frequencies root directory."""
         return self.root_dir / "matched" / self.lang / str(self.sampling_ratio)
 
@@ -145,7 +146,7 @@ class WordStatsDataset:
             machine_stats=self.matched_root / "stats_stela_cdi.csv",
             human_realistc=self.matched_root / "human_realistic_matched_cdi.csv",
             human_reastic_stats=self.matched_root / "stats_human_realistic_cdi.csv",
-            cdi=self.matched_root / "cdi_childes.csv"
+            cdi=self.matched_root / "cdi_childes.csv",
         )
 
     @property
@@ -166,18 +167,15 @@ class WordStatsDataset:
             child_realistic=self.root_dir / "pos_maps" / "child_realistic_by_month_60_00.csv",
         )
 
-
     @property
     def rejection_rates(self) -> Path:
         """Rejection rates for differrent datasets."""
         return self.root_dir / "rejection_rates.csv"
 
-    def __init__(self, sampling_ratio:int,root_dir: Path = settings.PATH.word_stats, lang: str = "EN") -> None:
+    def __init__(self, sampling_ratio: int, root_dir: Path = settings.PATH.word_stats, lang: str = "EN") -> None:
         self.root_dir = root_dir
         self.lang = lang
-        self.sampling_ratio=sampling_ratio
-
-
+        self.sampling_ratio = sampling_ratio
 
 
 if __name__ == "__main__":

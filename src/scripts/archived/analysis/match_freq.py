@@ -34,7 +34,6 @@ def arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-
 def match_sample(
     dataref: pd.DataFrame,  # "word", "freq"
     datasam: pd.DataFrame,  # "word", "freq"
@@ -81,13 +80,9 @@ def match_sample(
     return pidx, lbest, stat
 
 
-
-def load_stella_60_00(sampling_ratio:int,lang: str = "EN") -> pl.DataFrame:
+def load_stella_60_00(sampling_ratio: int, lang: str = "EN") -> pl.DataFrame:
     """Load Word-Count data for STELA/by_month/60/00."""
-    dataset = wordstats.WordStatsDataset(
-        lang=lang,
-        sampling_ratio=sampling_ratio
-        )
+    dataset = wordstats.WordStatsDataset(lang=lang, sampling_ratio=sampling_ratio)
     wf = pl.read_csv(
         dataset.word_frequencies.stela_by_month_60_00,
         has_header=True,
@@ -97,21 +92,14 @@ def load_stella_60_00(sampling_ratio:int,lang: str = "EN") -> pl.DataFrame:
         has_header=True,
     )
     word_filter = stat_tools.WordFilter(wf)
-    wf = word_filter.filter_words(
-        pos_df=pos_df,
-        content_pos=CONTENT_POS,
-        dataset_name="stela"
-    )
+    wf = word_filter.filter_words(pos_df=pos_df, content_pos=CONTENT_POS, dataset_name="stela")
     total_count = wf["count"].sum()
     return wf.with_columns(((pl.col("count") / pl.lit(total_count)) * pl.lit(1_000_000)).alias("freq"))
 
 
-def load_cdi_childes_data(sampling_ratio:int,lang: str = "EN") -> pl.DataFrame:
+def load_cdi_childes_data(sampling_ratio: int, lang: str = "EN") -> pl.DataFrame:
     """Load the CDI/CHILDES Word-Count-Frequency data."""
-    dataset = wordstats.WordStatsDataset(
-        lang=lang,
-        sampling_ratio=sampling_ratio
-        )
+    dataset = wordstats.WordStatsDataset(lang=lang, sampling_ratio=sampling_ratio)
     wf_all = pl.read_csv(
         dataset.word_frequencies.childes_adult,
         has_header=True,
@@ -125,22 +113,15 @@ def load_cdi_childes_data(sampling_ratio:int,lang: str = "EN") -> pl.DataFrame:
         dataset.pos_view.childes_adult,
         has_header=True,
     )
-    wf = word_filter.filter_words(
-        pos_df=pos_df,
-        content_pos=CONTENT_POS,
-        dataset_name="child"
-    )
+    wf = word_filter.filter_words(pos_df=pos_df, content_pos=CONTENT_POS, dataset_name="child")
     total_count = wf_all["count"].sum()
     # filter freq
     return wf.with_columns(((pl.col("count") / pl.lit(total_count)) * pl.lit(1_000_000)).alias("freq"))
 
 
-def load_childrealistic_60_00_data(sampling_ratio:int,lang: str = "EN") -> pl.DataFrame:
+def load_childrealistic_60_00_data(sampling_ratio: int, lang: str = "EN") -> pl.DataFrame:
     """Load the Childrealistic/EN Word-Count data."""
-    dataset = wordstats.WordStatsDataset(
-        lang=lang,
-        sampling_ratio=sampling_ratio
-        )
+    dataset = wordstats.WordStatsDataset(lang=lang, sampling_ratio=sampling_ratio)
     wf = pl.read_csv(
         dataset.word_frequencies.child_realistic_by_month_60_00,
         has_header=True,
@@ -150,14 +131,9 @@ def load_childrealistic_60_00_data(sampling_ratio:int,lang: str = "EN") -> pl.Da
         dataset.pos_view.child_realistic,
         has_header=True,
     )
-    wf = word_filter.filter_words(
-        pos_df=pos_df,
-        content_pos=CONTENT_POS,
-        dataset_name="child"
-    )
+    wf = word_filter.filter_words(pos_df=pos_df, content_pos=CONTENT_POS, dataset_name="child")
     total_count = wf["count"].sum()
     return wf.with_columns(((pl.col("count") / pl.lit(total_count)) * pl.lit(1_000_000)).alias("freq"))
-
 
 
 def match_sample_wrap(
@@ -178,7 +154,6 @@ def match_sample_wrap(
     return pl.from_pandas(datasam_df), pl.from_pandas(stat)
 
 
-
 def main() -> None:
     """Run the GoldReference loader and write results to a file."""
     args = arguments()
@@ -193,7 +168,6 @@ def main() -> None:
 
     ## Load CDI Word-Count (Childes) & compute frequencies
     cdi_data_childes = load_cdi_childes_data(sampling_ratio=args.sampling_ratio)
-
 
     # MATCHING SAMPLES CDI(CHILDES) - Machine
     with console.status("Matching frequencies [CDI - Machine]..."):
@@ -223,7 +197,9 @@ def main() -> None:
         human_realistic_matched = stat_tools.tag_bins(
             source=human_realistic_matched, bin_frequencies=human_realistic_stats, set_name="machine"
         )
-        cdi_data_childes = stat_tools.tag_bins(source=cdi_data_childes, bin_frequencies=human_realistic_stats, set_name="human")
+        cdi_data_childes = stat_tools.tag_bins(
+            source=cdi_data_childes, bin_frequencies=human_realistic_stats, set_name="human"
+        )
 
     # Save outputs to disk
     if args.test_type == "exp":

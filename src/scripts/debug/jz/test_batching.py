@@ -21,8 +21,8 @@ import pprint
 import random
 import time
 
-import nltk
 import spacy
+
 from lexical_benchmark.datasets import utils as dataset_utils
 
 

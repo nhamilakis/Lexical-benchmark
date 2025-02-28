@@ -114,7 +114,7 @@ class CDIPreparation:
         self.dl_date = df["downloaded"].iloc[0]
         return df.drop(["downloaded"], axis=1)
 
-    def add_POS(
+    def add_pos(
         self,
         df: pd.DataFrame,
         *,
@@ -122,9 +122,6 @@ class CDIPreparation:
     ) -> pd.DataFrame:
         """Add POS tag to the dataframe."""
         # Load POS inference model and inject it into the word_to_pos function
-        # word_to_pos = functools.partial(dataset_utils.word_to_pos, pos_model=self.pos_model_load)
-        # Create a column POS using previous function
-        # df["POS"] = df["word"].apply(word_to_pos)
         # TODO: POS tags need to be derived from CHILDES || Child_Realistic
 
         if do_type_filtering:
@@ -168,7 +165,7 @@ class CDIPreparation:
         # POS
         if generate_pos:
             columns.append("POS")
-            df = self.add_POS(df, do_type_filtering=do_type_filtering)
+            df = self.add_pos(df, do_type_filtering=do_type_filtering)
 
         # Filter polysemous words by annotations from original data
         if filter_categories:

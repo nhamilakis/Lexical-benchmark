@@ -15,18 +15,19 @@ from lexical_benchmark.utils import slurm_utils
 
 slurm_utils.info_header()
 
+
 class POSCleanArgs(Tap):
     """CMD args for POS maps build PIPELINE."""
 
     lang: str = "EN"
     save_args: bool = False  # Save arguments
-    skip_prep_src: bool = False # If True will skip prep
-    skip_build_pos: bool = False # If True will skip pos
+    skip_prep_src: bool = False  # If True will skip prep
+    skip_build_pos: bool = False  # If True will skip pos
     skip_final_merge: bool = False
-    spacy_no_gpu: bool = False # When false will try to use GPU
+    spacy_no_gpu: bool = False  # When false will try to use GPU
     spacy_pos_model: str = "en_core_web_trf"
     spacy_batch_size: int = 2048
-    spacy_parallel: int = 1 # Cannot use parallel when running GPU
+    spacy_parallel: int = 1  # Cannot use parallel when running GPU
     log_level: str
 
     def configure(self) -> None:
@@ -36,9 +37,8 @@ class POSCleanArgs(Tap):
             type=str,
             choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
             default="INFO",
-            help="Set the logging level"
+            help="Set the logging level",
         )
-
 
 
 ## Arguments setup
@@ -87,7 +87,6 @@ if not args.skip_prep_src:
     else:
         logger.info("Skipping CHILDES target already exists.")
 
-
     # Get all text from STELA/EN/50h/**/transcription.preprocess
     if not wd_dataset.source_all_text.stela.is_file():
         logger.info(f"Extracting STELA/EN/50h/**/raw.txt to {wd_dataset.source_all_text.stela}...")
@@ -103,9 +102,7 @@ if not args.skip_prep_src:
         _ = dataset_utils.DatasetCleaner.dump_logs()
         wd_dataset.source_all_text.stela.safe_write_text("\n".join(stela_text))
     else:
-         logger.info("Skipping STELA target already exists.")
-
-
+        logger.info("Skipping STELA target already exists.")
 
     # Get all text from ChildRealistic
     if not wd_dataset.source_all_text.child_realistic.is_file():

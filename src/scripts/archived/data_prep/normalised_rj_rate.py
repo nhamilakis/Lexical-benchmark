@@ -41,7 +41,7 @@ class POSCleanArgs(Tap):
             type=str,
             choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
             default="INFO",
-            help="Set the logging level"
+            help="Set the logging level",
         )
 
         self.add_argument("-p", "--csv_float_precision", type=int)
@@ -74,7 +74,8 @@ def get_word_cleaner(lang: str, *, childes_extended: bool = False) -> dataset_ut
     """Load word cleaning function."""
     if childes_extended and args.childes_extra_cache is not None:
         return dataset_utils.DictionairyWordCleaner(
-            lang=lang, childes_extra_id=args.childes_extra_cache,
+            lang=lang,
+            childes_extra_id=args.childes_extra_cache,
         )
     return dataset_utils.DictionairyWordCleaner(
         lang=lang,
@@ -96,23 +97,28 @@ def childes_wrjr(speech_type: childes.SPEECH_TYPES) -> pl.DataFrame:
             words.extend(file.read_tokenized())
     chunk_list = nrm.chunk_splitter(words, chunk_size=args.chunk_size)
     stats = nrm.clean_chunk_list(
-        chunk_list, chunk_id=f"childes_{speech_type}", dataset_name="CHILDES", filter_fn=clean_fn,
+        chunk_list,
+        chunk_id=f"childes_{speech_type}",
+        dataset_name="CHILDES",
+        filter_fn=clean_fn,
     )
 
     return pl.DataFrame([stats.as_row()], schema=nrm.CleaningStats.column_names(), orient="row")
 
 
-
 def stela_wrjr() -> pl.DataFrame:
     """Compute word-rejection stats for STELA."""
     clean_fn = get_word_cleaner(lang=args.lang, childes_extended=False)
-    dataset = stella.STELATranscriptDataset(root_dir=settings.PATH.stela2) # Use stela2 as that contains various fixes
+    dataset = stella.STELATranscriptDataset(root_dir=settings.PATH.stela2)  # Use stela2 as that contains various fixes
     all_stats_row = []
     for item in dataset.iter_lang(lang=args.lang, by_month=True):
         words = item.transcription.read_tokenized()
         chunk_list = nrm.chunk_splitter(words, chunk_size=args.chunk_size)
         stats = nrm.clean_chunk_list(
-            chunk_list, chunk_id=item.chunk_id, dataset_name="STELA/by_month", filter_fn=clean_fn,
+            chunk_list,
+            chunk_id=item.chunk_id,
+            dataset_name="STELA/by_month",
+            filter_fn=clean_fn,
         )
         all_stats_row.append(stats.as_row())
     # Return as dataframe
@@ -129,7 +135,10 @@ def child_realistic_wrjr() -> pl.DataFrame:
         words = item.transcription.read_tokenized()
         chunk_list = nrm.chunk_splitter(words, chunk_size=args.chunk_size)
         stats = nrm.clean_chunk_list(
-            chunk_list, chunk_id=item.chunk_id, dataset_name="ChildRealistic/by_month", filter_fn=clean_fn,
+            chunk_list,
+            chunk_id=item.chunk_id,
+            dataset_name="ChildRealistic/by_month",
+            filter_fn=clean_fn,
         )
         all_stats_row.append(stats.as_row())
     # Return as dataframe
@@ -171,7 +180,6 @@ else:
     logger.info("Skipping STELA")
 
 
-
 if not args.skip_child_realistic:
     logger.info("Computing Word-Rejection Rates in ChildRealistic data")
     stats_df = child_realistic_wrjr()
@@ -179,6 +187,3 @@ if not args.skip_child_realistic:
     logger.info("Completed Word-Rejection Rates in ChildRealistic/by_month data")
 else:
     logger.info("Skipping ChildRealistic")
-
-
-

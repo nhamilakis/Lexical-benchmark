@@ -78,7 +78,7 @@ def build_train_args(
         for dt in datasets:
             training_items.extend(extract_model_args(dataset_name=dt, model_type=md, lang=lang, schema=schema))
 
-    # TODO apply external filters
+    # TODO: apply external filters
 
     # return as dict
     return {f"{idx}": ta.to_dict() for idx, ta in enumerate(training_items)}

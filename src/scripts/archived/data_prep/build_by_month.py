@@ -9,6 +9,7 @@ source dataset.
 TODO: add argparse and arguments to allow modularity.
 TODO: make it dataset independant.
 """
+
 import logging
 from pathlib import Path
 
@@ -55,11 +56,11 @@ for month in MONTH_CHUNK_NB:
         dev, train = text_lib.split_dev_train(chunk, DEV_PROPORTION)
 
         # Write files
-        dev_file = (current_dir / f"{idx:0{PAD_WIDTH}d}" / "dev.txt")
+        dev_file = current_dir / f"{idx:0{PAD_WIDTH}d}" / "dev.txt"
         logger.debug(f"Writing {len(dev)} lines into {dev_file}")
         dev_file.safe_write_text("\n".join(dev))
 
-        train_file = (current_dir / f"{idx:0{PAD_WIDTH}d}" / "train.txt")
+        train_file = current_dir / f"{idx:0{PAD_WIDTH}d}" / "train.txt"
         logger.debug(f"Writing {len(dev)} lines into {train_file}")
         train_file.safe_write_text("\n".join(train))
 

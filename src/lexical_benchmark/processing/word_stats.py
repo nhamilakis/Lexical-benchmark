@@ -114,19 +114,16 @@ class GroupCleaningStats:
         ]
 
 
-
-
-
-
 @dataclass
 class WordRejectionRates:
     """Word Rejection Rate Compute."""
 
     filter_fn: lexicon.DictionairyCleaner
 
+    def clean_chunk(self, chunk: list[str]) -> ChunkStats:
+        """Clean a chunk."""
+        raise NotImplementedError
 
-    def clean_chunk(chunk: list[str]) -> ChunkStats:
-        
-
-    def compute(self):
-        pass
+    def compute(self) -> GroupCleaningStats:
+        """Compute."""
+        raise NotImplementedError

@@ -53,9 +53,11 @@ class CharacterTokenizer(PreTrainedTokenizer):
         return self.decoder.get(index, self.unk_token)
 
     def convert_tokens_to_string(self, tokens: list[str]) -> str:
+        """Convert tokens to string."""
         return "".join(tokens)
 
-    def decode(self, token_ids, skip_special_tokens=True, **kwargs) -> str:
+    def decode(self, token_ids, *, skip_special_tokens: bool = True, **kwargs) -> str:  # noqa: ARG002
+        """Decode."""
         if isinstance(token_ids, int):
             token_ids = [token_ids]
 
@@ -67,10 +69,14 @@ class CharacterTokenizer(PreTrainedTokenizer):
         return self.convert_tokens_to_string(tokens)
 
     def get_id(self, token: str) -> int:
+        """Get id."""
         return self.vocab.get(token, self.vocab[self.unk_token])
 
 
-def load_char_tokenizer(model_max_length: int = 2048, special_token_lst: list[str] = ["'", "|"]):
+def load_char_tokenizer(
+    model_max_length: int = 2048, special_token_lst: tuple[str, ...] = ("'", "|")
+) -> CharacterTokenizer:
+    """Load character tokenizer."""
     # config and load the tokenizer
     chars = string.ascii_letters
     tokenizer = CharacterTokenizer(chars, model_max_length)

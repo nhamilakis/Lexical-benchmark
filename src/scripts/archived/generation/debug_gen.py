@@ -1,6 +1,7 @@
 import logging
 import string
-from pathlib import  Path
+from pathlib import Path
+
 import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel
@@ -20,7 +21,6 @@ class TextGenerator:
         local_rank: int = -1,
         max_word_len: int = 2,
     ):
-
         self.model_type = model_type
         self.local_rank = local_rank
         self.max_word_len = max_word_len
@@ -88,7 +88,7 @@ class TextGenerator:
                 return None, None
             raise
         except Exception as e:
-            raise RuntimeError(f"Vanilla token generation failed: {str(e)}")
+            raise RuntimeError(f"Vanilla token generation failed: {e!s}")
 
     def _handle_oom(self):
         """Handle out of memory errors."""
@@ -132,14 +132,14 @@ class TextGenerator:
 
                     try:
                         with torch.no_grad():
-                                new_token, outputs = self.generate_next_token_vanilla(input_ids, temp)
-                                if new_token is None:
-                                    retry_count += 1
-                                    if retry_count >= max_retries:
-                                        raise RuntimeError("Maximum retries exceeded for OOM recovery")
-                                    continue
-                                decoded_token = self.tokenizer.decode([new_token])
-                                input_ids = outputs
+                            new_token, outputs = self.generate_next_token_vanilla(input_ids, temp)
+                            if new_token is None:
+                                retry_count += 1
+                                if retry_count >= max_retries:
+                                    raise RuntimeError("Maximum retries exceeded for OOM recovery")
+                                continue
+                            decoded_token = self.tokenizer.decode([new_token])
+                            input_ids = outputs
 
                         # Handle consecutive bars
                         if decoded_token == "|" and gen[-1] == "|":
@@ -151,7 +151,6 @@ class TextGenerator:
                             bar_count += 1
                             cur_word_len = 0
                             print(f"Add word boundary to {gen} with {len(gen)=}")
-
 
                         # Update generation
                         gen += decoded_token
@@ -165,10 +164,10 @@ class TextGenerator:
                         retry_count = 0
 
                     except Exception as e:
-                        logging.warning(f"Error during token generation: {str(e)}")
+                        logging.warning(f"Error during token generation: {e!s}")
                         retry_count += 1
                         if retry_count >= max_retries:
-                            raise RuntimeError(f"Maximum retries exceeded: {str(e)}")
+                            raise RuntimeError(f"Maximum retries exceeded: {e!s}")
                         continue
 
                 results[f"unprompted_{temp}"] = gen
@@ -176,12 +175,13 @@ class TextGenerator:
             return results
 
         except Exception as e:
-            logging.error(f"Fatal error in generate_text: {str(e)}")
+            logging.exception(f"Fatal error in generate_text: {e!s}")
             self._handle_oom()
-            raise RuntimeError(f"Text generation failed: {str(e)}")
+            raise RuntimeError(f"Text generation failed: {e!s}")
 
         finally:
             torch.cuda.empty_cache()
+
 
 MODEL_PATH = Path("/lustre/fswork/projects/rech/hhb/ucx81cx/data/models") / "ChildRealistic/by_month/EN/30/00/trans"
 text_gen = TextGenerator(
@@ -189,5 +189,5 @@ text_gen = TextGenerator(
     max_word_len=50,
 )
 word_num = 2
-temp_lst = [0.3,0.6,1.0,1.5]
+temp_lst = [0.3, 0.6, 1.0, 1.5]
 # text_gen.generate_text()

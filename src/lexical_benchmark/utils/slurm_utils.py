@@ -267,29 +267,29 @@ def info_args(args: argparse.Namespace | tap.Tap, separator: str = "-", width: i
 def save_run(items: dict, *, root_dir: Path | None = None, end: bool = False) -> None:
     """Save run related items as json dict."""
     global START_TIME  # noqa: PLW0603
-    END_TIME = None
+    end_time = None
     if START_TIME is None:
         START_TIME = datetime.now()
     elif START_TIME and end:
-        END_TIME = datetime.now()
+        end_time = datetime.now()
 
-    TOTAL_TIME = None
-    if END_TIME and START_TIME:
-        TOTAL_TIME = END_TIME - START_TIME
+    total_time = None
+    if end_time and START_TIME:
+        total_time = end_time - START_TIME
 
-    JOB_ID = os.environ.get("SLURM_JOB_ID", "-")
+    job_id = os.environ.get("SLURM_JOB_ID", "-")
 
     if root_dir is None:
         root_dir = Path.cwd()
 
     data = {
-        "JOB_ID": JOB_ID,
+        "JOB_ID": job_id,
         "START": START_TIME.isoformat() if START_TIME else None,
-        "END": END_TIME.isoformat() if END_TIME else None,
-        "TOTAL_RUNTIME": humanize.naturaldelta(TOTAL_TIME) if TOTAL_TIME else None,
+        "END": end_time.isoformat() if end_time else None,
+        "TOTAL_RUNTIME": humanize.naturaldelta(total_time) if total_time else None,
         **items,
     }
-    with (root_dir / f"run_{JOB_ID}.json").open("w") as fh:
+    with (root_dir / f"run_{job_id}.json").open("w") as fh:
         try:
             json.dump(data, fh, indent=4)
         except TypeError:

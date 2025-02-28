@@ -42,8 +42,6 @@ class LSTMConfig(PretrainedConfig):
         self.dropout = dropout
 
 
-
-
 class LSTMForLanguageModeling(PreTrainedModel):
     """LSTM-based language model compatible with HuggingFace's interface."""
 
@@ -65,7 +63,7 @@ class LSTMForLanguageModeling(PreTrainedModel):
     def forward(
         self,
         input_ids: torch.LongTensor | None = None,
-        attention_mask: torch.FloatTensor | None = None,
+        attention_mask: torch.FloatTensor | None = None,  # noqa: ARG002
         labels: torch.LongTensor | None = None,
         *,
         return_dict: bool = True,
@@ -90,9 +88,6 @@ class LSTMForLanguageModeling(PreTrainedModel):
                 "logits": logits,
             }
         return (loss, logits)
-
-
-
 
 
 def setup_training_arguments(model_path: Path) -> TrainingArguments:
@@ -123,7 +118,7 @@ def setup_training_arguments(model_path: Path) -> TrainingArguments:
         save_total_limit=20,  # Reduce save total limit
         # Evaluation
         evaluation_strategy="steps",
-        eval_steps=1000,       #TODO: check whether applie in larger month
+        eval_steps=1000,  # TODO: check whether applie in larger month
         # Early stopping settings
         load_best_model_at_end=True,  # Required for early stopping
         metric_for_best_model="eval_loss",  # Monitor eval loss for early stopping
@@ -134,5 +129,3 @@ def setup_training_arguments(model_path: Path) -> TrainingArguments:
         dataloader_num_workers=4,
         disable_tqdm=False,
     )
-
-

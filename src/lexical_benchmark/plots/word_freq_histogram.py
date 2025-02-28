@@ -66,7 +66,7 @@ def plot_frequency_histogram(
     plt.grid(axis="y", linestyle="--", alpha=0.7)
 
     # Create x-tick labels showing the bin ranges
-    tick_labels = [f"{actual_edges[i]:.2f}-{actual_edges[i+1]:.2f}" for i in range(len(actual_edges) - 1)]
+    tick_labels = [f"{actual_edges[i]:.2f}-{actual_edges[i + 1]:.2f}" for i in range(len(actual_edges) - 1)]
     plt.xticks((actual_edges[:-1] + actual_edges[1:]) / 2, tick_labels, rotation=45, ha="right")
 
     # Add bin count annotations

@@ -25,7 +25,7 @@ repository = "https://github.com/Jing-L97/Lexical-benchmark"
 
 
 [project.optional-dependencies]
-dev = ["ruff", "mypy", "ipython", "jupyter", "pytest>=8.3.4",]
+dev = ["ruff", "mypy", "ipython", "jupyter", "pytest>=8.3.4", "pre-commit"]
 # polyglot = ["polyglot", "pyicu", "pycld2", "morfessor"]
 asr = ["openai-whisper"]
 # This requires a cuda>12.1.1 to be available in the current env
@@ -56,6 +56,7 @@ dev = [
     "ipython",
     "jupyter",
     "pytest>=8.3.4",
+    "pre-commit"
 ]
 # polyglot = ["polyglot", "pyicu", "pycld2", "morfessor"]
 asr = ["openai-whisper"]
@@ -124,7 +125,22 @@ addopts = ["--import-mode=importlib", "--ignore=src/scripts", "--ignore=notebook
 [tool.ruff]
 target-version = "py311"
 line-length = 120
-exclude = ["parser.py", "*.pyi"] # Exclude parser.py -> sly does not lint proper
+exclude = [
+    "notebooks",
+    "*ipynb", # Notebooks should be ignored
+    "parser.py",  # Exclude parser.py -> sly does not lint proper
+    "*.pyi", 
+    ".venv", 
+    "src/scripts/archived/",  # ignore archived code
+    "src/lexical_benchmark/archive", # ignore archived code
+    "src/lexical_benchmark/utils/stat_tools.py", # Emmanuel's code get a pass (for now)
+    "src/lexical_benchmark/train_lib", # TODO: refactor this so it doesn't fail
+    "src/lexical_benchmark/stats", # TODO: refactor so it doesn't fail
+    "src/lexical_benchmark/processing/turn_taking.py", # TODO: work-in-progress
+    "src/lexical_benchmark/plots", # TODO: refactor so it doesn't fail
+    "src/lexical_benchmark/metadata", # TODO: this is unfinished work
+] 
+force-exclude = true
 
 
 [tool.ruff.lint]
@@ -149,7 +165,7 @@ ignore = [
     "EM101",   # allow Exceptions to contain literals
     "ANN003",  # allow **kwargs to be without type-hints
     "D107", "D105", # allow __init__  and all python __magic__ functions to be without a docstring
-    "ANN101", "ANN102", "ANN001",  # "self" & "cls" need no typing (rule is Deprecated)
+    "ANN001",  # "self" & "cls" need no typing (rule is Deprecated)
     "T201", "T203",    # allow 'print' & 'pprint' statements
     "FIX002", "TD002", "TD003",  # allow todos + todos without issue + todos without author
     "D104",    # allow scripts not to have docstring on top
@@ -165,11 +181,14 @@ ignore = [
 [tool.ruff.lint.flake8-import-conventions.aliases]
 typing = "t"
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "**/tests/**" = [
     "S101",    # Allow assert in test files
     "ANN201",  # Test functions do not need a return type
     "D103",    # Docstring can be redundant in test functions
+]
+"**/archive/**" = [
+    "ALL"
 ]
 
 [tool.setuptools_scm]

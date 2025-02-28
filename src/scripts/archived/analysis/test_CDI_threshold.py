@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """Compute core metrics from the generation directory."""
+
 import argparse
 from pathlib import Path
 
@@ -29,19 +30,12 @@ def parse_args():
         help="relative path to save metrics",
     )
     parser.add_argument(
-        "--word_est_path",
-        type=str,
-        default="datasets/metric/vocal_month.csv",
-        help="relative path to vocal estimation"
+        "--word_est_path", type=str, default="datasets/metric/vocal_month.csv", help="relative path to vocal estimation"
     )
     parser.add_argument(
-        "--threshold_lst",
-        default=[1,30,40,50,60,70,80,100],
-        type=list,
-        help="threshold to compute CDI scores"
-        )
+        "--threshold_lst", default=[1, 30, 40, 50, 60, 70, 80, 100], type=list, help="threshold to compute CDI scores"
+    )
     return parser.parse_args()
-
 
 
 class MetricsProcessor:
@@ -68,7 +62,7 @@ class MetricsProcessor:
     def _load_word_est_dict(self) -> dict[int, float]:
         """Load and return the word estimation dictionary."""
         df_est = pd.read_csv(self.paths["word_est_dir"])
-        word_est_dict = dict(zip(df_est["month"], df_est["child_month_est"]))
+        word_est_dict = dict(zip(df_est["month"], df_est["child_month_est"], strict=False))
         print(f"Monthly production estimation loaded {word_est_dict}")
         return word_est_dict
 
@@ -83,7 +77,7 @@ class MetricsProcessor:
                 data = CDIdataset.matched_frequencies_exp.cdi.read_csv()
             if dataset == "ChildRealistic":
                 data = CDIdataset.matched_frequencies_exp.human_realistc.read_csv()
-            CDI_words = data['word'].to_list()
+            CDI_words = data["word"].to_list()
             return CDI_words, dict.fromkeys(CDI_words, 0)
         return [], {}
 
@@ -91,14 +85,13 @@ class MetricsProcessor:
         """Load word count estimation for each month."""
         return self.word_est_dict.get(month, 0) if self.CDI_enabled else 0
 
-
     def _compute_monthly_CDI(
         self,
         sent_lst: list[str],
         CDI_words: list[str],
         word_count_est: float,
         previous_words: dict[str, int],
-        threshold_lst: list[int]
+        threshold_lst: list[int],
     ) -> tuple[list[float] | None, dict | None]:
         """Compute monthly CDI scores if enabled."""
         if not self.CDI_enabled:
@@ -118,7 +111,7 @@ class MetricsProcessor:
             for threshold in threshold_lst:
                 cdi_score = calculator.compute_mean_cdi_score(cum_counts, threshold)
                 cdi_scores.append(cdi_score)
-            return cdi_scores, cum_counts,df
+            return cdi_scores, cum_counts, df
         except Exception as e:
             print(f"Error calculating CDI scores: {e}")
             return None, None, None
@@ -130,42 +123,27 @@ class MetricsProcessor:
 
         # Process each month
         for month, gen in gen_grouped:
-            word_dict_manager = WordDictManager(
-                dataset="CHILDES",
-                chunk="00",
-                model_type="human",
-                temp="1.0"
-            )
+            word_dict_manager = WordDictManager(dataset="CHILDES", chunk="00", model_type="human", temp="1.0")
 
             word_count_est = self.load_word_count_est(month)
             previous_words = word_dict_manager.load_word_dict(self.CDI_month_dict)
             sent_lst = gen["text"].fillna("").astype(str).tolist()
 
             # Get CDI scores for all thresholds
-            cdi_scores, cum_counts,df = self._compute_monthly_CDI(
-                sent_lst, 
-                CDI_words, 
-                word_count_est,
-                previous_words,
-                self.threshold_lst
+            cdi_scores, cum_counts, df = self._compute_monthly_CDI(
+                sent_lst, CDI_words, word_count_est, previous_words, self.threshold_lst
             )
 
             if cdi_scores is not None:
                 # Create a row with month and word count
-                row = {
-                    "month": month,
-                    "word_count": gen["sent_len"].sum()
-                }
+                row = {"month": month, "word_count": gen["sent_len"].sum()}
                 # Add threshold scores as separate columns
-                for threshold, score in zip(self.threshold_lst, cdi_scores):
+                for threshold, score in zip(self.threshold_lst, cdi_scores, strict=False):
                     row[f"threshold_{threshold}"] = score
                 scores.append(row)
 
             if cum_counts is not None:
-                self.CDI_month_dict = word_dict_manager.write_word_dict(
-                    cum_counts,
-                    self.CDI_month_dict
-                )
+                self.CDI_month_dict = word_dict_manager.write_word_dict(cum_counts, self.CDI_month_dict)
 
         if not scores:
             return pd.DataFrame()
@@ -173,19 +151,12 @@ class MetricsProcessor:
         # Create DataFrame from list of dictionaries
         score = pd.DataFrame(scores)
         # Add constant columns
-        score = score.assign(
-            dataset="CHILDES",
-            chunk="00",
-            model_type="human",
-            temp="1.0"
-        )
+        score = score.assign(dataset="CHILDES", chunk="00", model_type="human", temp="1.0")
         # Reorder columns
         threshold_cols = [f"threshold_{t}" for t in self.threshold_lst]
         col_order = ["month", "word_count"] + threshold_cols + ["dataset", "chunk", "model_type", "temp"]
         score = score[col_order]
         return score
-
-
 
     def _process_month(
         self, month: Path, dataset: Path, CDI_words: list[str], word_dict: dict, word_count_est: float
@@ -230,7 +201,7 @@ class MetricsProcessor:
             print("Warning: No results to save")
             return
 
-        output_path = self.paths["metric_dir"] / f"metric_CDI_threshold_test.csv"
+        output_path = self.paths["metric_dir"] / "metric_CDI_threshold_test.csv"
         self.score_all.to_csv(output_path, index=False)
         print(f"Saved metrics to {output_path}")
 
@@ -246,6 +217,7 @@ def main() -> None:
     # loop over different thresholds
     computer = MetricsProcessor(args)
     computer.run()
+
 
 if __name__ == "__main__":
     main()

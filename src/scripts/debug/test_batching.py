@@ -15,6 +15,7 @@ import time
 
 import nltk
 import spacy
+
 from lexical_benchmark.datasets import utils as dataset_utils
 
 
@@ -38,7 +39,6 @@ def benchmark_batch_size(words: list[str], nlp: spacy.Language, sizes: list[int]
         dataset_utils.batch_word_to_pos(words, nlp, batch_size=size)
         timings[size] = time.perf_counter() - start
     return timings
-
 
 
 # Run benchmark

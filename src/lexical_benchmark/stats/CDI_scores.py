@@ -18,7 +18,7 @@ class CDITool:
     def _load_word_est_dict(self) -> dict[int, float]:
         """Load and return the word estimation dictionary."""
         df_est = pd.read_csv(self.paths["word_est_dir"])
-        word_est_dict = dict(zip(df_est["month"], df_est["child_month_est"]))
+        word_est_dict = dict(zip(df_est["month"], df_est["child_month_est"], strict=False))
         print(f"Monthly production estimation loaded {word_est_dict}")
         return word_est_dict
 
@@ -33,7 +33,7 @@ class CDITool:
                 data = CDIdataset.matched_frequencies_exp.cdi.read_csv()
             if dataset == "ChildRealistic":
                 data = CDIdataset.matched_frequencies_exp.human_realistc.read_csv()
-            CDI_words = data['word'].to_list()
+            CDI_words = data["word"].to_list()
             return CDI_words, dict.fromkeys(CDI_words, 0)
         return [], {}
 
@@ -95,7 +95,7 @@ class CDICalculator:
         mean_score = sum(scores) / len(scores) if scores else 0
         return mean_score
 
-    def compute_freq(self)->pd.DataFrame:
+    def compute_freq(self) -> pd.DataFrame:
         df = pd.DataFrame.from_dict(self.word_dict, orient="index", columns=["count"]).reset_index()
         # Rename columns
         df = df.rename(columns={"index": "word"})

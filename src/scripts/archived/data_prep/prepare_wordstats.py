@@ -28,6 +28,7 @@ from lexical_benchmark.utils import slurm_utils
 
 slurm_utils.info_header()
 
+
 class WordStatsPrepArgs(Tap):
     """CMD arguments for prepation of the wordstats dataset."""
 
