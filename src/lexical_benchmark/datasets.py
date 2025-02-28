@@ -167,12 +167,12 @@ class STELADatasetConfig(DatasetConfig):
     month_splits: tuple[str, ...] = ("01", "02", "03", "04", "05", "06", "10", "15", "20", "25", "30", "40", "50", "60")
 
     @property
-    def by_hour(self) -> Path:
+    def by_hour_dir(self) -> Path:
         """Path to by hour split."""
         return self.root_dir / "by_hour"
 
     @property
-    def by_chunk(self) -> Path:
+    def by_chunk_dir(self) -> Path:
         """Path to by chunk split."""
         return self.root_dir / "by_chunk"
 

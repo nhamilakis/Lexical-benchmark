@@ -2,14 +2,13 @@
 
 import dataclasses
 import typing as t
-import warnings
 from pathlib import Path
+
+import pandas as pd
+import polars as pl
 
 from lexical_benchmark import datasets, settings
 from lexical_benchmark.dataloaders import preprocess as preprocess_dataloader
-
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-import pandas as pd  # noqa: E402 (Deprecation avoid)
 
 
 @dataclasses.dataclass
@@ -102,38 +101,43 @@ class InfTrainStructure:
                             for wav in self.wavs(hour, split, speaker, book)
                         ]
 
-    def wav_split_associations(self) -> pd.DataFrame:
+    def wav_split_associations(self) -> pl.DataFrame:
         """Build wav associations DataFrame."""
-        return pd.DataFrame.from_records([dataclasses.asdict(row) for row in self.iter_wavs()])
+        return pl.DataFrame([dataclasses.asdict(row) for row in self.iter_wavs()])
 
-    def matched_metadata(self) -> pd.DataFrame:
+    def matched_metadata(self) -> pl.DataFrame:
         """Clean matched2.csv to keep only usefull items."""
         # Load matched file & keep only current language
-        matched = pd.read_csv(str(self.matched_metadata_file), header=0)
-        matched = matched[matched["language"] == self.lang.lower()]
+        matched = pl.read_csv(self.matched_metadata_file, infer_schema_length=False)
 
         def only_fname(p: str) -> str:
             """Remove uselless path part."""
             return Path(p).name
 
-        # Remove unnecessary path folders
-        matched.loc[:, "text_path"] = matched["text_path"].apply(only_fname)
-        matched.loc[:, "audio_path"] = matched["audio_path"].apply(only_fname)
-
-        # Rename to match wav associations
-        matched = matched.rename(columns={"book_id": "book"})
-
         # Remove unwanted columns
-        return matched[["text_path", "book", "genre"]]
+        return (
+            # lowercase the language
+            matched.filter(pl.col("language") == self.lang.lower())
+            # remove absolute path of audio & text path
+            .with_columns(
+                [
+                    pl.col("text_path").map_elements(only_fname).alias("text_path"),
+                    pl.col("audio_path").map_elements(only_fname).alias("audio_path"),
+                ]
+            )
+            .rename({"book_id": "book"})
+            # keep only relevant columns
+            .select(["text_path", "book", "genre"])
+        )
 
     def wav_text_associations(self) -> pd.DataFrame:
         """Build text/wav associations DataFrame."""
         assoc = self.wav_split_associations()
         matched = self.matched_metadata()
-        # Keep one ref per book
-        matched = matched.drop_duplicates(subset=["book"])
+        # Keep one ref per book (drop duplicates)
+        matched = matched.unique(subset=["book"])
         # Merge by book ID
-        return assoc.merge(matched, on="book")
+        return assoc.join(matched, on="book")
 
     def __init__(self, root_dir: Path, metadata_file: Path, lang: str = "en") -> None:
         self.dataset_dir = root_dir

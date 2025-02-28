@@ -94,6 +94,21 @@ exclude = ["examples*", "tests*", "src/scripts*", "scripts*", "experiments*"]
 [tool.setuptools.package-data]
 "*" = ["py.typed"]
 
+[tool.setuptools]
+script-files = [ 
+    # Build Scripts
+    "src/scripts/build_preprocess/lm_build_childes.py",
+    "src/scripts/build_preprocess/lm_build_stela.py",
+    # Clean Scripts
+    "src/scripts/clean_text/lm_clean_childes.py",
+    "src/scripts/clean_text/lm_clean_stela.py"
+    # Process Datasets
+    # Compute Stuff
+    # Train
+    # Generate
+    # Analysis
+]
+
 [tool.mypy]
 exclude = [
     'parser\.py$' # Exclude parser.py -> sly does not type-check
