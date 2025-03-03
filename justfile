@@ -26,7 +26,6 @@ notebook-tunnel node=compute_node port=jupyter_port:
     @echo "Creating a tunnel to {{node}}:{{port}}"
     ssh -L "{{port}}:{{node}}:{{port}}" "{{node}}" -N
 
-
 [doc("Fetch notebooks from Oberon")]
 fetch-notebooks:
     echo "Fetching notebooks..."
@@ -92,31 +91,29 @@ exec-permissions:
 
 [doc("Install module & dependencies")]
 install:
-    pip install -e ".[dev]"
-    mypy --install-types
+    uv sync
 
 [doc("Run Jupyter Server Locally")]
 run-notebook:
-    jupyter lab
+    uv run jupyter lab
 
 [doc("Check Syntax (RUFF)")]
 syntax-check:
-    ruff check
+    uv run ruff check
 
-[doc("Check Typing (mypy)")]
-type-check:
-    mypy lexical_benchmark
+syntax-check-file file:
+    uv run ruff check {{file}}
 
 [doc("Auto Formatting (RUFF)")]
 format:
-    ruff format lexical_benchmark
+    ruff format src/lexical_benchmark
 
 [doc("Commit and push all changes")]
 add-commit-push m="":
-    # git add .
-    @[[ ! -z "{{m}}" ]] &&  echo "commiting:: {{m}}" # git commit -m "{{m}}"
-    @[[ -z "{{m}}" ]] &&  echo "commiting:: empty" # git commit -m "{{m}}"
-    # git push
+    git add .
+    @[[ ! -z "{{m}}" ]] &&  git commit -m "{{m}}"
+    @[[ -z "{{m}}" ]] &&  git commit
+    git push
 
 check-todo:
     @rg \

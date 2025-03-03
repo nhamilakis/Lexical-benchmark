@@ -117,20 +117,37 @@ class STELAMetaBuilder(MetaBuilder):
 
         return list(soures_lst)
 
-    def scrap_extra_metadata(self, *, save: bool = True, force: bool = False) -> dict:
+    def scrap_extra_metadata(
+        self, *, save: bool = True, force: bool = False, keep_cache: bool = True, cache_freq: int = 10
+    ) -> dict:
         """Scrap the web to fetch extra book metadata."""
         if self.meta_dir.external_book_metadata.is_file() and not force:
             return self.meta_dir.external_book_metadata.read_json()
 
-        df = pl.read_csv(self.meta_dir.asscociations, separator=";")
+        cache_file = self.meta_dir.external_book_metadata.parent / ".scrapper.cache.json"
         results = {}
-        for row in df.iter_rows(named=True):
+
+        # Resume from cache
+        if cache_file.is_file():
+            results = cache_file.read_json()
+
+        def cache() -> None:
+            """Cache temp results."""
+            cache_file.write_json(results)
+
+        df = pl.read_csv(self.meta_dir.asscociations, separator=";")
+        for idx, row in enumerate(df.iter_rows(named=True)):
             url = row["text_source"]
             results[row["book"]] = dataclasses.asdict(web_scrappers.BookMetadata.fetch(url))
+
+            # Cache every cache_freq items
+            if idx % cache_freq == 0 and keep_cache:
+                cache()
 
         if save:
             self.meta_dir.external_book_metadata.write_json(results)
 
+        cache_file.unlink(missing_ok=True)
         return results
 
 

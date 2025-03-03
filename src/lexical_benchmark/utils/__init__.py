@@ -2,6 +2,7 @@ from .dataframes import split_df_col
 from .generic import (
     PathNamespace,
     RegexEqual,
+    convert_to_https,
     default_json_encoder,
     deprecated,
     download_file,
@@ -12,6 +13,7 @@ from .generic import (
 __all__ = [
     "PathNamespace",
     "RegexEqual",
+    "convert_to_https",
     "default_json_encoder",
     "deprecated",
     "df_write_xlsx",

@@ -7,6 +7,7 @@ import logging
 import re
 import sys
 import typing as t
+import urllib.parse as url_parse
 import warnings
 from datetime import datetime
 from pathlib import Path
@@ -320,3 +321,27 @@ def str_to_bool(value: t.Any) -> bool:
         return False
 
     raise ValueError(f"Cannot convert '{value}' to boolean")
+
+
+def convert_to_https(url: str) -> str:
+    """Convert an HTTP URL to HTTPS if needed.
+
+    Raises:
+        ValueError: If the URL is invalid or doesn't use HTTP/HTTPS scheme.
+
+    """
+    parsed = url_parse.urlparse(url)
+
+    if not parsed.scheme:
+        raise ValueError("Invalid URL: missing scheme")
+
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"URL uses unsupported scheme: {parsed.scheme}")
+
+    if parsed.scheme == "https":
+        return url
+
+    # Replace the scheme from http to https and rebuild the URL
+    parts = list(parsed)
+    parts[0] = "https"
+    return url_parse.urlunparse(parts)

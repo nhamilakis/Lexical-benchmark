@@ -24,7 +24,9 @@ def get_html(url: str) -> BeautifulSoup:
         httpx.HTTPError: If any HTTP error occurs
 
     """
-    with httpx.Client() as client:
+    url = utils.convert_to_https(url)
+
+    with httpx.Client(follow_redirects=True) as client:
         response = client.get(url)
         response.raise_for_status()
         html_content = response.text
@@ -125,14 +127,18 @@ class BookMetadata:
     source: str
     loc_class: str | None = None
     subjects: list[str] = field(default=list)
-    original_publication: str
+    original_publication: str | None = None
     release_date: str | None = None
     unknown_source: bool = False
+    failed: bool = False
 
     @classmethod
     def fetch(cls, source: str) -> "BookMetadata | None":
         """Fetch metadata from source."""
-        soup = get_html(source)
+        try:
+            soup = get_html(source)
+        except httpx.ConnectTimeout:
+            return cls(source=source, failed=True)
         unknown_source = False
         match utils.RegexEqual(source):
             case ".*gutenberg.*":
