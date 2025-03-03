@@ -138,7 +138,6 @@ exclude = [
     "src/lexical_benchmark/stats", # TODO: refactor so it doesn't fail
     "src/lexical_benchmark/processing/turn_taking.py", # TODO: work-in-progress
     "src/lexical_benchmark/plots", # TODO: refactor so it doesn't fail
-    "src/lexical_benchmark/metadata", # TODO: this is unfinished work
 ] 
 force-exclude = true
 

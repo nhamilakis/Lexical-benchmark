@@ -4,11 +4,11 @@ from .core import MetadataDir
 from .stela import STELAMetaDir
 
 
-def get_config(name: datasets.DATASET_NAMES) -> MetadataDir:
+def get_config(name: datasets.DATASET_NAMES, lang: str) -> MetadataDir:
     """Load dataset configuration from name."""
     match name:
         case "stela":
-            return STELAMetaDir()
+            return STELAMetaDir(lang=lang)
         case "child_realistic":
             return ...
         case "childes":

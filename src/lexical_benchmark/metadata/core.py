@@ -21,12 +21,13 @@ class MetaBuilder(abc.ABC):
 class MetadataDir(abc.ABC):
     """Abstract Wrapper around the metadata directory."""
 
+    lang: str
     dataset_name: datasets.DATASET_NAMES
 
     @property
     def root_dir(self) -> Path:
         """Path to meta directory."""
-        return self.dataset_cfg.meta_dir
+        return self.dataset_cfg.meta_dir / self.lang
 
     @property
     @abc.abstractmethod

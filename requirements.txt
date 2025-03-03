@@ -4,7 +4,6 @@ seaborn
 pandas
 numpy
 polyglot
-requests
 nltk
 rich
 scipy
@@ -20,3 +19,5 @@ PyYAML
 pyarrow
 tomli; python_version < "3.11"
 tomli-w
+beautifulsoup4
+httpx

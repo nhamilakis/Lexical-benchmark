@@ -4,6 +4,7 @@ import contextlib
 import functools
 import io
 import logging
+import re
 import sys
 import typing as t
 import warnings
@@ -12,8 +13,8 @@ from pathlib import Path
 from threading import Thread
 from time import sleep
 
+import httpx
 import humanize
-import requests
 from rich.console import Console
 
 try:
@@ -183,6 +184,13 @@ def setup_logging(log_level: LOG_LEVELS, *, log_file: Path | None = None, no_std
     )
 
 
+class RegexEqual(str):  # noqa: SLOT000
+    """RegexEqual for using pattern matching with regexps."""
+
+    def __eq__(self, pattern) -> bool:
+        return bool(re.search(pattern, self))
+
+
 def default_json_encoder(obj: t.Any) -> t.Any:
     """An encoder to convert known items for json serialization.
 
@@ -199,15 +207,15 @@ def download_file(url: str, target: Path) -> None:
 
     Raises
     ------
-        requests.exceptions.HTTPError
-            If the download fails
+        httpx.HTTPError: If the download fails
 
     """
-    with requests.get(url, stream=True, timeout=120, allow_redirects=True) as r:
-        r.raise_for_status()
-        with target.open("wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with httpx.stream("GET", url) as response:
+        response.raise_for_status()
+        with target.open("wb") as fh:
+            for chunk in response.iter_bytes():
+                fh.write(chunk)
 
 
 @contextlib.contextmanager

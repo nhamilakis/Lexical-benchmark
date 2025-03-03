@@ -1,15 +1,16 @@
-from dataclasses import dataclass
+import dataclasses
 from pathlib import Path
+from urllib.parse import urlparse
 
 import polars as pl
 
-from lexical_benchmark import datasets
+from lexical_benchmark import datasets, web_scrappers
 from lexical_benchmark.dataloaders import hour_txt
 
 from .core import MetaBuilder, MetadataDir
 
 
-@dataclass
+@dataclasses.dataclass
 class STELAMetaBuilder(MetaBuilder):
     """STELA Metadata Extractor."""
 
@@ -69,23 +70,6 @@ class STELAMetaBuilder(MetaBuilder):
             result_df.write_csv(self.meta_dir.book_stats, separator=";", include_header=True)
         return result_df
 
-    def get_book_genres(self, lang: str) -> pl.DataFrame:
-        """Load book genres from original InfTrain dataset."""
-        book_metadata_file = self.dataset_cfg.original_root / "metadata" / "book_metadata.csv"
-        if not book_metadata_file.is_file():
-            raise ValueError(f"File {book_metadata_file} not found")
-        book_meta = pl.read_csv(book_metadata_file)
-
-        book_meta = book_meta.filter(pl.col("language") == lang)
-        """
-        new_book_stats = book_stats.join(
-            book_meta_en.select(["book_id", "book_title", "genre", "text_source"]),
-            on="book_id",
-            how="left",
-        )
-        """
-        return book_meta[["book_id", "book_title", "genre"]]
-
     def book_stat_resume(self, *, save: bool = True, force: bool = False) -> pl.DataFrame:
         """Build the resume of the book_stats csv file."""
         # If not forcing do not rebuild the dataframe
@@ -97,7 +81,7 @@ class STELAMetaBuilder(MetaBuilder):
         total_books = book_stats["book_id"].n_unique()
         unique_books = book_stats.unique(subset=["book_id"], keep="first")
 
-        # TODO need to add two more columns (text_source & book_title)
+        # TODO: need to add two more columns (text_source & book_title)
         resume = (
             unique_books.group_by("genre")
             .agg(
@@ -117,8 +101,40 @@ class STELAMetaBuilder(MetaBuilder):
             resume.write_csv(self.meta_dir.book_stats_resume, separator=";", include_header=True)
         return resume
 
+    def extract_url_sources(self, *, save: bool = True, force: bool = False) -> list[str]:
+        """Extract the domain names for all external book sources."""
+        if self.meta_dir.book_source_domains.is_file() and not force:
+            return self.meta_dir.book_source_domains.safe_readlines()
 
-@dataclass
+        df = pl.read_csv(self.meta_dir.asscociations, separator=";")
+        soures_lst = df["text_source"].to_list()
+        # keep only the domain name
+        soures_lst = {urlparse(url).netloc for url in soures_lst}
+
+        # save to disk
+        if save:
+            self.meta_dir.book_source_domains.safe_write_text("\n".join(soures_lst))
+
+        return list(soures_lst)
+
+    def scrap_extra_metadata(self, *, save: bool = True, force: bool = False) -> dict:
+        """Scrap the web to fetch extra book metadata."""
+        if self.meta_dir.external_book_metadata.is_file() and not force:
+            return self.meta_dir.external_book_metadata.read_json()
+
+        df = pl.read_csv(self.meta_dir.asscociations, separator=";")
+        results = {}
+        for row in df.iter_rows(named=True):
+            url = row["text_source"]
+            results[row["book"]] = dataclasses.asdict(web_scrappers.BookMetadata.fetch(url))
+
+        if save:
+            self.meta_dir.external_book_metadata.write_json(results)
+
+        return results
+
+
+@dataclasses.dataclass
 class STELAMetaDir(MetadataDir):
     """STELA metadata Handler."""
 
@@ -138,6 +154,16 @@ class STELAMetaDir(MetadataDir):
     def book_stats_resume(self) -> Path:
         """Path to CSV containing word counts per book."""
         return self.root_dir / "book_stats_resume.csv"
+
+    @property
+    def book_source_domains(self) -> Path:
+        """Path to txt containing all the sources for the audio book transcriptions."""
+        return self.root_dir / "web_sources.txt"
+
+    @property
+    def external_book_metadata(self) -> Path:
+        """Path to JSON containing external book metadata."""
+        return self.root_dir / "book_data.json"
 
     @property
     def builder(self) -> STELAMetaBuilder:

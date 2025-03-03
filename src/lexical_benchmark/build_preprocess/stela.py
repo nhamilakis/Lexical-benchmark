@@ -127,10 +127,10 @@ class InfTrainStructure:
             )
             .rename({"book_id": "book"})
             # keep only relevant columns
-            .select(["text_path", "book", "genre"])
+            .select(["text_path", "book", "genre", "book_title", "text_source"])
         )
 
-    def wav_text_associations(self) -> pd.DataFrame:
+    def wav_text_associations(self) -> pl.DataFrame:
         """Build text/wav associations DataFrame."""
         assoc = self.wav_split_associations()
         matched = self.matched_metadata()
@@ -151,7 +151,7 @@ class STELAPrepTranscripts:
     @property
     def associations_file(self) -> Path:
         """Path to target associations file."""
-        return self.dataset_cfg.meta_dir / "associations.csv"
+        return self.dataset_cfg.meta_dir / self.lang / "associations.csv"
 
     def __init__(
         self,
@@ -184,7 +184,7 @@ class STELAPrepTranscripts:
     def associations_df(self) -> pd.DataFrame:
         """Load asscociations as a DataFrame."""
         if self.associations_file.is_file():
-            return pd.read_csv(str(self.associations_file), sep=";")
+            return pl.read_csv(self.associations_file, sep=";")
 
         if not self.associations_file.parent.is_dir():
             self.associations_file.parent.mkdir(parents=True)
@@ -192,7 +192,7 @@ class STELAPrepTranscripts:
         # If asscociations were not build make them from infTrain dataset
         associations = self.inf_train.wav_text_associations()
         # Save the file
-        associations.to_csv(str(self.associations_file), index=False, sep=";")
+        associations.write_csv(str(self.associations_file), include_header=True, separator=";")
         return associations
 
     def build_book_dict(self) -> None:
