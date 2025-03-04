@@ -16,8 +16,6 @@ PLACEHOLDER_MONTH = "placeholder"
 STRATIFY_CHUNK_NB = 66
 STRATIFY_DEV_PROPORTION = 6
 
-STRATIFIED_BY_SIZE_SPLITS = {"01": 60, "02": 30, "03": 20, "04": 15, "05": 12, "06": 10}
-
 #######################################################
 # Dataset abbreviation dict
 dataset_name_dict = {
@@ -85,9 +83,7 @@ class _MyPathSettings:
 
     DATA_DIR: _Path = _Path(_os.environ.get("DATA_DIR", "data/"))
     COML_SERVERS: tuple = tuple({"oberon", "oberon2", "habilis", *[f"puck{i}" for i in range(1, 7)]})
-    CURRENT_STELA_VERSION: int = _dataclasses.field(default_factory=lambda: int(_os.environ.get("STELA_VERSION", 3)))
     CURRENT_MODEL_VERSION: int = _dataclasses.field(default_factory=lambda: int(_os.environ.get("MODEL_VERSION", 0)))
-    CURRENT_GEN_VERSION: int = _dataclasses.field(default_factory=lambda: int(_os.environ.get("GEN_VERSION", 0)))
 
     def __post_init__(self) -> None:
         if "DATA_DIR" not in _os.environ:
@@ -132,10 +128,6 @@ class _MyPathSettings:
     @property
     def analysis_dir(self) -> _Path:
         return self.DATA_DIR / "analysis"
-
-    @property
-    def asr_dir(self) -> _Path:
-        return self.DATA_DIR / "asr"
 
     @property
     def code_root(self) -> _Path:

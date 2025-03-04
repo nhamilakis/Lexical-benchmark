@@ -126,18 +126,13 @@ addopts = ["--import-mode=importlib", "--ignore=src/scripts", "--ignore=notebook
 target-version = "py311"
 line-length = 120
 exclude = [
-    "notebooks",
-    "*ipynb", # Notebooks should be ignored
-    "parser.py",  # Exclude parser.py -> sly does not lint proper
+    "parser.py",  # Exclude parser.py -> sly does not lint properly
+    "notebooks", "*ipynb", # Notebooks should be ignored
     "*.pyi", 
     ".venv", 
-    "src/scripts/archived/",  # ignore archived code
-    "src/lexical_benchmark/archive", # ignore archived code
-    "src/lexical_benchmark/utils/stat_tools.py", # Emmanuel's code get a pass (for now)
-    "src/lexical_benchmark/train_lib", # TODO: refactor this so it doesn't fail
-    "src/lexical_benchmark/stats", # TODO: refactor so it doesn't fail
+    "src/lexical_benchmark/legacy", # Legacy code gets a pass for now (warning is thrown)
     "src/lexical_benchmark/processing/turn_taking.py", # TODO: work-in-progress
-    "src/lexical_benchmark/plots", # TODO: refactor so it doesn't fail
+    "src/scripts/archived/",  # ignore archived scripts for now
 ] 
 force-exclude = true
 

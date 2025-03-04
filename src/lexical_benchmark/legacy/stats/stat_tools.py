@@ -4,7 +4,7 @@ import typing as t
 import numpy as np
 import pandas as pd
 
-from lexical_benchmark.stats.metric import load_dict, word_clean_fn
+from .metric import load_dict, word_clean_fn
 
 T = t.TypeVar("T")
 try:
