@@ -97,7 +97,7 @@ class StelaHourTxtItemsLoader(HourTxtItemsLoader):
 
     @classmethod
     def iter_items(cls, **kwargs) -> t.Iterable["StelaHourTxtItemsLoader"]:
-        """Iterate over preprocessed items."""
+        """Iterate over by_hour items."""
         cfg: datasets.STELADatasetConfig = datasets.get_config("stela")
         langs_list = kwargs.get("langs", cfg.langs)
         hours_list = kwargs.get("hours", cfg.hour_splits)

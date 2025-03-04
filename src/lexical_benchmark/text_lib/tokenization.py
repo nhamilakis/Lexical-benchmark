@@ -7,14 +7,17 @@ def word_tokenizer(s: str) -> list[str]:
     return flat_text.split()
 
 
-def hf_line_format(line: str, *, spaced: bool = True, word_sep: str = "|") -> str:
+def hf_line_format(line: str, *, spaced: bool = False, append_final: bool = False, word_sep: str = "|") -> str:
     """Format a sentence for training.
 
     Each word is to be separated with the given separator.
     In spaced mode a space is added between each character
 
     """
-    separated_words = f"{word_sep}".join(word.lower() for word in line.split()) + f"{word_sep}"
+    separated_words = f"{word_sep}".join(word.lower() for word in line.split())
+
+    if append_final:
+        separated_words += f"{word_sep}"
 
     if spaced:
         return " ".join(c for c in separated_words)

@@ -17,16 +17,17 @@ class _MetadataDict(t.TypedDict):
     release_date: str | None
 
 
-def get_html(url: str) -> BeautifulSoup:
+def get_html(url: str, default_timeout: float = 180) -> BeautifulSoup:
     """Download an HTML file and parse it with BeautifulSoup.
 
     Raises:
         httpx.HTTPError: If any HTTP error occurs
+        httpx.ReadTimeout: if request goes over the timeout time.
 
     """
     url = utils.convert_to_https(url)
 
-    with httpx.Client(follow_redirects=True) as client:
+    with httpx.Client(follow_redirects=True, timeout=default_timeout) as client:
         response = client.get(url)
         response.raise_for_status()
         html_content = response.text
@@ -133,11 +134,11 @@ class BookMetadata:
     failed: bool = False
 
     @classmethod
-    def fetch(cls, source: str) -> "BookMetadata | None":
+    def fetch(cls, source: str) -> "BookMetadata":
         """Fetch metadata from source."""
         try:
             soup = get_html(source)
-        except httpx.ConnectTimeout:
+        except (httpx.TimeoutException, httpx.RequestError, httpx.HTTPError):
             return cls(source=source, failed=True)
         unknown_source = False
         match utils.RegexEqual(source):
@@ -150,6 +151,18 @@ class BookMetadata:
                 md = {}
 
         return cls(source=source, unknown_source=unknown_source, **md)
+
+    def to_dict(self) -> dict[str, t.Any]:
+        """Convert to self dict."""
+        return {
+            "source": str(self.source),
+            "loc_class": str(self.loc_class) if self.loc_class else None,
+            "subjects": self.subjects if self.subjects else None,
+            "original_publication": str(self.original_publication) if self.original_publication else None,
+            "release_date": str(self.release_date) if self.release_date else None,
+            "unknown_source": self.unknown_source,
+            "failed": self.failed,
+        }
 
 
 if __name__ == "__main__":

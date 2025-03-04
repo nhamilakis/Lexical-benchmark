@@ -71,7 +71,7 @@ def read_tokenized(self: pathlib.Path, sep: str | None = None) -> list[str]:
 
 def write_json(self: pathlib.Path, data: t.Any) -> None:
     """Dump object into a json file."""
-    sr_data = json.dumps(data, indent=4)
+    sr_data = json.dumps(data, indent=4, default=str)
     safe_write_text(self, sr_data)
 
 
@@ -162,13 +162,13 @@ pathlib.Path.safe_append_text = safe_append_text  # type: ignore[method-assign]
 pathlib.Path.safe_readlines = safe_readlines  # type: ignore[method-assign]
 pathlib.Path.read_tokenized = read_tokenized  # type: ignore[method-assign]
 # JSON IO
-pathlib.Path.dump_json = write_json  # type: ignore[method-assign]
-pathlib.Path.load_json = read_json  # type: ignore[method-assign]
+pathlib.Path.write_json = write_json  # type: ignore[method-assign]
+pathlib.Path.read_json = read_json  # type: ignore[method-assign]
 # TOML IO
-pathlib.Path.dump_toml = write_toml  # type: ignore[method-assign]
-pathlib.Path.load_toml = read_toml  # type: ignore[method-assign]
+pathlib.Path.write_toml = write_toml  # type: ignore[method-assign]
+pathlib.Path.read_toml = read_toml  # type: ignore[method-assign]
 # YAML IO
-pathlib.Path.dump_yaml = write_yaml  # type: ignore[method-assign]
-pathlib.Path.load_yaml = read_yaml  # type: ignore[method-assign]
+pathlib.Path.write_yaml = write_yaml  # type: ignore[method-assign]
+pathlib.Path.read_yaml = read_yaml  # type: ignore[method-assign]
 # CSV IO
 pathlib.Path.read_csv = read_csv  # type: ignore[method-assign]

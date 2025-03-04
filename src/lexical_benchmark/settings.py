@@ -16,6 +16,8 @@ PLACEHOLDER_MONTH = "placeholder"
 STRATIFY_CHUNK_NB = 66
 STRATIFY_DEV_PROPORTION = 6
 
+STRATIFIED_BY_SIZE_SPLITS = {"01": 60, "02": 30, "03": 20, "04": 15, "05": 12, "06": 10}
+
 #######################################################
 # Dataset abbreviation dict
 dataset_name_dict = {
@@ -134,28 +136,6 @@ class _MyPathSettings:
     @property
     def asr_dir(self) -> _Path:
         return self.DATA_DIR / "asr"
-
-    @property
-    def childes(self) -> _Path:
-        return self.dataset_root / "CHILDES"
-
-    @property
-    def child_realistic(self) -> _Path:
-        return self.dataset_root / "ChildRealistic"
-
-    @property
-    def wordbank_cdi(self) -> _Path:
-        return self.dataset_root / "wordbank-cdi"
-
-    @property
-    def stela(self) -> _Path:
-        if self.CURRENT_STELA_VERSION > 0:
-            return self.dataset_root / f"STELATranscriptions{self.CURRENT_STELA_VERSION}"
-        return self.dataset_root / "STELATranscriptions"
-
-    @property
-    def word_stats(self) -> _Path:
-        return self.dataset_root / "wordstats"
 
     @property
     def code_root(self) -> _Path:

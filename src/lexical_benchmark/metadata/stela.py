@@ -1,4 +1,6 @@
 import dataclasses
+import logging
+import pprint
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -8,6 +10,8 @@ from lexical_benchmark import datasets, web_scrappers
 from lexical_benchmark.dataloaders import hour_txt
 
 from .core import MetaBuilder, MetadataDir
+
+L = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass
@@ -133,15 +137,25 @@ class STELAMetaBuilder(MetaBuilder):
 
         def cache() -> None:
             """Cache temp results."""
-            cache_file.write_json(results)
+            try:
+                cache_file.write_json(results)
+            except TypeError as e:
+                pprint.pprint(results)
+                raise e from e
 
         df = pl.read_csv(self.meta_dir.asscociations, separator=";")
-        for idx, row in enumerate(df.iter_rows(named=True)):
-            url = row["text_source"]
-            results[row["book"]] = dataclasses.asdict(web_scrappers.BookMetadata.fetch(url))
+        idx = 0
+        for row in df.iter_rows(named=True):
+            if row["book"] not in results:
+                url = row["text_source"]
+                item = web_scrappers.BookMetadata.fetch(url).to_dict()
+                print(f"Adding items {idx}:{type(item)}")
+                results[row["book"]] = item
+                idx += 1
 
             # Cache every cache_freq items
             if idx % cache_freq == 0 and keep_cache:
+                L.debug(f"Caching progress % {idx}")
                 cache()
 
         if save:

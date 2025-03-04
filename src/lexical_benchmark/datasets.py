@@ -8,7 +8,7 @@ from lexical_benchmark import exc, settings
 from lexical_benchmark.text_lib import text_cleaners
 
 CHILDES_SPEECH_TYPES = t.Literal["adult", "child"]
-DATASET_NAMES = t.Literal["childes", "stela", "child_realistic", "word-cdi"]
+DATASET_NAMES = t.Literal["childes", "stela", "child_realistic", "word-cdi", "wordstats"]
 
 # Default version of the dataset (changes root directory used)
 DATASET_VERSIONS = {
@@ -164,7 +164,38 @@ class STELADatasetConfig(DatasetConfig):
 
     langs: tuple[str, ...] = ("EN",)
     hour_splits: tuple[str, ...] = "50h", "100h", "200h", "400h", "800h", "1600h", "3200h"
-    month_splits: tuple[str, ...] = ("01", "02", "03", "04", "05", "06", "10", "15", "20", "25", "30", "40", "50", "60")
+    size_splits: tuple[str, ...] = (
+        "01",
+        "02",
+        "03",
+        "04",
+        "05",
+        "06",
+        "10",
+        "15",
+        "20",
+        "25",
+        "30",
+        "40",
+        "50",
+        "60",
+    )
+    BY_SIZE_CHUNK_NUMBER: t.ClassVar[dict[str, int]] = {
+        "01": 60,
+        "02": 30,
+        "03": 20,
+        "04": 15,
+        "05": 12,
+        "06": 10,
+        "10": 6,
+        "15": 4,
+        "20": 3,
+        "25": 2,
+        "30": 2,
+        "40": 1,
+        "50": 1,
+        "60": 1,
+    }
 
     @property
     def by_hour_dir(self) -> Path:
@@ -172,9 +203,9 @@ class STELADatasetConfig(DatasetConfig):
         return self.root_dir / "by_hour"
 
     @property
-    def by_chunk_dir(self) -> Path:
+    def by_size_dir(self) -> Path:
         """Path to by chunk split."""
-        return self.root_dir / "by_chunk"
+        return self.root_dir / "by_size"
 
     @property
     def source_matched_csv(self) -> Path:
@@ -213,8 +244,18 @@ class STELADatasetConfig(DatasetConfig):
                 if not section_dir.is_dir():
                     # Failed
                     raise FileNotFoundError("STELA dataset not found on disk")
-
         return tuple([d.name for d in section_dir.iterdir()])
+
+    def chunks_by_size(self, lang: str, split: str, *, hardcoded: bool = True) -> tuple[str, ...]:
+        """List of chunks per split in by_size version."""
+        if hardcoded:
+            return tuple(f"{n:0>2}" for n in range(self.BY_SIZE_CHUNK_NUMBER.get(split, 0)))
+
+        section_dir = self.by_size_dir / lang / split
+        if section_dir.is_dir():
+            return tuple([d.name for d in section_dir.iterdir()])
+
+        raise FileNotFoundError("Cannot infer chunk size from disk")
 
     @staticmethod
     def clean_up_rules(lang: str) -> list[text_cleaners.CleanerFN]:
