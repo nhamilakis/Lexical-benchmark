@@ -1,6 +1,7 @@
 import dataclasses
 import logging
 import pprint
+import typing as t
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -14,6 +15,17 @@ from .core import MetaBuilder, MetadataDir
 L = logging.getLogger(__name__)
 
 
+class _LineLenghtStruct(t.TypedDict):
+    """Struct for gathering of line-length stats."""
+
+    lang: str
+    split: str
+    chunk: str
+    book: str
+    line: int
+    length: int
+
+
 @dataclasses.dataclass
 class STELAMetaBuilder(MetaBuilder):
     """STELA Metadata Extractor."""
@@ -21,9 +33,13 @@ class STELAMetaBuilder(MetaBuilder):
     dataset_cfg: datasets.STELADatasetConfig
     meta_dir: "STELAMetaDir"
 
-    def build_all(self, *, force: bool = False) -> None:
+    def build_all(self) -> None:
         """Build all stats."""
-        _ = self.book_stats(save=True, force=force)
+        _ = self.book_stats(save=True, force=True)
+        _ = self.book_stat_resume(save=True, force=True)
+        _ = self.extract_url_sources(save=True, force=True)
+        _ = self.scrap_extra_metadata(save=True, force=True)
+        _ = self.gather_line_length_stats(save=True, force=True)
 
     def book_stats(self, *, save: bool = True, force: bool = False) -> pl.DataFrame:
         """Build the book stats CSV.
@@ -164,6 +180,37 @@ class STELAMetaBuilder(MetaBuilder):
         cache_file.unlink(missing_ok=True)
         return results
 
+    def gather_line_length_stats(self, *, save: bool = True, force: bool = False) -> pl.DataFrame:
+        """Gather statistics on line length across all stella books."""
+        if self.meta_dir.line_length_stats.is_file() and not force:
+            return pl.read_csv(self.meta_dir.line_length_stats, separator=";")
+
+        attrs = {"langs": (self.meta_dir.lang,), "hours": ("50h",)}
+        iter_items = hour_txt.StelaHourTxtItemsLoader.iter_items(**attrs)
+        stats = []
+
+        for item in iter_items:
+            for book_path in item.book_path_list:
+                book_name = book_path.stem
+                for idx, line in enumerate(book_path.safe_readlines()):
+                    length = len(line.split())
+                    if length > 1:
+                        stats.append(
+                            _LineLenghtStruct(
+                                lang=self.meta_dir.lang,
+                                split=item.hour_split,
+                                chunk=item.chunk,
+                                book=book_name,
+                                line=idx,
+                                length=length,
+                            )
+                        )
+
+        df: pl.DataFrame = pl.DataFrame(stats)
+        if save:
+            df.write_csv(self.meta_dir.line_length_stats, separator=";", include_header=True)
+        return df
+
 
 @dataclasses.dataclass
 class STELAMetaDir(MetadataDir):
@@ -195,6 +242,32 @@ class STELAMetaDir(MetadataDir):
     def external_book_metadata(self) -> Path:
         """Path to JSON containing external book metadata."""
         return self.root_dir / "book_data.json"
+
+    @property
+    def line_length_stats(self) -> Path:
+        """Path to CSV containing stats on line length."""
+        return self.root_dir / "line_length.csv"
+
+    def line_length_by_count(self) -> pl.DataFrame:
+        """Line length stats, grouped by count on unique books."""
+        df = pl.read_csv(self.line_length_stats, separator=";")
+        return df.group_by("length").agg(pl.count().alias("count")).sort("length")
+
+    def line_length_stats_resume(self) -> pl.DataFrame:
+        """Line length resume statistics (min, max, average)."""
+        df = pl.read_csv(self.line_length_stats, separator=";")
+        return (
+            df.group_by("lang")
+            .agg(
+                [
+                    pl.min("length").alias("min_length"),
+                    pl.mean("length").alias("avg_length"),
+                    pl.max("length").alias("max_length"),
+                    pl.count().alias("total_lines"),
+                ]
+            )
+            .sort("lang")
+        )
 
     @property
     def builder(self) -> STELAMetaBuilder:

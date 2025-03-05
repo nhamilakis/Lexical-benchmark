@@ -6,8 +6,10 @@ from pathlib import Path
 os.environ["STELA_VERSION"] = "3"
 
 from lexical_benchmark import datasets
+from lexical_benchmark.dataloaders import hour_txt
 from lexical_benchmark.dataloaders import preprocess as preprocess_dataloaders
 from lexical_benchmark.processing import txt_cleaner
+from lexical_benchmark.text_lib import txt_utils
 from lexical_benchmark.utils import generic as generic_utils
 from lexical_benchmark.utils import slurm_utils
 
@@ -25,5 +27,17 @@ stela_en_by_hour_iter = progress.iter_progress(
 txt_cleaner.DatasetCleaner.cleanup_files(
     filemap=stela_en_by_hour_iter, ruleset=dataset_cfg.clean_up_rules(lang="EN"), save_logs=True
 )
+
+logger.info("Re-Align sentences STELA/by_hour | EN ...")
+for item in hour_txt.StelaHourTxtItemsLoader.iter_items(langs=("EN",)):
+    for book_path in item.book_path_list:
+        txt_utils.sentence_formatting(
+            book_path,
+            remove_blank=True,
+            punctuation=".!?",
+            keep_punctuation=True,
+        )
+
+
 progress.complete()
 print("Finished cleaning STELA/by_hour | EN !")

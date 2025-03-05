@@ -112,7 +112,7 @@ class STELAPreprocessedItems(PreprocessedItemsLoader):
         """
         cfg: datasets.STELADatasetConfig = datasets.get_config("stela")
         for item in cls.iter_items(langs=(lang,)):
-            equivalent_chunk = cfg.by_hour / item.lang / item.hour_split / item.chunk / "books"
+            equivalent_chunk = cfg.by_hour_dir / item.lang / item.hour_split / item.chunk / "books"
             for book_path in item.raw_books:
                 clean_path = item.book_dir / f"{book_path.stem}.meta.json"
                 yield (
