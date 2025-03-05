@@ -1,6 +1,7 @@
 import dataclasses
 import logging
 import pprint
+import string
 import typing as t
 from pathlib import Path
 from urllib.parse import urlparse
@@ -9,6 +10,7 @@ import polars as pl
 
 from lexical_benchmark import datasets, web_scrappers
 from lexical_benchmark.dataloaders import hour_txt
+from lexical_benchmark.text_lib import txt_utils
 
 from .core import MetaBuilder, MetadataDir
 
@@ -24,6 +26,13 @@ class _LineLenghtStruct(t.TypedDict):
     book: str
     line: int
     length: int
+
+
+class _BookGenreStruct(t.TypedDict):
+    """Struct for gathering book genres."""
+
+    book: str
+    genre: str
 
 
 @dataclasses.dataclass
@@ -268,6 +277,49 @@ class STELAMetaDir(MetadataDir):
             )
             .sort("lang")
         )
+
+    def extract_genre_keywords(self) -> list[str]:
+        """Extract genres from book_data.json to do frequency analysis."""
+        book_data = self.external_book_metadata.read_json()
+        keyphrases = []
+        for value in book_data.values():
+            loc_class = value.get("loc_class")
+            if loc_class:
+                keyphrases.append(loc_class)
+
+            subjects = value.get("subjects", [])
+            if subjects:
+                keyphrases.extend(subjects)
+
+        keywords = []
+        for phrase in keyphrases:
+            word_list = phrase.lower().split()
+            for word in word_list:
+                clean_word = "".join([c for c in word if c in string.ascii_letters])
+                if clean_word:
+                    keywords.append(clean_word)
+
+        return keywords
+
+    def generate_new_genres(self) -> pl.DataFrame:
+        """Generate new genres for all the books."""
+        book_list = []
+
+        book_data = self.external_book_metadata.read_json()
+        for book, value in book_data.items():
+            tags = ""
+            loc_class = value.get("loc_class", "")
+            if loc_class:
+                tags += loc_class + "; "
+
+            subjects = value.get("subjects", [])
+            if subjects:
+                tags += "; ".join(subjects)
+            tags = tags.lower()
+            genre = txt_utils.KeywordToGenre()(tags)
+            book_list.append(_BookGenreStruct(book=book, genre=genre))
+
+        return pl.DataFrame(book_list)
 
     @property
     def builder(self) -> STELAMetaBuilder:
