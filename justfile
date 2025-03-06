@@ -2,9 +2,15 @@ jupyter_port := "9998"
 compute_node := "puck1"
 current_dir := justfile_directory()
 COML_CLUSTER := "oberon2"
-scratch1_deploy_folder := "/scratch1/projects/lexical-benchmark/v2/jean-zay-code/Lexical_benchmark"
 JZ_CLUSTER := "jean-zay"
-JZ_SCRATCH_WORK := "/lustre/fsn1/projects/rech/hhb/ucx81cx/work"
+JZ_SCRATCH_WORK := if hostname == "NicolasMBP.local" {
+    "/lustre/fsn1/projects/rech/hhb/ucx81cx/workspace/lm_benchmark"
+} else if hostname == "other-person" {
+    "/lustre/fsn1/projects/rech/hhb/uye44va/workspace/lm_benchmark"
+} else {
+    "workspace/lm_benchmark"
+}
+
 JZ_SRC_DEV := JZ_SCRATCH_WORK + "/dev/code"
 JZ_SRC_TEST_1 := JZ_SCRATCH_WORK + "/test1/code"
 JZ_SRC_TEST_2 := JZ_SCRATCH_WORK + "/test2/code"
@@ -15,7 +21,7 @@ COML_WORKSPACE := if hostname == "NicolasMBP.local" {
 } else if hostname == "other-person" {
     "projects/LexicalBenchmark"
 } else {
-    "code/LexicalBenchmark"
+    "workspace/LexicalBenchmark"
 }
 
 _default:
@@ -26,10 +32,6 @@ notebook-tunnel node=compute_node port=jupyter_port:
     @echo "Creating a tunnel to {{node}}:{{port}}"
     ssh -L "{{port}}:{{node}}:{{port}}" "{{node}}" -N
 
-[doc("Fetch notebooks from Oberon")]
-fetch-notebooks:
-    echo "Fetching notebooks..."
-    rsync -azP --delete --exclude=".venv" --exclude=".ipynb_checkpoints" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/notebooks/" "{{current_dir}}/notebooks/"
 
 [doc("Deploy source code to remote")]
 deploy-oberon: exec-permissions
@@ -107,13 +109,6 @@ syntax-check-file file:
 [doc("Auto Formatting (RUFF)")]
 format:
     ruff format src/lexical_benchmark
-
-[doc("Commit and push all changes")]
-add-commit-push m="":
-    git add .
-    @[[ ! -z "{{m}}" ]] &&  git commit -m "{{m}}"
-    @[[ -z "{{m}}" ]] &&  git commit
-    git push
 
 check-todo:
     @rg \
