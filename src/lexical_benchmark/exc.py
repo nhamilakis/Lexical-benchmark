@@ -20,3 +20,14 @@ class ItemNotFoundInDatasetError(ValueError):
 
     def __init__(self, item: str = "-") -> None:
         super().__init__(f"ERROR: The item of id::({item}) does not exist in the dataset. !!")
+
+
+class DatasetTypeError(ValueError):
+    """Error raised when a given dataset config does not match required attributes."""
+
+    def __init__(self, dataset: type, protocol: type) -> None:
+        super().__init__(f"{dataset} does not match requirements of protocol ({protocol}) !!")
+
+
+class RsyncArgsError(ValueError):
+    """Error linked to rsync arguments."""

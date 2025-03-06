@@ -2,14 +2,20 @@ import dataclasses
 import typing as t
 from pathlib import Path
 
-from lexical_benchmark import datasets
+from lexical_benchmark import datasets, exc, settings
 from lexical_benchmark.text_lib import tokenization
 
 from .definitions import DatasetItemsLoader
 
 
+@t.runtime_checkable
 class DatasetWithBySize(t.Protocol):
     """Dataset config with support for by_chunk split."""
+
+    @property
+    def dataset_name(self) -> str:
+        """Name of the dataset."""
+        ...
 
     @property
     def by_size_dir(self) -> Path:
@@ -40,15 +46,35 @@ class BySizeItemsLoader(DatasetItemsLoader):
     chunk: str
     dt_cfg: DatasetWithBySize
 
+    def __post_init__(self) -> None:
+        # Check if correct dataset is provided.
+        if not isinstance(self.dt_cfg, DatasetWithBySize):
+            raise exc.DatasetTypeError(dataset=type(self.dt_cfg), protocol=DatasetWithBySize)
+
+    @classmethod
+    def load(cls, dataset_name: datasets.DATASET_NAMES, lang: str, split: str, chunk: str) -> "DatasetItemsLoader":
+        """Load item directly."""
+        return cls(lang=lang, split=split, chunk=chunk, dt_cfg=datasets.get_config(dataset_name))
+
     @property
     def chunk_id(self) -> str:
         """Build the id of the current chunk."""
         return f"{self.split}_{self.chunk}"
 
     @property
-    def root_dir(self) -> str:
+    def data_dir(self) -> str:
         """Current chunk path."""
         return self.dt_cfg.by_size_dir / self.lang / self.split / self.chunk
+
+    @property
+    def model_root(self) -> Path:
+        """Root directory to the corresponding model folder."""
+        return settings.PATH.model_root / self.dt_cfg.dataset_name / self.lang / self.split / self.chunk
+
+    @property
+    def geneneration_root(self) -> Path:
+        """Root directory to the corresponding generated data."""
+        return settings.PATH.generate_root / self.dt_cfg.dataset_name / self.lang / self.split / self.chunk
 
     @property
     def train_file(self) -> Path:

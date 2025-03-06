@@ -157,7 +157,7 @@ ignore = [
     "PLR0913", # allow functions to have more tha 12 arguments
     "TRY003",  # allow Exceptions to contain long messages
     "EM101",   # allow Exceptions to contain literals
-    "ANN003",  # allow **kwargs to be without type-hints
+    "ANN002", "ANN003",  # allow *args & **kwargs to be without type-hints
     "D107", "D105", # allow __init__  and all python __magic__ functions to be without a docstring
     "ANN001",  # "self" & "cls" need no typing (rule is Deprecated)
     "T201", "T203",    # allow 'print' & 'pprint' statements

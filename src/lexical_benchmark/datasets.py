@@ -44,9 +44,11 @@ class DatasetConfig(abc.ABC):
 
     def __init__(self, dataset_name: DATASET_NAMES) -> None:
         if DATASET_VERSIONS[dataset_name] > 0:
-            self.root_dir = settings.PATH.dataset_root / f"{dataset_name}{DATASET_VERSIONS[dataset_name]}"
+            self.dataset_name = f"{dataset_name}{DATASET_VERSIONS[dataset_name]}"
         else:
-            self.root_dir = settings.PATH.dataset_root / dataset_name
+            self.dataset_name = settings.PATH.dataset_root / dataset_name
+
+        self.root_dir = settings.PATH.dataset_root / self.dataset_name
 
     @staticmethod
     @abc.abstractmethod

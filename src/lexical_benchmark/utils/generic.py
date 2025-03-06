@@ -1,10 +1,13 @@
 """Common util func for all the packages."""
 
 import contextlib
+import dataclasses
 import functools
 import io
 import logging
 import re
+import shutil
+import subprocess
 import sys
 import typing as t
 import urllib.parse as url_parse
@@ -17,6 +20,8 @@ from time import sleep
 import httpx
 import humanize
 from rich.console import Console
+
+from lexical_benchmark import exc, settings
 
 try:
     import polars as pl
@@ -345,3 +350,170 @@ def convert_to_https(url: str) -> str:
     parts = list(parsed)
     parts[0] = "https"
     return url_parse.urlunparse(parts)
+
+
+@dataclasses.dataclass
+class Rsync:
+    """Wrapper around rsync."""
+
+    target_dir: Path
+    source_dir: Path
+    source_as_dir: bool = True
+    target_as_dir: bool = True
+    remote_dest: str | None = None
+    remote_source: str | None = None
+    file_list: list[Path] | None = None
+    archive_mode: bool = False  # -a
+    delete: bool = False  # --delete
+    partial: bool = True  # -P
+    compress: bool = True  # -z
+    recursive: bool = True  # -r
+    copy_symlinks: bool = False  # -l
+    bandwith_limit: int | None = None  # --bwlimit in KB/s
+
+    def __post_init__(self) -> None:
+        self._logger = logging.getLogger("rsync-subprocess")
+
+    def _build_hosts(self) -> tuple[str, str]:
+        """Build source & target hosts."""
+        if self.remote_dest and self.remote_source:
+            raise exc.RsyncArgsError("source & dest cannot both be remote.")
+
+        if self.remote_source:
+            src, target = f"{self.remote_source}:{self.source_dir}", f"{self.target_dir}"
+        elif self.remote_dest:
+            src, target = f"{self.source_dir}", f"{self.remote_dest}:{self.target_dir}"
+        else:
+            # both local
+            src, target = f"{self.source_dir}", f"{self.target_dir}"
+
+        if self.source_as_dir:
+            src = f"{src}/"
+
+        if self.target_as_dir:
+            target = f"{target}/"
+
+        return src, target
+
+    def _build_short_args(self) -> str:
+        short = "-"
+        if self.archive_mode:
+            short += "a"
+            if self.compress:
+                short += "z"
+            if self.partial:
+                short += "P"
+            return short
+
+        if self.recursive:
+            short += "r"
+        if self.compress:
+            short += "z"
+        if self.copy_symlinks:
+            short += "l"
+        if self.partial:
+            short += "P"
+
+        return short
+
+    def _mk_filelist(self) -> Path:
+        """Make the filelist file."""
+        tmp_file = settings.cache_dir() / f"transfer{int(datetime.now().timestamp())}"
+        try:
+            relative_path_list = [str(file.relative_to(self.source_dir)) for file in self.file_list]
+        except ValueError as e:
+            raise exc.RsyncArgsError(f"filelist contains items not in {self.source_dir}") from e
+
+        # write into temp file
+        tmp_file.safe_write_text("\n".join(relative_path_list))
+        return tmp_file
+
+    def _build_long_args(self) -> list[str]:
+        args = []
+        if self.file_list:
+            file_index = self._mk_filelist()
+            args.append(f"--files-from={file_index}")
+        if self.delete:
+            args.append("--delete")
+
+        if self.bandwith_limit:
+            args.append(f"--bwlimit={self.bandwith_limit}")
+
+        return args
+
+    def cmd(self, *, dry_run: bool = False) -> list[str]:
+        """Build current CMD."""
+        src, target = self._build_hosts()
+        short_args = self._build_short_args()
+        long_args = self._build_long_args()
+        if dry_run:
+            long_args.append("--dry-run")
+        return [
+            f"{shutil.which('rsync')}",
+            short_args,
+            *long_args,
+            src,
+            target,
+        ]
+
+    def _out_handler(
+        self, output: t.Any, output_handling: t.Literal["log_info", "log_debug", "print", "ignore"] = "log_debug"
+    ) -> None:
+        if output_handling == "log_info":
+            self._logger.info(output)
+        elif output_handling == "log_debug":
+            self._logger.debug(output)
+        elif output_handling == "print":
+            print(output)
+
+    def __err_handler(
+        self,
+        err: subprocess.CalledProcessError,
+        output_handling: t.Literal["log_info", "log_debug", "print", "ignore"] = "log_debug",
+        *,
+        ignore_errors: bool = False,
+    ) -> None:
+        """Handle error based on selected option."""
+        if output_handling == "log_info":
+            self._logger.info(f"Command failed: {err}")
+            if err.stderr:
+                self._logger.info(err.stderr)
+        elif output_handling == "log_debug":
+            self._logger.debug(f"Command failed: {err}")
+            if err.stderr:
+                self._logger.debug(err.stderr)
+        elif output_handling == "print":
+            print(f"Command failed: {err}")
+            if err.stderr:
+                print(err.stderr)
+
+        if not ignore_errors:
+            raise err
+
+    def __call__(
+        self,
+        *,
+        dry_run: bool = False,
+        output_handling: t.Literal["log_info", "log_debug", "print", "ignore"] = "log_debug",
+        ignore_errors: bool = False,
+    ) -> subprocess.CompletedProcess:
+        """Call the rsync command."""
+        try:
+            result = subprocess.run(
+                self.cmd(dry_run=dry_run),
+                capture_output=True,
+                text=True,
+                check=not ignore_errors,  # Will raise exception if command fails and ignore_errors is False
+            )
+            # Handle output based on selected option
+            if result.stdout and output_handling != "ignore":
+                self._out_handler(result.stdout, output_handling)
+
+            if result.stderr and output_handling != "ignore":
+                self._out_handler(result.stderr, output_handling)
+
+        except subprocess.CalledProcessError as e:
+            self.__err_handler(e, output_handling, ignore_errors=ignore_errors)
+            return e.returncode
+        else:
+            return result

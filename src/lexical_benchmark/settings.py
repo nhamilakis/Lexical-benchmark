@@ -91,7 +91,7 @@ class _MyPathSettings:
                 self.DATA_DIR = _Path("/scratch1/projects/lexical-benchmark/v2")
 
             elif self.is_jz():
-                self.DATA_DIR = _Path("/lustre/fswork/projects/rech/hhb/ucx81cx/data")
+                self.DATA_DIR = _Path("/lustre/fswork/projects/rech/hhb/commun/lexical-benchmark")
 
         if not self.DATA_DIR.is_dir():
             _warnings.warn(
@@ -114,7 +114,7 @@ class _MyPathSettings:
         return self.DATA_DIR / "models"
 
     @property
-    def gen_root(self) -> _Path:
+    def generate_root(self) -> _Path:
         """Root directory to store data generated from models."""
         if self.CURRENT_MODEL_VERSION > 0:
             return self.DATA_DIR / f"generations{self.CURRENT_MODEL_VERSION}"

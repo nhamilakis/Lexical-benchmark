@@ -18,3 +18,8 @@ class DatasetItemsLoader(ItemsLoader):
 
     def __init__(self, dataset_name: datasets.DATASET_NAMES) -> None:
         self._dt_cfg = datasets.get_config(dataset_name)
+
+    @classmethod
+    @abc.abstractmethod
+    def load(cls, dataset_name: datasets.DATASET_NAMES, *args, **kwargs) -> "DatasetItemsLoader":
+        """Load item directly."""

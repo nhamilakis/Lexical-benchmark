@@ -2,6 +2,7 @@ from .dataframes import split_df_col
 from .generic import (
     PathNamespace,
     RegexEqual,
+    Rsync,
     convert_to_https,
     default_json_encoder,
     deprecated,
@@ -13,6 +14,7 @@ from .generic import (
 __all__ = [
     "PathNamespace",
     "RegexEqual",
+    "Rsync",
     "convert_to_https",
     "default_json_encoder",
     "deprecated",
