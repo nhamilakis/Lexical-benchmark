@@ -43,7 +43,7 @@ train = [
     "tokenizers==0.21.0",
     "torch==2.5.1; sys_platform == 'linux' or sys_platform == 'linux2'",
     "torchtyping==0.1.4; sys_platform == 'linux' or sys_platform == 'linux2'",
-    "vllm==0.6.6; sys_platform == 'linux' or sys_platform == 'linux2'",
+    "vllm==0.7.3; sys_platform == 'linux' or sys_platform == 'linux2'",
     "transformers==4.48.0; sys_platform == 'linux' or sys_platform == 'linux2'",
     "wandb",
 ]
