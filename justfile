@@ -5,7 +5,7 @@ COML_CLUSTER := "oberon2"
 JZ_CLUSTER := "jean-zay"
 JZ_SCRATCH_WORK := if hostname == "NicolasMBP.local" {
     "/lustre/fsn1/projects/rech/hhb/ucx81cx/workspace/lm_benchmark"
-} else if hostname == "other-person" {
+} else if hostname == "MBP-de-jliu" {
     "/lustre/fsn1/projects/rech/hhb/uye44va/workspace/lm_benchmark"
 } else {
     "workspace/lm_benchmark"
@@ -18,7 +18,7 @@ JZ_SRC_TEST_2 := JZ_SCRATCH_WORK + "/test2/code"
 hostname := `hostname`
 COML_WORKSPACE := if hostname == "NicolasMBP.local" {
     "workspace/src/LexicalBenchmark2"
-} else if hostname == "other-person" {
+} else if hostname == "MBP-de-jliu" {
     "projects/LexicalBenchmark"
 } else {
     "workspace/LexicalBenchmark"
@@ -38,10 +38,6 @@ deploy-oberon: exec-permissions
     echo "Syncing source-code directory..."
     rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/source/"
 
-[doc("Deploy source code to remote")]
-deploy-coml-prod: exec-permissions
-    echo "Syncing source-code directory..."
-    rsync -azP --delete --exclude=".venv" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{COML_CLUSTER}}:{{scratch1_deploy_folder}}"
 
 [doc("Deploy source code to jean-folder test folder !!")]
 deploy-jz-dev: exec-permissions
