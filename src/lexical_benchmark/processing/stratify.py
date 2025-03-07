@@ -5,74 +5,62 @@ import random
 L = logging.getLogger(__name__)
 
 
-class BlockStratifier:
+class TextBlockStratifier:
     """Stratifies blocks of text into equal-sized chunks.
 
     Provides functionality to split text blocks into N chunks of approximately
     equal size without breaking sentences, then create stratified samples.
     """
 
-    def __init__(self, input_blocks: list[list[str]], seed: int | None = None) -> None:
+    def __init__(self, chunk_number: int, seed: int | None = 42) -> None:
         """Initialize the stratifier with text blocks and number of chunks.
 
         Raises:
             ValueError: If blocks is empty
 
         """
-        if not input_blocks:
-            raise ValueError("Blocks cannot be empty")
+        if chunk_number <= 0:
+            raise ValueError("Cannot cut into a negative or zero number.")
 
-        self.blocks = input_blocks
+        self.chunk_number = chunk_number
         L.debug(f"Initialising RANDOM({seed})  !")
         self.random_state = random.Random(seed)
+
         self.chunked_blocks: list[list[list[str]]] = []
 
-    def _split_blocks_into_chunks(self, n_chunks: int) -> None:
-        """Split each block into approximately equal-sized chunks."""
-        self.chunked_blocks = []
+    def _split_block(self, block: list[str]) -> list[list[str]]:
+        """Split a single block into n_chunk equal sized chunks."""
+        # Estimate chunk size
+        words_list = []
+        for line in block:
+            words_list.extend(line.split())
 
-        for block in self.blocks:
-            if not block:
-                self.chunked_blocks.append([[] for _ in range(n_chunks)])
-                continue
+        target_chunk_size: int = len(words_list) // self.chunk_number
+        if target_chunk_size <= 0:
+            raise ValueError("Cannot split block into 0 chunks !!!")
 
-            total_sentences = len(block)
-            base_chunk_size = total_sentences // n_chunks
-            remainder = total_sentences % n_chunks
+        chunk_list = []
+        current_chunk = []
+        count = 0
+        for line in block:
+            count += len(line.split())  # Add words to count
+            # Check if we are over the target
+            if count >= target_chunk_size:
+                chunk_list.append(current_chunk)  # append to list
+                # Reset current
+                current_chunk = []
+                count = 0
 
-            chunks = []
-            start_idx = 0
+            current_chunk.append(line)
 
-            for i in range(n_chunks):
-                # Add one extra sentence to the first 'remainder' chunks
-                chunk_size = base_chunk_size + (1 if i < remainder else 0)
-                end_idx = start_idx + chunk_size
+        L.debug(f"Thrown away {count} words !")
+        return chunk_list
 
-                chunks.append(block[start_idx:end_idx])
-                start_idx = end_idx
+    def add_block(self, block: list[str]) -> None:
+        """Add a block to the stratification."""
+        self.chunked_blocks.append(self._split_block(block))
 
-            self.chunked_blocks.append(chunks)
-
-    def _create_target_blocks(self, n_chunks: int) -> list[list[str]]:
-        """Create target blocks by sampling chunks from source blocks.
-
-        Returns:
-            list[list[str]]: The stratified blocks
-
-        """
-        target_blocks = [[] for _ in range(n_chunks)]
-
-        for source_chunks in self.chunked_blocks:
-            # Randomly assign chunks to target blocks without repetition
-            chunk_indices = list(range(n_chunks))
-            self.random_state.shuffle(chunk_indices)
-
-            for target_idx, chunk_idx in enumerate(chunk_indices):
-                target_blocks[target_idx].extend(source_chunks[chunk_idx])
-
-        return target_blocks
-
-    def stratify(self, n_chunks: int) -> list[list[str]]:
+    def stratify(self) -> list[list[str]]:
         """Perform stratification on the blocks.
 
         Returns:
@@ -81,17 +69,22 @@ class BlockStratifier:
 
         Raises:
             RuntimeError: If an internal error occurs during stratification.
-            ValueError: If the number of chunks is less than 1.
 
         """
-        if n_chunks < 1:
-            raise ValueError("Number of chunks must be at least 1")
-
         try:
-            self._split_blocks_into_chunks(n_chunks)
-            return self._create_target_blocks(n_chunks)
+            stratified_block_list = []
+            for _ in range(self.chunk_number):
+                current_block = []
+                for block in self.chunked_blocks:
+                    chunk = block.pop(self.random_state.randrange(0, len(block)))
+                    current_block.append(chunk)
+                stratified_block_list.append(current_block)
+                current_block = []
+
         except Exception as e:
             raise RuntimeError(f"Stratification failed: {e!s}") from e
+        else:
+            return stratified_block_list
 
 
 if __name__ == "__main__":
@@ -114,8 +107,11 @@ if __name__ == "__main__":
 
     # Create a stratifier with a seed value for reproducibility
     seed_value = 42
-    stratifier = BlockStratifier(blocks, seed=seed_value)
-    stratified_blocks = stratifier.stratify(n_chunks=3)
+    stratifier = TextBlockStratifier(chunk_number=3, seed=seed_value)
+    for block in blocks:
+        stratifier.add_block(block)
+    stratified_blocks = stratifier.stratify()
+
     for idx, block in enumerate(stratified_blocks):
         print(f"--Block {idx}({len(block)=})--")
         pprint.pprint(block)
