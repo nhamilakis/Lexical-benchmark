@@ -89,11 +89,28 @@ class StelaHourTxtItemsLoader(HourTxtItemsLoader):
         """Booklist."""
         return [file.stem for file in self.book_path_list]
 
+    def get_book_path(self, name: str) -> Path | None:
+        """Get book path from the name."""
+        for book in self.book_path_list:
+            if book.stem == name:
+                return book
+
+        return None
+
     def __build_transcript(self, target: Path) -> None:
         with target.open("w") as fh:
             for book in self.book_path_list:
                 fh.write(book.read_text())
                 fh.write(" ")
+
+    @classmethod
+    def load(cls, lang: str, hour: str, chunk: str) -> "StelaHourTxtItemsLoader":
+        """Load item directly."""
+        return cls(
+            lang=lang,
+            hour_split=hour,
+            chunk=chunk,
+        )
 
     @classmethod
     def iter_items(cls, **kwargs) -> t.Iterable["StelaHourTxtItemsLoader"]:
@@ -117,7 +134,7 @@ class StelaHourTxtItemsLoader(HourTxtItemsLoader):
                     # If a filter list is set keep only given chunks
                     if len(chunk_list) != 0 and _chunk not in chunk_list:
                         continue
-                    yield cls(
+                    yield cls.load(
                         lang=_lang,
                         hour_split=_hour,
                         chunk=_chunk,

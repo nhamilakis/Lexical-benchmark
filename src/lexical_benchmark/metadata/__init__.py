@@ -10,11 +10,13 @@ def get_config(name: datasets.DATASET_NAMES, lang: str) -> MetadataDir:
         case "stela":
             return STELAMetaDir(lang=lang)
         case "child_realistic":
-            return ...
+            raise NotImplementedError("child_realistic/metadata")
         case "childes":
-            return ...
+            raise NotImplementedError("childes/metadata")
         case "word-cdi":
-            return ...
+            raise NotImplementedError("word-cdi/metadata")
+        case "wordstats":
+            raise NotImplementedError("wordstats/metadata")
         case _:
             raise exc.UnknownDatasetNameError(name)
 

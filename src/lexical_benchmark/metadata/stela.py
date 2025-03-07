@@ -28,6 +28,13 @@ class _LineLenghtStruct(t.TypedDict):
     length: int
 
 
+class _BookGenrePathStruct(t.TypedDict):
+    """Struct containing book paths & genres."""
+
+    path: Path
+    genre: str
+
+
 class _BookGenreStruct(t.TypedDict):
     """Struct for gathering book genres."""
 
@@ -235,7 +242,8 @@ class STELAMetaDir(MetadataDir):
     @property
     def book_stats(self) -> Path:
         """Path to CSV containing word counts per book."""
-        return self.root_dir / "book_stats.csv"
+        # TODO: temp moved into book_stats2.csv
+        return self.root_dir / "book_stats2.csv"
 
     @property
     def book_stats_resume(self) -> Path:
@@ -320,6 +328,17 @@ class STELAMetaDir(MetadataDir):
             book_list.append(_BookGenreStruct(book=book, genre=genre))
 
         return pl.DataFrame(book_list)
+
+    def by_hour2by_genre(self) -> t.Iterable[_BookGenrePathStruct]:
+        """Make the filesmap to build to get the by_genre."""
+        df_books = pl.read_csv(self.book_stats, separator=";")
+        df_books = df_books.unique(subset=["book_id"])
+
+        for row in df_books.iter_rows(named=True):
+            hour, chunk = row["chunk_id"].split("_")
+            item = hour_txt.StelaHourTxtItemsLoader.load(lang=self.lang, hour=hour, chunk=chunk)
+            book_path = item.get_book_path(row["book_id"])
+            yield _BookGenrePathStruct(path=book_path, genre=row["genre"])
 
     @property
     def builder(self) -> STELAMetaBuilder:

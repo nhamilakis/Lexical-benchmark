@@ -210,6 +210,11 @@ class STELADatasetConfig(DatasetConfig):
         return self.root_dir / "by_size"
 
     @property
+    def by_genre_dir(self) -> Path:
+        """Path to by genre classifications of books."""
+        return self.root_dir / "by_genre"
+
+    @property
     def source_matched_csv(self) -> Path:
         """Path to the matched CSV in the InfTrain dataset.
 
@@ -258,6 +263,13 @@ class STELADatasetConfig(DatasetConfig):
             return tuple([d.name for d in section_dir.iterdir()])
 
         raise FileNotFoundError("Cannot infer chunk size from disk")
+
+    def genre_list(self, lang: str) -> list[str]:
+        """Return the list of available genres."""
+        location = self.by_genre_dir / lang
+        if location.is_dir():
+            return [d for d in location.iterdir() if d.is_dir()]
+        return []
 
     @staticmethod
     def clean_up_rules(lang: str) -> list[text_cleaners.CleanerFN]:

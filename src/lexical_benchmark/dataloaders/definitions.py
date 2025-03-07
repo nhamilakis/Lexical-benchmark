@@ -21,5 +21,5 @@ class DatasetItemsLoader(ItemsLoader):
 
     @classmethod
     @abc.abstractmethod
-    def load(cls, dataset_name: datasets.DATASET_NAMES, *args, **kwargs) -> "DatasetItemsLoader":
+    def load(cls, *args, **kwargs) -> "DatasetItemsLoader":
         """Load item directly."""
