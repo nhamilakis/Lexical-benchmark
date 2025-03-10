@@ -171,4 +171,4 @@ class KeywordToGenre:
         genre = self.group3(tags)
         if genre:
             return genre
-        return "unknown"
+        return "misc"

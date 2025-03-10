@@ -136,6 +136,6 @@ class StelaHourTxtItemsLoader(HourTxtItemsLoader):
                         continue
                     yield cls.load(
                         lang=_lang,
-                        hour_split=_hour,
+                        hour=_hour,
                         chunk=_chunk,
                     )

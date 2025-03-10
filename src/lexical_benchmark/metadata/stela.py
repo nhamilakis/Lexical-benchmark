@@ -35,13 +35,6 @@ class _BookGenrePathStruct(t.TypedDict):
     genre: str
 
 
-class _BookGenreStruct(t.TypedDict):
-    """Struct for gathering book genres."""
-
-    book: str
-    genre: str
-
-
 @dataclasses.dataclass
 class STELAMetaBuilder(MetaBuilder):
     """STELA Metadata Extractor."""
@@ -57,7 +50,65 @@ class STELAMetaBuilder(MetaBuilder):
         _ = self.scrap_extra_metadata(save=True, force=True)
         _ = self.gather_line_length_stats(save=True, force=True)
 
-    def book_stats(self, *, save: bool = True, force: bool = False) -> pl.DataFrame:
+    def _add_better_genres(self, book_stats_df: pl.DataFrame) -> pl.DataFrame:
+        """Fix genre repartition using data extracted online.
+
+        We try and split the big Literature & Undefined genre block by adding some
+        genres from online sources.
+
+
+        Returns:
+          The same Dataframe with the genre column split into more categories
+
+        """
+        book_stats_df = book_stats_df.rename({"genre": "genre1"})
+
+        if not self.meta_dir.external_book_metadata.is_file():
+            raise FileNotFoundError(f"Expected {self.meta_dir.external_book_metadata} to exist.")
+        scrapped_data = self.meta_dir.external_book_metadata.read_json()
+        info2genre = txt_utils.KeywordToGenre()
+
+        def extract_genre2(book_id: str) -> str | None:
+            """Helper function to extract genres."""
+            item = scrapped_data.get(book_id, None)
+            if item is None:
+                return None
+            keyphrases = []
+            loc_class = item.get("loc_class")
+            if loc_class:
+                keyphrases.append(loc_class)
+
+            subjects = item.get("subjects", [])
+            if subjects:
+                keyphrases.extend(subjects)
+
+            keyphrase = " ".join(keyphrases)
+            keyphrase = "".join([c.lower() for c in keyphrase if c.lower() in string.ascii_letters])
+            return info2genre(keyphrase)
+
+        def choose_genre(genre1: str, genre2: str) -> str:
+            if genre1 in ("Literature", "Undefined"):
+                if genre2 in ("science", "essays"):
+                    return "Science, Craft & Essay".lower()
+                return genre2.lower()
+
+            if genre2 in ("science", "essays"):
+                return "Science, Craft & Essay".lower()
+            return genre1.lower()
+
+        # Apply function to book_stats
+        book_stats_df = book_stats_df.with_columns(pl.col("book_id").map_elements(extract_genre2).alias("genre2"))
+
+        # determine final genre
+        df_with_final_genre = book_stats_df.with_columns(
+            pl.struct(["genre1", "genre2"])
+            .map_elements(lambda x: choose_genre(x["genre1"], x["genre2"]))
+            .alias("genre")
+        )
+
+        return df_with_final_genre.drop(["genre1", "genre2"])
+
+    def book_stats(self, *, genre2: bool = True, save: bool = True, force: bool = False) -> pl.DataFrame:
         """Build the book stats CSV.
 
         The stats contain:
@@ -73,7 +124,7 @@ class STELAMetaBuilder(MetaBuilder):
         """
         # If not forcing do not rebuild the dataframe
         if self.meta_dir.book_stats.is_file() and not force:
-            return pl.read_csv(self.meta_dir, separator=";")
+            return pl.read_csv(self.meta_dir.book_stats, separator=";")
 
         iter_items = hour_txt.StelaHourTxtItemsLoader.iter_items()
 
@@ -101,6 +152,9 @@ class STELAMetaBuilder(MetaBuilder):
             right_on="book",
             how="left",  # Use left join to keep all rows from the first DataFrame
         )
+
+        if genre2:
+            result_df = self._add_better_genres(result_df)
 
         if save:
             result_df.write_csv(self.meta_dir.book_stats, separator=";", include_header=True)
@@ -156,7 +210,23 @@ class STELAMetaBuilder(MetaBuilder):
     def scrap_extra_metadata(
         self, *, save: bool = True, force: bool = False, keep_cache: bool = True, cache_freq: int = 10
     ) -> dict:
-        """Scrap the web to fetch extra book metadata."""
+        """Scrap the web to fetch extra book metadata.
+
+        Using the text_source url from matched2.csv we are able to scrap extra information for
+        a lot of the books (archive.org & gutenberg.org).
+
+        Result:
+            Results are saved as json :
+                book_id -> {
+                    source: url used
+                    loc_class: genre classification according to USA Library archivists
+                    subjects: other genres extracted from keywords (topic, subject descriptions etc...)
+                    original_publication: Date of book publication
+                    release_date: Date where the book was released on the public domain
+                    unknown_source: Flag signifying the source (website does not have a scrapper)
+                    failed: Flag signifying some error produced incomplete or missing data.
+                }
+        """
         if self.meta_dir.external_book_metadata.is_file() and not force:
             return self.meta_dir.external_book_metadata.read_json()
 
@@ -197,7 +267,24 @@ class STELAMetaBuilder(MetaBuilder):
         return results
 
     def gather_line_length_stats(self, *, save: bool = True, force: bool = False) -> pl.DataFrame:
-        """Gather statistics on line length across all stella books."""
+        """Gather statistics on line length across all stella books.
+
+        Information:
+            For each book in the 50h/** list of chunks (as it allows to not have duplicates),
+            we count the size of each line of text.
+
+            Resulting dataframe:
+
+            LANG<str> | SPLIT<str> | CHUNK<str> | BOOK<str> | LINE<int> | LENGTH<int>
+
+            This dataframe allows us to build two informations :
+
+                - line length resume (min, max, average) lenght of each line in number of words.
+
+                - line length frequency distribution, to see the average line size
+
+            Lines in books have been re-balanced to contain single sentences (as per given punctuation).
+        """
         if self.meta_dir.line_length_stats.is_file() and not force:
             return pl.read_csv(self.meta_dir.line_length_stats, separator=";")
 
@@ -242,8 +329,7 @@ class STELAMetaDir(MetadataDir):
     @property
     def book_stats(self) -> Path:
         """Path to CSV containing word counts per book."""
-        # TODO: temp moved into book_stats2.csv
-        return self.root_dir / "book_stats2.csv"
+        return self.root_dir / "book_stats.csv"
 
     @property
     def book_stats_resume(self) -> Path:
@@ -258,7 +344,7 @@ class STELAMetaDir(MetadataDir):
     @property
     def external_book_metadata(self) -> Path:
         """Path to JSON containing external book metadata."""
-        return self.root_dir / "book_data.json"
+        return self.root_dir / "scraped_book_data.json"
 
     @property
     def line_length_stats(self) -> Path:
@@ -266,12 +352,23 @@ class STELAMetaDir(MetadataDir):
         return self.root_dir / "line_length.csv"
 
     def line_length_by_count(self) -> pl.DataFrame:
-        """Line length stats, grouped by count on unique books."""
+        """Line length stats, grouped by count on unique books.
+
+        This dataframe allows us to plot a frequency distribution of
+        the line lenghts (in number of TOKENS(words)).
+
+        Requires:
+            - line_length_stats (line_length.csv)
+        """
         df = pl.read_csv(self.line_length_stats, separator=";")
         return df.group_by("length").agg(pl.count().alias("count")).sort("length")
 
     def line_length_stats_resume(self) -> pl.DataFrame:
-        """Line length resume statistics (min, max, average)."""
+        """Line length resume statistics (min, max, average).
+
+        Requires:
+            - line_length_stats (line_length.csv)
+        """
         df = pl.read_csv(self.line_length_stats, separator=";")
         return (
             df.group_by("lang")
@@ -287,7 +384,11 @@ class STELAMetaDir(MetadataDir):
         )
 
     def extract_genre_keywords(self) -> list[str]:
-        """Extract genres from book_data.json to do frequency analysis."""
+        """Extract genres from book_data.json to do frequency analysis.
+
+        Requires:
+            - external_book_metadata (book_data.json)
+        """
         book_data = self.external_book_metadata.read_json()
         keyphrases = []
         for value in book_data.values():
@@ -309,28 +410,12 @@ class STELAMetaDir(MetadataDir):
 
         return keywords
 
-    def generate_new_genres(self) -> pl.DataFrame:
-        """Generate new genres for all the books."""
-        book_list = []
-
-        book_data = self.external_book_metadata.read_json()
-        for book, value in book_data.items():
-            tags = ""
-            loc_class = value.get("loc_class", "")
-            if loc_class:
-                tags += loc_class + "; "
-
-            subjects = value.get("subjects", [])
-            if subjects:
-                tags += "; ".join(subjects)
-            tags = tags.lower()
-            genre = txt_utils.KeywordToGenre()(tags)
-            book_list.append(_BookGenreStruct(book=book, genre=genre))
-
-        return pl.DataFrame(book_list)
-
     def by_hour2by_genre(self) -> t.Iterable[_BookGenrePathStruct]:
-        """Make the filesmap to build to get the by_genre."""
+        """Make the filesmap to build to get the by_genre.
+
+        Requires:
+            - book_stats
+        """
         df_books = pl.read_csv(self.book_stats, separator=";")
         df_books = df_books.unique(subset=["book_id"])
 
