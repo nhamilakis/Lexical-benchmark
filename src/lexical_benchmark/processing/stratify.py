@@ -1,21 +1,25 @@
 import collections
 import hashlib
 import logging
+import math
 import random
 import string
-import typing as t
 from dataclasses import dataclass, field
-
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib import patches
 
 L = logging.getLogger(__name__)
 
 ChunkIDType = tuple[int, int]
-_RNDR_MIN_MAX_CHUNK = (30, 300)
+_RNDR_MIN_MAX_CHUNK = (300, 800)
 _RNDR_MIN_MAX_LINE = (2, 20)
 _RNDR_MIN_MAX_WORD = (2, 16)
+
+
+class EmptyBlockError(ValueError):
+    """Exception used to signify a given block is empty."""
+
+
+class CoordMappingNotSetError(ValueError):
+    """CoordMapping not initialised."""
 
 
 def _random_text_chunk(rndr: random.Random | None = None) -> list[str]:
@@ -35,44 +39,61 @@ def _random_text_chunk(rndr: random.Random | None = None) -> list[str]:
     return [get_line() for _ in range(lines)]
 
 
-class _Chunk(t.TypedDict):
+@dataclass
+class _Chunk:
     raw_text: list[str]
     chunk_id: ChunkIDType
 
     @property
     def as_text(self) -> str:
         """Get chunk as a text-block."""
-        return "\n".join(self["raw_text"])
+        return "\n".join(self.raw_text)
 
-    def __hash__(self) -> str:
-        return hashlib.md5(self.as_text).hexdigest()
+    def word_count(self) -> int:
+        """Number of words in chunk."""
+        return len(self.as_text.replace("\n", " ").split(" "))
+
+    def __hash__(self) -> int:
+        return int(hashlib.md5(self.as_text.encode()).hexdigest(), 16)
 
 
-class _Block(t.TypedDict):
+@dataclass
+class _Block:
     raw_text: list[str]
     block_id: int
     chunks: dict[int, _Chunk]
 
     def check_unique(self) -> bool:
-        hash_codes = [hash(chunk) for chunk in self["chunks"].values()]
+        hash_codes = [hash(chunk) for chunk in self.chunks.values()]
         return len(hash_codes) == len(set(hash_codes))
 
 
-class BlockList(t.TypedDict):
+@dataclass
+class BlockList:
     """List of blocks."""
 
     blocks: dict[int, _Block]
 
-    @property
-    def next_idx(self) -> int:
-        """ID for the next item."""
-        return len(self["blocks"])
-
-    def add_block(self, idx: int, b: _Block) -> None:
-        """Add a block to the list."""
-        if idx in self["blocks"]:
+    def add_block(self, index: int, block: _Block) -> None:
+        """Add a block into the list."""
+        if index in self.blocks:
             raise ValueError("A block with the ID({idx}) already exists.")
-        self["blocks"][idx] = b
+        self.blocks[index] = block
+
+    def check_unique(self) -> bool:
+        """Check if all blocks contain unique items."""
+        return all(block.check_unique() for block in self.blocks.values())
+
+    def sizes(self) -> list[tuple[int, int]]:
+        """List block sizes."""
+        return [(b_id, len(b.chunks)) for b_id, b in self.blocks.items()]
+
+
+@dataclass
+class DataChunk:
+    """A struct defining a chunk of data in the bySize dataset schema."""
+
+    data: dict[ChunkIDType, list[str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -80,17 +101,25 @@ class BySizeBlockDataset:
     """Dataset build by a stratification method."""
 
     coord_blocks: dict[int, dict[int, list[ChunkIDType]]] = field(default_factory=lambda: collections.defaultdict(dict))
+    dev_coords: list[ChunkIDType] = field(default_factory=list)
+    data_blocks: dict[int, dict[int, DataChunk]] = field(default_factory=lambda: collections.defaultdict(dict))
+    dev_data: DataChunk | None = None
 
-    def set_block(self, *, size: int, index: int, block: list[ChunkIDType]) -> None:
+    def set_block(self, size: int, index: int, block: DataChunk) -> None:
+        """Set a data block into its given position."""
+        self.data_blocks[size][index] = block
+
+    def get_block(self, size: int, index: int) -> DataChunk:
+        """Retrieve a data block."""
+        return self.data_blocks[size][index]
+
+    def set_coords(self, *, size: int, index: int, block: list[ChunkIDType]) -> None:
         """Append a block into the dataset."""
         self.coord_blocks[size][index] = block
 
-    def get_block(self, size: int, index: int) -> list[ChunkIDType]:
+    def get_coords(self, size: int, index: int) -> list[ChunkIDType]:
         """Get a specific block by coords."""
-        try:
-            return self.coord_blocks[size][index]
-        except KeyError:
-            return []
+        return self.coord_blocks[size][index]
 
     def get_nth_as_list(self, size: int, number: int) -> list[ChunkIDType]:
         """Get coord IDs from the n first items of a size."""
@@ -102,6 +131,18 @@ class BySizeBlockDataset:
             ids.extend(self.coord_blocks[size][i])
         return ids
 
+    def build_blocks(self, source_chunked_blocks: BlockList) -> None:
+        """Build actual data blocks from a list of chunked categorised data."""
+        data_blocks = dict(self.data_blocks)
+
+        for size_id, block in self.coord_blocks.items():
+            for chunk_id, chunk_coords in block.items():
+                merged_chunks = {
+                    (coord_cat, coord_chunk): source_chunked_blocks.get_chunk(coord_cat, coord_chunk)
+                    for coord_cat, coord_chunk in chunk_coords
+                }
+                data_blocks[size_id][chunk_id] = DataChunk(data=merged_chunks)
+
 
 class TextBlockStratifier:
     """Builds a by_size dataset by stratifying source blocks.
@@ -110,7 +151,7 @@ class TextBlockStratifier:
     Target dataset is separated in a by_size gradual
     """
 
-    def __init__(self, chunk_number: int, *, seed: int | None = 42, make_dev: bool = True) -> None:
+    def __init__(self, chunk_number: int, *, seed: int | None = 42, dev_percent: float = 0.0) -> None:
         """Initialize the stratifier with text blocks and number of chunks.
 
         Raises:
@@ -120,8 +161,10 @@ class TextBlockStratifier:
         if chunk_number <= 0:
             raise ValueError("Cannot cut into a negative or zero number.")
 
-        self.make_dev = make_dev
-        self.chunk_number = chunk_number
+        # compute part of text to be kept for dev set
+        self.dev_chunks_nb = math.ceil(chunk_number * dev_percent) if dev_percent > 0.0 else 0
+
+        self.chunk_number = chunk_number + self.dev_chunks_nb
         L.debug(f"Initialising RANDOM({seed})  !")
         self.random_state = random.Random(seed)
 
@@ -154,17 +197,23 @@ class TextBlockStratifier:
         current_chunk = []
         count = 0
         for line in block:
+            if len(chunk_list) == self.chunk_number:
+                break
+
             count += len(line.split())  # Add words to count
             # Check if we are over the target
             if count >= target_chunk_size:
                 chunk_list.append(current_chunk)  # append to list
                 # Reset current
                 current_chunk = []
-                count = 0
+                count = len(line.split())
 
             current_chunk.append(line)
 
         L.debug(f"Thrown away {count} words !")
+        if len(chunk_list) != self.chunk_number:
+            raise ValueError(f"Chunk Size should be equal to {self.chunk_number}")
+
         return chunk_list
 
     def add_block(self, block: list[str]) -> None:
@@ -175,22 +224,50 @@ class TextBlockStratifier:
         """Split all block into the stack."""
         chunked_stack: BlockList = BlockList(blocks={})
         for idx, block in self.source_blocks.items():
-            chunked_block = self._split_block(block)
-            chunked_block = [_Chunk(raw_text=txt, chunk_id=(idx, count)) for count, txt in enumerate(chunked_block)]
-            chunked_stack.add_block(_Block(raw_text=block, block_id=idx, chunks=dict(enumerate(chunked_block))))
+            try:
+                chunked_block = self._split_block(block)
+                chunked_block = [_Chunk(raw_text=txt, chunk_id=(idx, count)) for count, txt in enumerate(chunked_block)]
+                chunked_stack.add_block(
+                    idx, _Block(raw_text=block, block_id=idx, chunks=dict(enumerate(chunked_block)))
+                )
+            except ValueError as e:
+                print(f"Failed to chunk {idx} with {e}")
+
         return chunked_stack
 
     def _get_1d_sample_coords(self, exclude: list[ChunkIDType] | None = None) -> list[ChunkIDType]:
-        """Build a 1D sample from all blocks."""
+        """Build a 1D sample from all blocks.
+
+        Raises:
+            EmptyBlockError: when trying to extract from an empty block.
+
+        """
+        if self.block_coords is None:
+            raise CoordMappingNotSetError
+
         chunk_coord_list = []
         exclude_items = set(exclude) if exclude else set()
 
         for idx in self.block_coords:
             block = set(self.block_coords[idx]) - exclude_items
+            if len(block) == 0:
+                print(exclude)
+                raise EmptyBlockError(f"Block({idx}) is empty !!")
             coords = self.random_state.choice(list(block))
             chunk_coord_list.append(coords)
 
         return chunk_coord_list
+
+    def _get_dev_coords(self) -> list[ChunkIDType]:
+        """Extrect dev-set coords."""
+        if self.block_coords is None:
+            return []
+
+        dev_coords = []
+        if self.dev_chunks_nb > 0:
+            for _ in range(self.dev_chunks_nb):
+                dev_coords.extend(self._get_1d_sample_coords())
+        return dev_coords
 
     def build_stratifier(self, size_targets: tuple[int, ...] = (1, 2, 3, 4, 5, 6)) -> BySizeBlockDataset:
         """Perform stratification on the blocks.
@@ -205,24 +282,27 @@ class TextBlockStratifier:
         """
         self._init_block_coords()
         stratified_block_dataset = BySizeBlockDataset()
+        dev_coords = self._get_dev_coords()
+        stratified_block_dataset.dev_coords = dev_coords
 
         for idx, chunk_size in enumerate(size_targets):
             previous_size = None
             if idx > 0:
                 previous_size = size_targets[idx - 1]
 
-            block_count = self.chunk_number // chunk_size  # Number of possible blocks
-            exclude_list = []
+            block_count = (self.chunk_number - self.dev_chunks_nb) // chunk_size  # Number of possible blocks
+            exclude_list = [*dev_coords]  # Always exclude items used in dev
+
             # Add all previous to exclude
             if previous_size:
-                exclude_list = stratified_block_dataset.get_nth_as_list(size=previous_size, number=block_count)
+                exclude_list.extend(stratified_block_dataset.get_nth_as_list(size=previous_size, number=block_count))
 
             for block_n in range(block_count):
                 current_block = []
                 leftover_size = chunk_size
 
                 if previous_size:
-                    current_block.extend(stratified_block_dataset.get_block(size=previous_size, index=block_n))
+                    current_block.extend(stratified_block_dataset.get_coords(size=previous_size, index=block_n))
                     leftover_size = chunk_size - previous_size
 
                 # Extract remaining from chunked using exlude list if necessairy
@@ -232,286 +312,26 @@ class TextBlockStratifier:
                     current_block.extend(samples_1d)
 
                 # Add block to dataset
-                stratified_block_dataset.set_block(size=chunk_size, index=block_n, block=current_block)
+                stratified_block_dataset.set_coords(size=chunk_size, index=block_n, block=current_block)
         return stratified_block_dataset
 
 
-def sample_for_testing() -> tuple[TextBlockStratifier, BySizeBlockDataset]:
+def sample_for_testing() -> TextBlockStratifier:
     """Build a stratifier with random data for testing purposes."""
     # Target is a division of blocks into 6 sub-blocks
-    st = TextBlockStratifier(chunk_number=6, seed=42)
+    st = TextBlockStratifier(chunk_number=6, seed=42, dev_percent=0.09)
 
     # Add three random blocks
     st.add_block(_random_text_chunk(rndr=st.random_state))
     st.add_block(_random_text_chunk(rndr=st.random_state))
     st.add_block(_random_text_chunk(rndr=st.random_state))
+    st.add_block(_random_text_chunk(rndr=st.random_state))
+    st.add_block(_random_text_chunk(rndr=st.random_state))
 
-    zs = st.build_stratifier()
-    return st, zs
-
-
-def visualize_hierarchical_blocks(blocks: dict[int, dict[int, list[ChunkIDType]]]) -> None:
-    """Visualize hierarchical structure of blocks, chunks, and coordinates.
-
-    Each block is a separate rectangle containing its chunks.
-    Each chunk is a colored area inside the block containing coordinate points.
-    """
-    # Create figure and axis
-    fig, ax = plt.subplots(figsize=(14, 10))
-
-    # Count total blocks and chunks for layout
-    num_blocks = len(blocks)
-
-    # Set colors for blocks and chunks - make sure they're valid RGBA
-    block_colors = plt.cm.tab10(np.linspace(0, 1, num_blocks))
-
-    # Track vertical position
-    y_pos = 0
-    block_height = 8
-
-    # Font settings
-    block_font = {"fontsize": 12, "fontweight": "bold"}
-    chunk_font = {"fontsize": 10}
-    coord_font = {"fontsize": 8}
-
-    # Process each block
-    for block_idx, (block_id, chunks) in enumerate(sorted(blocks.items())):
-        num_chunks = len(chunks)
-
-        block_color = block_colors[block_idx % len(block_colors)]
-
-        # Create a lighter version of the block color (correctly keeping values between 0-1)
-        lighter_block_color = block_color.copy()
-        # Only adjust RGB, not alpha
-        lighter_block_color[:3] = 0.3 * block_color[:3] + 0.7
-
-        # Draw block rectangle
-        block_rect = patches.Rectangle(
-            (0, y_pos), 10, block_height, facecolor=lighter_block_color, edgecolor=block_color, linewidth=2, alpha=0.7
-        )
-        ax.add_patch(block_rect)
-
-        # Add block label
-        ax.text(
-            -1,
-            y_pos + block_height / 2,
-            f"Block {block_id}",
-            verticalalignment="center",
-            horizontalalignment="right",
-            **block_font,
-        )
-
-        # Calculate chunk height
-        chunk_height = block_height / num_chunks
-
-        # Process chunks within this block
-        for chunk_idx, (chunk_id, coords) in enumerate(sorted(chunks.items())):
-            chunk_y = y_pos + chunk_idx * chunk_height
-            chunk_color = plt.cm.Pastel1(chunk_idx / max(1, num_chunks - 1))
-
-            # Draw chunk rectangle
-            chunk_rect = patches.Rectangle(
-                (0.5, chunk_y + 0.2), 9, chunk_height - 0.4, facecolor=chunk_color, edgecolor="black", linewidth=1
-            )
-            ax.add_patch(chunk_rect)
-
-            # Add chunk label
-            ax.text(1, chunk_y + chunk_height / 2, f"Chunk {chunk_id}", verticalalignment="center", **chunk_font)
-
-            # Calculate coordinate spacing
-            num_coords = len(coords)
-            if num_coords > 0:
-                # Group coordinates in rows of max 10 points
-                coords_per_row = 10
-                num_rows = (num_coords + coords_per_row - 1) // coords_per_row
-                row_height = (chunk_height - 0.8) / max(1, num_rows)
-
-                # Plot each coordinate as a point with label
-                for i, coord in enumerate(coords):
-                    row = i // coords_per_row
-                    col = i % coords_per_row
-
-                    point_x = 3 + col * 0.6
-                    point_y = chunk_y + 0.4 + row * row_height + row_height / 2
-
-                    # Draw point
-                    ax.plot(
-                        point_x, point_y, "o", markersize=6, color="black", mfc=block_color[:3]
-                    )  # Use only RGB part of block_color
-
-                    # Add coordinate label
-                    if num_coords <= 40:  # Only show labels if not too crowded
-                        ax.text(
-                            point_x + 0.1, point_y, f"({coord[0]},{coord[1]})", verticalalignment="center", **coord_font
-                        )
-
-            # Show count if too many points
-            if num_coords > 40:
-                ax.text(
-                    7,
-                    chunk_y + chunk_height / 2,
-                    f"{num_coords} coordinates",
-                    verticalalignment="center",
-                    horizontalalignment="center",
-                    **chunk_font,
-                )
-
-        # Update vertical position for next block
-        y_pos += block_height + 1
-
-    # Set axis limits and labels
-    ax.set_xlim(-2, 11)
-    ax.set_ylim(-1, y_pos)
-    ax.set_title("Hierarchical Visualization of Blocks, Chunks and Coordinates")
-    ax.axis("off")
-
-    plt.tight_layout()
-
-    return fig
+    return st
 
 
-def visualize_hierarchical_blocks2(blocks: dict[int, dict[int, list[ChunkIDType]]]) -> None:  # noqa: C901, PLR0912, PLR0915
-    """Visualize hierarchical structure of blocks, chunks, and coordinates.
-
-    Each block is a separate rectangle containing its chunks.
-    Each chunk is a colored area inside the block containing coordinate points.
-    """
-    # Create figure and axis
-    fig, ax = plt.subplots(figsize=(14, 10))
-
-    # Reorder blocks to ensure "dev" is first
-    ordered_blocks = []
-    dev_block = None
-
-    for block_id, chunks in blocks.items():
-        if block_id == "dev":
-            dev_block = (block_id, chunks)
-        else:
-            ordered_blocks.append((block_id, chunks))
-
-    # Sort non-dev blocks numerically or alphabetically
-    ordered_blocks.sort()
-
-    # Put dev at the beginning if it exists
-    if dev_block:
-        ordered_blocks.insert(0, dev_block)
-
-    # Count total blocks for color palette
-    num_blocks = len(blocks)
-
-    # Set colors for blocks and chunks - make sure they're valid RGBA
-    block_colors = plt.cm.tab10(np.linspace(0, 1, num_blocks))
-
-    # Track vertical position
-    y_pos = 0
-    block_height = 8
-
-    # Font settings
-    block_font = {"fontsize": 12, "fontweight": "bold"}
-    chunk_font = {"fontsize": 10}
-    coord_font = {"fontsize": 8}
-
-    # Process each block
-    for block_idx, (block_id, chunks) in enumerate(ordered_blocks):
-        num_chunks = len(chunks)
-
-        # Special styling for dev block
-        if block_id == "dev":
-            block_color = np.array([0.8, 0.2, 0.2, 1.0])  # Red for dev
-            lighter_block_color = np.array([0.95, 0.8, 0.8, 1.0])  # Light red background
-            block_label = "DEV"
-        else:
-            block_color = block_colors[block_idx % len(block_colors)]
-            # Create a lighter version of the block color
-            lighter_block_color = block_color.copy()
-            # Only adjust RGB, not alpha
-            lighter_block_color[:3] = 0.3 * block_color[:3] + 0.7
-            block_label = f"Block {block_id}"
-
-        # Draw block rectangle
-        block_rect = patches.Rectangle(
-            (0, y_pos), 10, block_height, facecolor=lighter_block_color, edgecolor=block_color, linewidth=2, alpha=0.7
-        )
-        ax.add_patch(block_rect)
-
-        # Add block label
-        ax.text(
-            -1,
-            y_pos + block_height / 2,
-            block_label,
-            verticalalignment="center",
-            horizontalalignment="right",
-            **block_font,
-        )
-
-        # Calculate chunk height
-        chunk_height = block_height / max(1, num_chunks)
-
-        # Process chunks within this block
-        for chunk_idx, (chunk_id, coords) in enumerate(sorted(chunks.items())):
-            chunk_y = y_pos + chunk_idx * chunk_height
-
-            # Special styling for dev chunks
-            if block_id == "dev":
-                chunk_color = np.array([0.9, 0.7, 0.7, 1.0])  # Lighter red for dev chunks
-            else:
-                chunk_color = plt.cm.Pastel1(chunk_idx / max(1, num_chunks - 1))
-
-            # Draw chunk rectangle
-            chunk_rect = patches.Rectangle(
-                (0.5, chunk_y + 0.2), 9, chunk_height - 0.4, facecolor=chunk_color, edgecolor="black", linewidth=1
-            )
-            ax.add_patch(chunk_rect)
-
-            # Add chunk label
-            ax.text(1, chunk_y + chunk_height / 2, f"Chunk {chunk_id}", verticalalignment="center", **chunk_font)
-
-            # Calculate coordinate spacing
-            num_coords = len(coords)
-            if num_coords > 0:
-                # Group coordinates in rows of max 10 points
-                coords_per_row = 10
-                num_rows = (num_coords + coords_per_row - 1) // coords_per_row
-                row_height = (chunk_height - 0.8) / max(1, num_rows)
-
-                # Plot each coordinate as a point with label
-                for i, coord in enumerate(coords):
-                    row = i // coords_per_row
-                    col = i % coords_per_row
-
-                    point_x = 3 + col * 0.6
-                    point_y = chunk_y + 0.4 + row * row_height + row_height / 2
-
-                    # Draw point
-                    point_color = block_color[:3] if isinstance(block_color, np.ndarray) else block_color
-                    ax.plot(point_x, point_y, "o", markersize=6, color="black", mfc=point_color)
-
-                    # Add coordinate label
-                    if num_coords <= 40:  # Only show labels if not too crowded
-                        ax.text(
-                            point_x + 0.1, point_y, f"({coord[0]},{coord[1]})", verticalalignment="center", **coord_font
-                        )
-
-            # Show count if too many points
-            if num_coords > 40:
-                ax.text(
-                    7,
-                    chunk_y + chunk_height / 2,
-                    f"{num_coords} coordinates",
-                    verticalalignment="center",
-                    horizontalalignment="center",
-                    **chunk_font,
-                )
-
-        # Update vertical position for next block
-        y_pos += block_height + 1
-
-    # Set axis limits and labels
-    ax.set_xlim(-2, 11)
-    ax.set_ylim(-1, y_pos)
-    ax.set_title("Hierarchical Visualization of Blocks, Chunks and Coordinates")
-    ax.axis("off")
-
-    plt.tight_layout()
-
-    return fig
+if __name__ == "__main__":
+    st = sample_for_testing()
+    stratif_map = st.build_stratifier()
+    block_stack = st.get_splits_stack()
