@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import typing as t
 import urllib.parse as url_parse
 import warnings
@@ -419,10 +420,8 @@ class Rsync:
     def _mk_filelist(self) -> Path:
         """Make the filelist file."""
         tmp_file = settings.cache_dir() / f"transfer{int(datetime.now().timestamp())}"
-        try:
-            relative_path_list = [str(file.relative_to(self.source_dir)) for file in self.file_list]
-        except ValueError as e:
-            raise exc.RsyncArgsError(f"filelist contains items not in {self.source_dir}") from e
+        # All paths need to be relative
+        relative_path_list = [str(file) for file in self.file_list]
 
         # write into temp file
         tmp_file.safe_write_text("\n".join(relative_path_list))
@@ -468,52 +467,88 @@ class Rsync:
 
     def __err_handler(
         self,
-        err: subprocess.CalledProcessError,
+        err_msg: str,
         output_handling: t.Literal["log_info", "log_debug", "print", "ignore"] = "log_debug",
-        *,
-        ignore_errors: bool = False,
     ) -> None:
         """Handle error based on selected option."""
-        if output_handling == "log_info":
-            self._logger.info(f"Command failed: {err}")
-            if err.stderr:
-                self._logger.info(err.stderr)
-        elif output_handling == "log_debug":
-            self._logger.debug(f"Command failed: {err}")
-            if err.stderr:
-                self._logger.debug(err.stderr)
+        if output_handling in ("log_info", "log_debug"):
+            self._logger.error(f"Command failed: {self.cmd()}")
+            self._logger.error(err_msg)
         elif output_handling == "print":
-            print(f"Command failed: {err}")
-            if err.stderr:
-                print(err.stderr)
+            print(f"Command failed: {self.cmd()}")
+            print(err_msg)
 
-        if not ignore_errors:
-            raise err
+    def _read_stream(
+        self,
+        stream: t.IO[str],
+        data_list: list,
+        output_handling: t.Literal["log_info", "log_debug", "print", "ignore"],
+        stream_name: str,
+    ) -> None:
+        for line in iter(stream.readline, ""):
+            line_stripped = line.rstrip()
+            data_list.append(line_stripped + "\n")
+            if output_handling != "ignore":
+                if stream_name == "stderr":
+                    self.__err_handler(line_stripped, output_handling)
+                else:
+                    self._out_handler(line_stripped, output_handling)
 
     def __call__(
         self,
         *,
         dry_run: bool = False,
         output_handling: t.Literal["log_info", "log_debug", "print", "ignore"] = "log_debug",
-        ignore_errors: bool = False,
+        ignore_errors: bool = True,
     ) -> subprocess.CompletedProcess:
         """Call the rsync command."""
-        try:
-            result = subprocess.run(
-                self.cmd(dry_run=dry_run),
-                capture_output=True,
-                text=True,
-                check=not ignore_errors,  # Will raise exception if command fails and ignore_errors is False
+        cmd = self.cmd(dry_run=dry_run)
+        self._logger.debug(f"Running RSYNC-CMD: {cmd}")
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,  # Line buffered
+        )
+        # Store output for return value
+        stdout_data = []
+        stderr_data = []
+
+        # Handle stdout and stderr streams
+        stdout_thread = threading.Thread(
+            target=self._read_stream,
+            args=(process.stdout, stdout_data, output_handling, "stdout"),
+        )
+        stderr_thread = threading.Thread(
+            target=self._read_stream,
+            args=(process.stderr, stderr_data, output_handling, "stderr"),
+        )
+        stdout_thread.start()
+        stderr_thread.start()
+
+        # Handle results
+        return_code = process.wait()
+        stdout_thread.join()
+        stderr_thread.join()
+        result = subprocess.CompletedProcess(
+            args=cmd, returncode=return_code, stdout="".join(stdout_data), stderr="".join(stderr_data)
+        )
+
+        if return_code != 0 and not ignore_errors:
+            self.__err_handler(
+                (f"{cmd}\n{result.stderr}\nRSYNC Returned code : {return_code}"),
+                output_handling,
+                ignore_errors=ignore_errors,
             )
-            # Handle output based on selected option
-            if result.stdout and output_handling != "ignore":
-                self._out_handler(result.stdout, output_handling)
+            return return_code
 
-            if result.stderr and output_handling != "ignore":
-                self._out_handler(result.stderr, output_handling)
+        if return_code != 0:
+            raise subprocess.CalledProcessError(
+                returncode=return_code,
+                cmd=cmd,
+                output=stdout_data,
+                stderr=stderr_data,
+            )
 
-        except subprocess.CalledProcessError as e:
-            self.__err_handler(e, output_handling, ignore_errors=ignore_errors)
-            return e.returncode
-        else:
-            return result
+        return result

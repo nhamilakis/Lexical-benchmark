@@ -24,6 +24,9 @@ documentation = "https://github.com/Jing-L97/Lexical-benchmark"
 repository = "https://github.com/Jing-L97/Lexical-benchmark"
 
 
+[project.scripts]
+download-stela = "lexical_benchmark.data_download:download_stela"
+
 [project.optional-dependencies]
 dev = ["ruff", "mypy", "ipython", "jupyter", "pytest>=8.3.4", "pre-commit"]
 # polyglot = ["polyglot", "pyicu", "pycld2", "morfessor"]

@@ -10,13 +10,7 @@ def upload_stela(host: str, target_dir: Path) -> None:
         source_dir=cfg.root_dir,
         target_dir=target_dir / cfg.root_dir.name,
         remote_dest=host,
-        file_list=[
-            cfg.preprocessed_root.relative_to(cfg.root_dir),  # src/preprocess
-            cfg.by_hour_dir.relative_to(cfg.root_dir),  # by_hour/
-            cfg.meta_dir.relative_to(cfg.root_dir),  # metadata/
-            cfg.by_size_dir.relative_to(cfg.root_dir),  # by_size/
-            cfg.by_genre_dir.relative_to(cfg.root_dir),  # by_genre/
-        ],
+        file_list=cfg.transfer_pathlist(),
         delete=True,
         copy_symlinks=True,
     )
@@ -30,11 +24,7 @@ def upload_childes(host: str, target_dir: Path) -> None:
         source_dir=cfg.root_dir,
         target_dir=target_dir / cfg.root_dir.name,
         remote_dest=host,
-        file_list=[
-            cfg.preprocessed_root.relative_to(cfg.root_dir),  # src/preprocess
-            cfg.meta_dir.relative_to(cfg.root_dir),  # metadata/
-            # TODO: add rest of CHILDES
-        ],
+        file_list=cfg.transfer_pathlist(),
         delete=True,
         copy_symlinks=True,
     )

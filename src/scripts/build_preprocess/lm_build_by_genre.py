@@ -15,9 +15,25 @@ stela_data: datasets.STELADatasetConfig = datasets.get_config("stela")
 
 logger.info(f"Making genre folder {stela_data.by_genre_dir}...")
 genre_dir = stela_data.by_genre_dir / stela_meta.lang
+genre_merge_registry = {
+    "political & philosophy": "science, craft & essay",
+    "psychology": "science, craft & essay",
+    "juvenile books": "fiction",
+    "mystery": "fiction",
+}
+manual_genres = stela_meta.manual_genre_list.read_toml()
+
 for book in stela_meta.by_hour2by_genre():
-    target = genre_dir / book["genre"] / book["path"].name
+    if book["genre"] in genre_merge_registry:
+        current_genre = genre_merge_registry[book["genre"]]
+    elif book["path"].stem in manual_genres:
+        current_genre = manual_genres[book["path"].stem]
+    else:
+        current_genre = book["genre"]
+
+    target = genre_dir / current_genre / book["path"].name
     target.parent.mkdir(exist_ok=True, parents=True)
-    target.symlink_to(book["path"])
+    link_source = book["path"].relpath(target.parent)
+    target.symlink_to(link_source)
 
 logger.info("Finished making genres.")

@@ -5,6 +5,7 @@ import math
 import random
 import string
 from dataclasses import dataclass, field
+from pathlib import Path
 
 L = logging.getLogger(__name__)
 
@@ -80,6 +81,13 @@ class BlockList:
             raise ValueError("A block with the ID({idx}) already exists.")
         self.blocks[index] = block
 
+    def get_chunk(self, size: int, index: int) -> _Chunk | None:
+        """Return a specific chunk of text."""
+        try:
+            return self.blocks[size].chunks[index]
+        except KeyError:
+            return None
+
     def check_unique(self) -> bool:
         """Check if all blocks contain unique items."""
         return all(block.check_unique() for block in self.blocks.values())
@@ -93,7 +101,21 @@ class BlockList:
 class DataChunk:
     """A struct defining a chunk of data in the bySize dataset schema."""
 
-    data: dict[ChunkIDType, list[str]] = field(default_factory=dict)
+    data: dict[ChunkIDType, _Chunk]
+
+    def write_map(self, target: Path) -> None:
+        """Write file as mapping."""
+        target.write_json([{f"{x}_{y}": data.as_text} for (x, y), data in self.data.items() if data])
+
+    def write_text(self, target: Path) -> None:
+        """Write only text."""
+        text = ""
+        for coords, chunk in self.data.items():
+            if chunk:
+                text += "\n".join(chunk.raw_text)
+            else:
+                L.info(f"Failed to find: chunk {coords}")
+        target.safe_write_text(text)
 
 
 @dataclass
@@ -133,7 +155,7 @@ class BySizeBlockDataset:
 
     def build_blocks(self, source_chunked_blocks: BlockList) -> None:
         """Build actual data blocks from a list of chunked categorised data."""
-        data_blocks = dict(self.data_blocks)
+        data_blocks = self.data_blocks
 
         for size_id, block in self.coord_blocks.items():
             for chunk_id, chunk_coords in block.items():
@@ -142,6 +164,24 @@ class BySizeBlockDataset:
                     for coord_cat, coord_chunk in chunk_coords
                 }
                 data_blocks[size_id][chunk_id] = DataChunk(data=merged_chunks)
+
+        self.data_blocks = dict(data_blocks)
+        self.dev_data = DataChunk(
+            data={
+                (coord_cat, coord_chunk): source_chunked_blocks.get_chunk(coord_cat, coord_chunk)
+                for coord_cat, coord_chunk in self.dev_coords
+            }
+        )
+
+    def write_blocks(self, target_dir: Path) -> None:
+        """Write block stack into disk."""
+        for size in self.data_blocks:
+            size_dir = target_dir / f"{size:02d}"
+            for index in self.data_blocks[size]:
+                data = self.data_blocks[size][index]
+                # Write data to disk
+                data.write_text(size_dir / f"{index:02d}" / "train.txt")
+                data.write_map(size_dir / f"{index:02d}" / "mapping.json")
 
 
 class TextBlockStratifier:

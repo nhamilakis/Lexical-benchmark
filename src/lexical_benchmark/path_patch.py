@@ -4,6 +4,8 @@ To avoid angering the type gods a stub file has been added : stubs/pathlib.piy t
 """
 
 import json
+import logging
+import os
 import pathlib
 import typing as t
 
@@ -30,10 +32,18 @@ except ImportError:
     pl = None  # type: ignore[assignment]
 
 
+L = logging.getLogger(__name__)
+
+
 def mk_parent(self: pathlib.Path) -> None:
     """Make parent folders if they do not exist."""
     if not self.parent.is_dir():
         self.parent.mkdir(exist_ok=True, parents=True)
+
+
+def relpath(self: pathlib.Path, start: pathlib.Path | None = None) -> pathlib.Path:
+    """WTF: why no relpath in pathlib ???."""
+    return pathlib.Path(os.path.relpath(self, start=start))
 
 
 def safe_write_text(self: pathlib.Path, text: str) -> None:
@@ -154,8 +164,10 @@ def extend(self: pathlib.Path, parts: tuple[str, ...]) -> pathlib.Path:
 
 
 # Monkey-Patching methods onto the Path class (method-assign angers the type gods so we ask them for forgiveness)
+L.debug("Monkey Patching pathilib.Path with extensions !")
 pathlib.Path.extend = extend  # type: ignore[method-assign]
 pathlib.Path.mk_parent = mk_parent  # type: ignore[method-assign]
+pathlib.Path.relpath = relpath  # type: ignore[method-assign]
 # TXT IO
 pathlib.Path.safe_write_text = safe_write_text  # type: ignore[method-assign]
 pathlib.Path.safe_append_text = safe_append_text  # type: ignore[method-assign]

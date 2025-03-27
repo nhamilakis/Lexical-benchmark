@@ -66,17 +66,15 @@ class StelaItemsByGenre(ByGenreItemsLoader):
         """Iterator by_genre."""
         cfg: datasets.STELADatasetConfig = datasets.get_config("stela")
         langs_list = kwargs.get("langs", cfg.langs)
-        genre_list = kwargs.get("genres", cfg.genre_list())
-        exclude_genres = kwargs.get("exclude", cfg.langs)
-        available_genres = cfg.genre_list()
+        exclude_genres = set(kwargs.get("exclude_genres", []))
 
         for _lang in langs_list:
             # Skip non-valid languages
             if _lang not in cfg.langs:
                 continue
 
-            for _genre in genre_list:
-                if _genre not in available_genres or _genre in exclude_genres:
+            for _genre in cfg.genre_list(_lang):
+                if _genre in exclude_genres:
                     continue
 
                 yield cls.load(lang=_lang, genre=_genre)

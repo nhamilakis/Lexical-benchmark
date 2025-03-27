@@ -55,6 +55,10 @@ class DatasetConfig(abc.ABC):
     def clean_up_rules(lang: str) -> list[text_cleaners.CleanerFN]:
         """Rules for cleaning Text."""
 
+    @abc.abstractmethod
+    def transfer_pathlist(self) -> list[Path]:
+        """A list of files to be included when transfering the final dataset."""
+
 
 class CHILDESDatasetConfig(DatasetConfig):
     """Configurations for the CHILDES dataset."""
@@ -128,6 +132,15 @@ class CHILDESDatasetConfig(DatasetConfig):
             "adult": _childes_cleanup_rules.cleaning_adult_speech_rules,
         }
 
+    def transfer_pathlist(self) -> list[Path]:
+        """A list of files to be included when transfering the final dataset."""
+        # All path should be relative to root dir of the dataset
+        return [
+            self.preprocessed_root.relative_to(self.root_dir),  # src/preprocess
+            self.meta_dir.relative_to(self.root_dir),  # metadata/
+            # TODO: add rest of CHILDES
+        ]
+
     def id_list(self, lang_accent: str) -> t.Iterator[tuple[str, ...]]:
         """Return the raw ID list."""
         items = (self.root_dir / "metadata" / f"ids_{lang_accent}.txt").safe_readlines()
@@ -159,6 +172,10 @@ class ChildRealisticDatasetConfig(DatasetConfig):
             ),  # Removes any special character
             text_cleaners.PrefixSuffixFixer(stem="'"),  # Remove prefix or suffix char(')
         ]
+
+    def transfer_pathlist(self) -> list[Path]:
+        """A list of files to be included when transfering the final dataset."""
+        return []
 
 
 class STELADatasetConfig(DatasetConfig):
@@ -268,7 +285,7 @@ class STELADatasetConfig(DatasetConfig):
         """Return the list of available genres."""
         location = self.by_genre_dir / lang
         if location.is_dir():
-            return [d for d in location.iterdir() if d.is_dir()]
+            return [d.name for d in location.iterdir() if d.is_dir()]
         return []
 
     @staticmethod
@@ -285,6 +302,16 @@ class STELADatasetConfig(DatasetConfig):
                 allow_basic_punctuation=True, clean_diacritics=True
             ),  # Removes any special character
             text_cleaners.PrefixSuffixFixer(stem="'"),  # Remove prefix or suffix char(')
+        ]
+
+    def transfer_pathlist(self) -> list[Path]:
+        """A list of files to be included when transfering the final dataset."""
+        return [
+            self.preprocessed_root.relative_to(self.root_dir),  # src/preprocess
+            self.by_hour_dir.relative_to(self.root_dir),  # by_hour/
+            self.meta_dir.relative_to(self.root_dir),  # metadata/
+            self.by_size_dir.relative_to(self.root_dir),  # by_size/
+            self.by_genre_dir.relative_to(self.root_dir),  # by_genre/
         ]
 
 

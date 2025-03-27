@@ -351,6 +351,11 @@ class STELAMetaDir(MetadataDir):
         """Path to CSV containing stats on line length."""
         return self.root_dir / "line_length.csv"
 
+    @property
+    def manual_genre_list(self) -> Path:
+        """Patg to file containing manual genre classification of books."""
+        return self.root_dir / "manual_genres.toml"
+
     def line_length_by_count(self) -> pl.DataFrame:
         """Line length stats, grouped by count on unique books.
 
