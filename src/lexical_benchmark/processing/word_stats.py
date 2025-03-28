@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from lexical_benchmark.text_lib import chunking_utils
+from lexical_benchmark.text_lib import chunking_utils, txt_utils
 
 
 @dataclass
@@ -121,9 +121,9 @@ class WordRejectionRates:
     filter_fn: t.Callable[[str], bool]
     tokenizer: t.Callable[[list[str]], list[str]]
 
-    def clean_chunk(self, chunk: list[str]) -> ChunkStats:
+    def clean_chunk(self, chunk: list[str], *, skip_tokenization: bool = False) -> ChunkStats:
         """Clean a chunk."""
-        all_tokens = self.tokenizer(chunk)
+        all_tokens = self.tokenizer(chunk) if skip_tokenization else chunk
         accepted_tokens = []
         rejected_tokens = []
 
@@ -141,5 +141,9 @@ class WordRejectionRates:
 
     def normalise_clean_chunk(self, chunk: list[str], normalise_size: int = 2_000) -> GroupCleaningStats:
         """Compute normalised token stats."""
-        split_chunk_list = chunking_utils.chunk_line_splitter(chunk, nb_words=normalise_size)
-        return GroupCleaningStats(chunk_stats=[self.clean_chunk(chk) for chk in split_chunk_list])
+        chunk_tokens = txt_utils.line_tokenizer(chunk)
+        split_chunk_list = chunking_utils.chunk_splitter(chunk_tokens, chunk_size=normalise_size)
+
+        return GroupCleaningStats(
+            chunk_stats=[self.clean_chunk(chk, skip_tokenization=True) for chk in split_chunk_list]
+        )

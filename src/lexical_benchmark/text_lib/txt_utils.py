@@ -26,6 +26,14 @@ def tokenizer(line: str) -> list[str]:
     return line.split()
 
 
+def line_tokenizer(lines: list[str]) -> list[str]:
+    """Line tokenizing function."""
+    words = []
+    for ln in lines:
+        words.extend(ln.split())
+    return words
+
+
 def sentence_formatting(
     src: Path,
     *,

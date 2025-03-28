@@ -337,7 +337,7 @@ class STELAMetaBuilder(MetaBuilder):
 
         word_stats_factory = word_stats.WordRejectionRates(
             filter_fn=lexicon.DictionairyWordCleaner(lang=self.meta_dir.lang).check,
-            tokenizer=txt_utils.tokenizer,
+            tokenizer=txt_utils.line_tokenizer,
         )
         results = []
 
@@ -357,7 +357,7 @@ class STELAMetaBuilder(MetaBuilder):
             }
             results.append(stats)
 
-        df = pl.DataFrame(lines)
+        df = pl.DataFrame(results)
         if save:
             df.write_csv(self.meta_dir.by_size_stats, separator=";", include_header=True)
         return df
