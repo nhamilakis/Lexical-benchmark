@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from lexical_benchmark.text_lib import lexicon
+from lexical_benchmark.text_lib import chunking_utils
 
 
 @dataclass
@@ -47,9 +47,9 @@ class ChunkStats:
 class GroupCleaningStats:
     """Summary statistics of the cleaning operation on a list of chunks."""
 
-    chunk_id: str
-    dataset_name: str
     chunk_stats: list[ChunkStats]
+    chunk_id: str = ".."
+    dataset_name: str = ".."
 
     def __post_init__(self) -> None:
         my_id = f"{self.dataset_name}/{self.chunk_id}"
@@ -118,12 +118,28 @@ class GroupCleaningStats:
 class WordRejectionRates:
     """Word Rejection Rate Compute."""
 
-    filter_fn: lexicon.DictionairyCleaner
+    filter_fn: t.Callable[[str], bool]
+    tokenizer: t.Callable[[list[str]], list[str]]
 
     def clean_chunk(self, chunk: list[str]) -> ChunkStats:
         """Clean a chunk."""
-        raise NotImplementedError
+        all_tokens = self.tokenizer(chunk)
+        accepted_tokens = []
+        rejected_tokens = []
 
-    def compute(self) -> GroupCleaningStats:
-        """Compute."""
-        raise NotImplementedError
+        for token in all_tokens:
+            if self.filter_fn(token):
+                accepted_tokens.append(token)
+            else:
+                rejected_tokens.append(token)
+
+        return ChunkStats(
+            total_tokens=all_tokens,
+            rejected_tokens=rejected_tokens,
+            accepted_tokens=accepted_tokens,
+        )
+
+    def normalise_clean_chunk(self, chunk: list[str], normalise_size: int = 2_000) -> GroupCleaningStats:
+        """Compute normalised token stats."""
+        split_chunk_list = chunking_utils.chunk_line_splitter(chunk, nb_words=normalise_size)
+        return GroupCleaningStats(chunk_stats=[self.clean_chunk(chk) for chk in split_chunk_list])

@@ -59,7 +59,7 @@ class BySizeItemsLoader(DatasetItemsLoader):
     @property
     def chunk_id(self) -> str:
         """Build the id of the current chunk."""
-        return f"{self.split}_{self.chunk}"
+        return f"{self.lang}_{self.split}_{self.chunk}"
 
     @property
     def data_dir(self) -> str:
@@ -79,14 +79,12 @@ class BySizeItemsLoader(DatasetItemsLoader):
     @property
     def train_file(self) -> Path:
         """Transcription file."""
-        return self.root_dir / "transcription.txt"
+        return self.data_dir / "train.txt"
 
     @property
     def dev_file(self) -> Path:
         """Path to dev set."""
-        # TODO: figure out if the file local or global
-        # dt_cfg.by_size_dir / self.lang / dev / transcription.txt
-        return self.root_dir / "dev.txt"
+        return self.dt_cfg.by_size_dir / self.lang / "dev" / "dev.txt"
 
     def tokenized_train(self) -> list[str]:
         """Load train trainscription in tokenized form."""

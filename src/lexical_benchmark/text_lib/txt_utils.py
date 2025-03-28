@@ -1,6 +1,31 @@
 from pathlib import Path
 
 
+def word_count(lines: list[str], *, skip_stupid: bool = True) -> int:
+    """Count number of words."""
+    total = 0
+    for ln in lines:
+        if len(ln) <= 3 and skip_stupid:
+            continue
+        total += len(ln.split())
+    return total
+
+
+def type_count(lines: list[str], *, skip_stupid: bool = True) -> int:
+    """Count token-types in a set."""
+    words = []
+    for ln in lines:
+        if len(ln) <= 3 and skip_stupid:
+            continue
+        words.extend(ln.split())
+    return len(set(words))
+
+
+def tokenizer(line: str) -> list[str]:
+    """Tokenizing function."""
+    return line.split()
+
+
 def sentence_formatting(
     src: Path,
     *,

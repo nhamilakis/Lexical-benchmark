@@ -4,8 +4,11 @@ import logging
 import math
 import random
 import string
+import typing as t
 from dataclasses import dataclass, field
 from pathlib import Path
+
+import numpy as np
 
 L = logging.getLogger(__name__)
 
@@ -40,6 +43,16 @@ def _random_text_chunk(rndr: random.Random | None = None) -> list[str]:
     return [get_line() for _ in range(lines)]
 
 
+def word_count(lines: list[str], *, skip_stupid: bool = True) -> int:
+    """Count number of words."""
+    total = 0
+    for ln in lines:
+        if len(ln) <= 3 and skip_stupid:
+            continue
+        total += len(ln.split())
+    return total
+
+
 @dataclass
 class _Chunk:
     raw_text: list[str]
@@ -69,11 +82,26 @@ class _Block:
         return len(hash_codes) == len(set(hash_codes))
 
 
+class SanityCheck(t.TypedDict):
+    """Stratifier stats."""
+
+    block_id: int
+    cut_into: int
+    source_size: int
+    stupid_source_size: int
+    avg_split_size: int
+    expected_size: int
+    actual_size: int
+    expected_leakage: int
+    actual_leakage: int
+
+
 @dataclass
 class BlockList:
     """List of blocks."""
 
     blocks: dict[int, _Block]
+    sanity_check: list[SanityCheck] | None = None
 
     def add_block(self, index: int, block: _Block) -> None:
         """Add a block into the list."""
@@ -183,6 +211,10 @@ class BySizeBlockDataset:
                 data.write_text(size_dir / f"{index:02d}" / "train.txt")
                 data.write_map(size_dir / f"{index:02d}" / "mapping.json")
 
+        # Write dev
+        self.dev_data.write_text(target_dir / "dev" / "dev.txt")
+        self.dev_data.write_map(target_dir / "dev" / "mapping.json")
+
 
 class TextBlockStratifier:
     """Builds a by_size dataset by stratifying source blocks.
@@ -190,6 +222,8 @@ class TextBlockStratifier:
     Divides a list of text blocks into equal sized chunks and then performs a stratified merging into a target dataset.
     Target dataset is separated in a by_size gradual
     """
+
+    TOLERANCE_PERCENT: float = 0.005  # Allowed thrown data uppon split operation
 
     def __init__(self, chunk_number: int, *, seed: int | None = 42, dev_percent: float = 0.0) -> None:
         """Initialize the stratifier with text blocks and number of chunks.
@@ -222,39 +256,54 @@ class TextBlockStratifier:
         # cast into dict
         self.block_coords = dict(self.block_coords)
 
-    def _split_block(self, block: list[str]) -> list[list[str]]:
-        """Split a single block into n_chunk equal sized chunks."""
-        # Estimate chunk size
-        words_list = []
-        for line in block:
-            words_list.extend(line.split())
-
-        target_chunk_size: int = len(words_list) // self.chunk_number
-        if target_chunk_size <= 0:
-            raise ValueError("Cannot split block into 0 chunks !!!")
+    def _split_block(self, block: list[str], block_id: int) -> tuple[list[list[str]], SanityCheck]:
+        """Reimplementation of _split_block."""
+        nb_words = word_count(block)
+        avg_chunk_size = nb_words // self.chunk_number
+        ideal_total = avg_chunk_size * self.chunk_number
+        L.debug("------")
+        L.debug(
+            f"CHUNK({nb_words:,}) -> {self.chunk_number} * {avg_chunk_size:,} == {ideal_total:,}"
+            f"(REST: {nb_words - ideal_total})"
+        )
 
         chunk_list = []
         current_chunk = []
-        count = 0
-        for line in block:
-            if len(chunk_list) == self.chunk_number:
-                break
+        current_size = 0
+        _block = block.copy()
 
-            count += len(line.split())  # Add words to count
-            # Check if we are over the target
-            if count >= target_chunk_size:
-                chunk_list.append(current_chunk)  # append to list
-                # Reset current
+        while _block:
+            line = _block.pop()
+            if len(line) <= 3:  # Skip stupid lines
+                continue
+            current_size += len(line.split())
+
+            if current_size >= avg_chunk_size:
+                chunk_list.append(current_chunk)
                 current_chunk = []
-                count = len(line.split())
+                current_size = len(line.split())
 
             current_chunk.append(line)
 
-        L.debug(f"Thrown away {count} words !")
-        if len(chunk_list) != self.chunk_number:
-            raise ValueError(f"Chunk Size should be equal to {self.chunk_number}")
+        actual_total_tokens = np.sum([word_count(chunk) for chunk in chunk_list])
+        L.debug(
+            f"Result ({len(chunk_list)} Blocks) has {actual_total_tokens:,}Removed: {nb_words - actual_total_tokens:,}"
+        )
+        L.debug(f"Leftover in stack: {word_count(_block) + word_count(current_chunk)}")
+        L.debug("------")
 
-        return chunk_list
+        sanity_check: SanityCheck = {
+            "block_id": block_id,
+            "cut_into": len(chunk_list),
+            "source_size": nb_words,
+            "stupid_source_size": word_count(block, skip_stupid=False),
+            "avg_split_size": avg_chunk_size,
+            "expected_size": ideal_total,
+            "actual_size": actual_total_tokens,
+            "expected_leakage": nb_words - ideal_total,
+            "actual_leakage": nb_words - actual_total_tokens,
+        }
+        return chunk_list, sanity_check
 
     def add_block(self, block: list[str]) -> None:
         """Add a block to the stratification stack."""
@@ -263,9 +312,11 @@ class TextBlockStratifier:
     def get_splits_stack(self) -> BlockList:
         """Split all block into the stack."""
         chunked_stack: BlockList = BlockList(blocks={})
+        sanity_check_list = []
         for idx, block in self.source_blocks.items():
             try:
-                chunked_block = self._split_block(block)
+                chunked_block, sanity = self._split_block(block, block_id=idx)
+                sanity_check_list.append(sanity)
                 chunked_block = [_Chunk(raw_text=txt, chunk_id=(idx, count)) for count, txt in enumerate(chunked_block)]
                 chunked_stack.add_block(
                     idx, _Block(raw_text=block, block_id=idx, chunks=dict(enumerate(chunked_block)))
@@ -273,7 +324,32 @@ class TextBlockStratifier:
             except ValueError as e:
                 print(f"Failed to chunk {idx} with {e}")
 
+        chunked_stack.sanity_check = sanity_check_list
         return chunked_stack
+
+    def check_split_sizes(self, tolerance_percent: float = 5.0) -> None:
+        """Check size of each chunk."""
+        total_words = 0
+        total_merged = 0
+        for idx, block in self.source_blocks.items():
+            nb_words = word_count(block)
+            total_words += nb_words
+
+            avg_chunk_size = nb_words // self.chunk_number
+            # Calculate the allowed difference based on percentage
+            allowed_difference = nb_words * (tolerance_percent / 100.0)
+            total_after_merge = avg_chunk_size * self.chunk_number
+            total_merged += total_after_merge
+
+            print(
+                f"CAT{idx} has {nb_words:,} TOKENS, approximate token size {avg_chunk_size:,}"
+                f"Merged : {total_after_merge:,} Rejected {nb_words - total_after_merge:,} TOKENS."
+            )
+
+            assert (total_after_merge - nb_words) <= allowed_difference, (  # noqa: S101
+                f"Target size of block is not within a {tolerance_percent}% margin of acceptance."
+                f"Found after merge sum {total_after_merge}, lowest accepted {allowed_difference}"
+            )
 
     def _get_1d_sample_coords(self, exclude: list[ChunkIDType] | None = None) -> list[ChunkIDType]:
         """Build a 1D sample from all blocks.

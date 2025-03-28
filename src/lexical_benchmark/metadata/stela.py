@@ -9,8 +9,9 @@ from urllib.parse import urlparse
 import polars as pl
 
 from lexical_benchmark import datasets, web_scrappers
-from lexical_benchmark.dataloaders import hour_txt
-from lexical_benchmark.text_lib import txt_utils
+from lexical_benchmark.dataloaders import by_size, hour_txt
+from lexical_benchmark.processing import word_stats
+from lexical_benchmark.text_lib import lexicon, txt_utils
 
 from .core import MetaBuilder, MetadataDir
 
@@ -26,6 +27,20 @@ class _LineLenghtStruct(t.TypedDict):
     book: str
     line: int
     length: int
+
+
+class _BySizeStats(t.TypedDict):
+    """Struct gathering by_size split statistics."""
+
+    lang: str
+    size: str
+    chunk: str
+    token_count: int
+    type_count: int
+    token_rejection_rate: float
+    type_rejection_rate: float
+    type_token_ratio: float
+    normalisation: str = "2kTokens"
 
 
 class _BookGenrePathStruct(t.TypedDict):
@@ -314,6 +329,39 @@ class STELAMetaBuilder(MetaBuilder):
             df.write_csv(self.meta_dir.line_length_stats, separator=";", include_header=True)
         return df
 
+    def build_by_size_stats(self, *, save: bool = True, force: bool = False) -> pl.DataFrame:
+        """Gather all relevant statistics for the by_size datasetsplit of STELA."""
+        if self.meta_dir.by_size_stats.is_file() and not force:
+            return pl.read_csv(self.meta_dir.by_size_stats, separator=";")
+        items = by_size.BySizeItemsLoader.iter_items(dataset_name="stela")
+
+        word_stats_factory = word_stats.WordRejectionRates(
+            filter_fn=lexicon.DictionairyWordCleaner(lang=self.meta_dir.lang).check,
+            tokenizer=txt_utils.tokenizer,
+        )
+        results = []
+
+        for chunk in items:
+            lines = chunk.train_file.safe_readlines()
+            wrd_stats = word_stats_factory.normalise_clean_chunk(lines)
+
+            stats: _BySizeStats = {
+                "lang": chunk.lang,
+                "size": chunk.split,
+                "chunk": chunk.chunk,
+                "token_count": txt_utils.word_count(lines),
+                "type_count": txt_utils.type_count(lines),
+                "token_rejection_rate": wrd_stats.mean_token_rejection_rate(),
+                "type_rejection_rate": wrd_stats.mean_type_rejection_rate(),
+                "type_token_ratio": wrd_stats.mean_type_token_ratio(),
+            }
+            results.append(stats)
+
+        df = pl.DataFrame(lines)
+        if save:
+            df.write_csv(self.meta_dir.by_size_stats, separator=";", include_header=True)
+        return df
+
 
 @dataclasses.dataclass
 class STELAMetaDir(MetadataDir):
@@ -353,8 +401,18 @@ class STELAMetaDir(MetadataDir):
 
     @property
     def manual_genre_list(self) -> Path:
-        """Patg to file containing manual genre classification of books."""
+        """Path to file containing manual genre classification of books."""
         return self.root_dir / "manual_genres.toml"
+
+    @property
+    def stratification_sanity_check(self) -> Path:
+        """Path to stratification meta stats data."""
+        return self.root_dir / "stratify-sanity-check.csv"
+
+    @property
+    def by_size_stats(self) -> Path:
+        """Statististics of the by_size split of STELA."""
+        return self.root_dir / "by_size_stats.csv"
 
     def line_length_by_count(self) -> pl.DataFrame:
         """Line length stats, grouped by count on unique books.
