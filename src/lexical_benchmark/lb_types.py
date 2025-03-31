@@ -1,3 +1,3 @@
 import typing as t
 
-ModelType = t.Literal["lstm", "transformer"]
+MODEL_TYPE = t.Literal["lstm", "gpt2"]

@@ -488,6 +488,31 @@ class STELAMetaDir(MetadataDir):
             book_path = item.get_book_path(row["book_id"])
             yield _BookGenrePathStruct(path=book_path, genre=row["genre"])
 
+    def by_size_stats_resume(self) -> pl.DataFrame:
+        """Resume of the by_size statistics."""
+        df = pl.read_csv(self.by_size_stats, separator=";")
+
+        def sum_types(lang, size) -> int:
+            size = f"{size:02}"
+            words = []
+            for item in by_size.BySizeItemsLoader.iter_items(dataset_name="stela", lang=(lang,), splits=(size,)):
+                words.extend(item.train_file.read_tokenized())
+            return len(set(words))
+
+        df_resume = df.group_by(["lang", "size"]).agg(
+            pl.col("token_count").sum(),
+            pl.col("token_rejection_rate").mean(),
+            pl.col("type_rejection_rate").mean(),
+            pl.col("type_token_ratio").mean(),
+        )
+
+        # Extract type_count from dataset (requires original word-list to be computed)
+        return df_resume.with_columns(
+            pl.struct(["lang", "size"])
+            .map_elements(lambda x: sum_types(x["lang"], x["size"]), return_dtype=int)
+            .alias("type_count")
+        )
+
     @property
     def builder(self) -> STELAMetaBuilder:
         """Load the metadata builder object."""

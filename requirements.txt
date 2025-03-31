@@ -21,3 +21,4 @@ tomli; python_version < "3.11"
 tomli-w
 beautifulsoup4
 httpx
+clypi

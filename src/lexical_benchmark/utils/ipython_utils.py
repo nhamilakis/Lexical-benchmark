@@ -7,9 +7,13 @@ if sys.version_info < (3, 12):
 else:
     from typing import Unpack
 
+
 import pandas as pd
+import polars as pl
 from IPython.display import HTML, display, display_html
 from pandas.io.formats.style import Styler
+from rich.console import Console
+from rich.table import Table
 
 _HTML_SIDE_BY_SIDE_OUTPUT = """
 <style>
@@ -114,3 +118,49 @@ def display_side_by_side(
         output += "</div>"
 
     display_html(HTML(output))
+
+
+def print_polars_df(
+    df: pl.DataFrame,
+    title: str | None = None,
+    columns: list[str] | None = None,
+    max_rows: int | None = None,
+    max_width: int | None = None,
+) -> None:
+    """Print a Polars DataFrame as a Rich formatted table.
+
+    Creates a visually appealing table representation of the DataFrame
+    with proper formatting and styling.
+
+    Raises:
+        ValueError: If df is empty or not a valid Polars DataFrame
+
+    """
+    if not isinstance(df, pl.DataFrame):
+        raise TypeError("Input must be a Polars DataFrame")
+
+    if df.is_empty():
+        raise ValueError("DataFrame is empty, nothing to display")
+
+    # Create console and table
+    console = Console(width=max_width)
+    table = Table(title=title, show_header=True, header_style="bold")
+
+    if columns:
+        missing_sort_cols = [col for col in columns if col not in df.columns]
+        if missing_sort_cols:
+            raise ValueError(f"Cannot sort/filter by non-existent columns: {missing_sort_cols}")
+    else:
+        columns = list(df.columns)
+
+    # Use all columns
+    for col in columns:
+        table.add_column(col)
+
+    # Add rows (with optional limit)
+    rows_to_show = df.head(max_rows) if max_rows else df
+    for row in rows_to_show.rows(named=True):
+        table.add_row(*[str(row[col_name]) for col_name in columns])
+
+    # Print the table
+    console.print(table)

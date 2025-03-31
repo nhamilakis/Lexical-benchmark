@@ -142,14 +142,7 @@ def main(args: train_lib.TrainArgs) -> None:
     logger = logging.getLogger(__name__)
     logger.info(f"Starting training with arguments: {args.to_dict()}")
 
-    ####
-    # Setup wandb
-    wandb.init(
-        project="Lexical-Benchmark",
-        # name format: datasetname_model_month_chunk  e.g. child_lstm_2_00
-        name=args.job_name,
-        mode="offline",
-    )
+    
     logger.info(f"Wandb job name: {args.job_name}")
 
     logger.info(f"Loading trainer for {args.model_type}")

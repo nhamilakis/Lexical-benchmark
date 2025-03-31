@@ -31,3 +31,7 @@ class DatasetTypeError(ValueError):
 
 class RsyncArgsError(ValueError):
     """Error linked to rsync arguments."""
+
+
+class BadModelTypeError(ValueError):
+    """Error when choosing a non-implemented model type."""

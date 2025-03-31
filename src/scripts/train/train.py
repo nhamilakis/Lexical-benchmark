@@ -18,8 +18,8 @@ SEE lexical_benchmark.train_lib.TrainArgs argument class for a list of parameter
 import logging
 import traceback
 
-from lexical_benchmark import train_lib
-from lexical_benchmark.train_lib import run
+from lexical_benchmark.legacy import train_lib
+from lexical_benchmark.legacy.train_lib import run
 
 if __name__ == "__main__":
     try:

@@ -2,7 +2,7 @@ import dataclasses
 import typing as t
 from pathlib import Path
 
-from lexical_benchmark import datasets, exc, settings
+from lexical_benchmark import datasets, exc, lb_types, settings
 from lexical_benchmark.text_lib import tokenization
 
 from .definitions import DatasetItemsLoader
@@ -37,6 +37,18 @@ class DatasetWithBySize(t.Protocol):
         ...
 
 
+class BySizeTrainStruct(t.TypedDict):
+    """DataStructure to export TrainArgs."""
+
+    model_type: lb_types.MODEL_TYPE
+    dataset_name: str
+    lang: str
+    split: str
+    chunk: str
+    completed_training: bool
+    last_checkpoint: Path | None
+
+
 @dataclasses.dataclass
 class BySizeItemsLoader(DatasetItemsLoader):
     """Dataset loader for by_size architecture."""
@@ -54,6 +66,9 @@ class BySizeItemsLoader(DatasetItemsLoader):
     @classmethod
     def load(cls, dataset_name: datasets.DATASET_NAMES, lang: str, split: str, chunk: str) -> "DatasetItemsLoader":
         """Load item directly."""
+        split = f"{split:02}"  # Make sure padding is properly applied
+        chunk = f"{chunk:02}"  # Make sure padding is properly applied
+
         return cls(lang=lang, split=split, chunk=chunk, dt_cfg=datasets.get_config(dataset_name))
 
     @property
@@ -114,6 +129,13 @@ class BySizeItemsLoader(DatasetItemsLoader):
         file.write_text("\n".join(tokenized_text))
         return tokenized_text
 
+    def train_args(self, model_type: lb_types.MODEL_TYPE) -> "BySizeTrainItem":
+        """Load train arguments."""
+        return BySizeTrainItem(
+            model_type=model_type,
+            data_item=self,
+        )
+
     @classmethod
     def iter_items(cls, dataset_name: datasets.DATASET_NAMES, **kwargs) -> t.Iterable["BySizeItemsLoader"]:
         """Iterate over by_size items.
@@ -125,7 +147,10 @@ class BySizeItemsLoader(DatasetItemsLoader):
         cfg: DatasetWithBySize = datasets.get_config(dataset_name)
         langs_list = kwargs.get("langs", cfg.langs)
         split_list = kwargs.get("splits", cfg.size_splits)
+        # Fix formatting issues
+        split_list = [f"{sp:02}" for sp in split_list]
         chunk_list = kwargs.get("chunks", ())
+        chunk_list = [f"{ck:02}" for ck in chunk_list]
 
         for _lang in langs_list:
             # Skip non-valid languages
@@ -143,4 +168,126 @@ class BySizeItemsLoader(DatasetItemsLoader):
                         continue
 
                     # Build item
-                    yield cls(lang=_lang, split=_split, chunk=_chunk, dt_cfg=cfg)
+                    yield cls.load(dataset_name=dataset_name, lang=_lang, split=_split, chunk=_chunk)
+
+
+@dataclasses.dataclass
+class BySizeTrainItem:
+    """Structure allowing inferring training arguments."""
+
+    model_type: lb_types.MODEL_TYPE
+    data_item: BySizeItemsLoader
+
+    @property
+    def item_id(self) -> str:
+        """Unique identifier for item."""
+        return f"{self.data_item.lang}_{self.data_item.split}_{self.data_item.chunk}"
+
+    @property
+    def job_name(self) -> str:
+        """Unique train item identifier."""
+        return f"{self.dataset_name}_{self.model_type}_{self.item_id}"
+
+    @property
+    def dataset_name(self) -> str:
+        """Name of the dataset."""
+        return self.data_item.dt_cfg.dataset_name
+
+    @property
+    def model_root_dir(self) -> Path:
+        """Root directory."""
+        return self.data_item.model_root / self.model_type
+
+    @property
+    def train_logs_file(self) -> Path:
+        """Path to file containing training logs."""
+        return self.model_root_dir / "training.logs"
+
+    @property
+    def generation_root_dir(self) -> Path:
+        """Root directory."""
+        return self.data_item.geneneration_root / self.model_type
+
+    @property
+    def completed_training(self) -> bool:
+        """Check if completed."""
+        return (self.model_root_dir / "training_args.bin").is_file()
+
+    def get_resume_train(
+        self, *, resume: bool = True, resume_id: str | None = None, override: bool = False
+    ) -> Path | None:
+        """Conditional function that checks if it is required to resume training."""
+        match (override, resume, resume_id):
+            case (True, _, _):  # When overriding always restart
+                return None
+            case (False, True, None):  # Resume from last
+                return self.last_checkpoint()
+            case (False, True, _):  # Resume from specific
+                return self.get_checkpoint(resume_id)
+            case _:  # Start from scratch
+                if len(self.checkpoint_list()) > 0:
+                    raise ValueError("Trying to override model-root when 'override=False' !!")
+                return None
+
+    def checkpoint_list(self, *, sort: bool = True) -> list[Path]:
+        """List of checkpoints."""
+        if not self.model_root_dir.is_dir():
+            return []
+        # checkpoint folders are named 'checkpoint-XXXX' where XXXX is a number
+        list_of_checkpoint_files = [
+            d for d in self.model_root_dir.iterdir() if d.is_dir() and d.name.startswith("checkpoint-")
+        ]
+        if sort:
+            # reverse=true grabs the largest number (assumption: biggest=latest)
+            return sorted(
+                list_of_checkpoint_files, key=lambda path: int(path.name.replace("checkpoint-", "")), reverse=True
+            )
+        return list_of_checkpoint_files
+
+    def get_checkpoint(self, check_id: str) -> Path | None:
+        """Get a specific checkpoint if it exists.."""
+        for chk in self.checkpoint_list():
+            if chk.name == f"checkpoint-{check_id}":
+                return chk
+        return None
+
+    def last_checkpoint(self) -> Path | None:
+        """Get location of latest checkpoint."""
+        return next(
+            iter(self.checkpoint_list(sort=True)),
+            None,
+        )
+
+    def train_txt(self) -> list[str]:
+        """Load train data."""
+        return self.item.tokenized_train()
+
+    def dev_txt(self) -> list[str]:
+        """Load dev data."""
+        return self.item.tokenized_dev()
+
+    def to_dict(self) -> BySizeTrainStruct:
+        """Convert item into a dictionairy."""
+        return {
+            "model_type": self.model_type,
+            "lang": self.data_item.lang,
+            "split": self.data_item.split,
+            "chunk": self.data_item.chunk,
+            "dataset_name": self.dataset_name,
+            "completed_training": self.completed_training,
+            "generation_root": self.generation_root_dir,
+            "model_root": self.model_root_dir,
+            "last_checkpoint": self.last_checkpoint(),
+        }
+
+    @classmethod
+    def from_dict(cls, cfg_args: BySizeTrainStruct) -> "BySizeTrainItem":
+        """Load train args from a dictionairy."""
+        return cls(
+            model_type=cfg_args["model_type"],
+            data_item=BySizeItemsLoader(
+                lang=cfg_args["lang"],
+                split=cfg_args["split"],
+                chunk=cfg_args["split"],
+            ),
+        )
