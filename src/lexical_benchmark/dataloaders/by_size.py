@@ -47,6 +47,9 @@ class BySizeTrainStruct(t.TypedDict):
     chunk: str
     completed_training: bool
     last_checkpoint: Path | None
+    resume: bool = True
+    override: bool = False
+    resume_id: str | None = None
 
 
 @dataclasses.dataclass
@@ -101,39 +104,60 @@ class BySizeItemsLoader(DatasetItemsLoader):
         """Path to dev set."""
         return self.dt_cfg.by_size_dir / self.lang / "dev" / "dev.txt"
 
-    def tokenized_train(self) -> list[str]:
+    def tokenized_train(self, *, as_path: bool = False) -> list[str] | Path:
         """Load train trainscription in tokenized form."""
         file = self.train_file.parent / f"{self.train_file.stem}.tokenized"
 
-        if file.is_file():
+        if file.is_file() and not as_path:
             return file.safe_readlines()
+
+        if file.is_file() and as_path:
+            return file
 
         untokenized_txt = self.train_file.safe_readlines()
         tokenized_text = [tokenization.hf_line_format(line) for line in untokenized_txt]
 
         # Save to file
         file.write_text("\n".join(tokenized_text))
+
+        if as_path:
+            return file
         return tokenized_text
 
-    def tokenized_dev(self) -> list[str]:
+    def tokenized_dev(self, *, as_path: bool = False) -> list[str] | Path:
         """Load dev transcription in tokenized form."""
         file = self.dev_file.parent / f"{self.dev_file.stem}.tokenized"
 
-        if file.is_file():
+        if file.is_file() and not as_path:
             return file.safe_readlines()
+        if file.is_file() and as_path:
+            return file
 
         untokenized_txt = self.dev_file.safe_readlines()
         tokenized_text = [tokenization.hf_line_format(line) for line in untokenized_txt]
 
         # Save to file
         file.write_text("\n".join(tokenized_text))
+
+        if as_path:
+            return file
         return tokenized_text
 
-    def train_args(self, model_type: lb_types.MODEL_TYPE) -> "BySizeTrainItem":
+    def train_args(
+        self,
+        *,
+        model_type: lb_types.MODEL_TYPE,
+        resume: bool = True,
+        override: bool = False,
+        resume_id: str | None = None,
+    ) -> "BySizeTrainItem":
         """Load train arguments."""
         return BySizeTrainItem(
             model_type=model_type,
             data_item=self,
+            resume=resume,
+            override=override,
+            resume_id=resume_id,
         )
 
     @classmethod
@@ -177,6 +201,9 @@ class BySizeTrainItem:
 
     model_type: lb_types.MODEL_TYPE
     data_item: BySizeItemsLoader
+    resume: bool = True
+    override: bool = False
+    resume_id: str | None = None
 
     @property
     def item_id(self) -> str:
@@ -213,17 +240,15 @@ class BySizeTrainItem:
         """Check if completed."""
         return (self.model_root_dir / "training_args.bin").is_file()
 
-    def get_resume_train(
-        self, *, resume: bool = True, resume_id: str | None = None, override: bool = False
-    ) -> Path | None:
+    def get_resume_train(self) -> Path | None:
         """Conditional function that checks if it is required to resume training."""
-        match (override, resume, resume_id):
+        match (self.override, self.resume, self.resume_id):
             case (True, _, _):  # When overriding always restart
                 return None
             case (False, True, None):  # Resume from last
                 return self.last_checkpoint()
             case (False, True, _):  # Resume from specific
-                return self.get_checkpoint(resume_id)
+                return self.get_checkpoint(self.resume_id)
             case _:  # Start from scratch
                 if len(self.checkpoint_list()) > 0:
                     raise ValueError("Trying to override model-root when 'override=False' !!")
@@ -258,13 +283,13 @@ class BySizeTrainItem:
             None,
         )
 
-    def train_txt(self) -> list[str]:
+    def train_txt(self) -> Path:
         """Load train data."""
-        return self.item.tokenized_train()
+        return self.data_item.tokenized_train(as_path=True)
 
-    def dev_txt(self) -> list[str]:
+    def dev_txt(self) -> Path:
         """Load dev data."""
-        return self.item.tokenized_dev()
+        return self.data_item.tokenized_dev(as_path=True)
 
     def to_dict(self) -> BySizeTrainStruct:
         """Convert item into a dictionairy."""
@@ -278,6 +303,9 @@ class BySizeTrainItem:
             "generation_root": self.generation_root_dir,
             "model_root": self.model_root_dir,
             "last_checkpoint": self.last_checkpoint(),
+            "resume": self.resume,
+            "override": self.override,
+            "resume_id": self.resume_id,
         }
 
     @classmethod

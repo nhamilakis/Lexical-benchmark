@@ -1,0 +1,51 @@
+[generic]
+
+overwrite_output_dir=true
+# Batch size and optimization
+per_device_train_batch_size=32  # Increase batch size
+gradient_accumulation_steps=4   # Increase gradient accumulation steps
+max_steps=100000               # Reduce max steps
+# Learning rate schedule
+learning_rate=1e-4
+warmup_steps=1000
+warmup_ratio=0.0
+lr_scheduler_type="inverse_sqrt"
+# Optimizer settings
+optim="adamw_torch"
+adam_beta1=0.9
+adam_beta2=0.98
+weight_decay=0.01
+max_grad_norm=0.0
+logging_steps=100
+save_strategy="steps"
+save_steps=1000
+save_total_limit=20  # Reduce save total limit
+# Evaluation
+evaluation_strategy="steps"
+eval_steps=1000  # TODO: check whether applie in larger month
+# Early stopping settings
+load_best_model_at_end=true  # Required for early stopping
+metric_for_best_model="eval_loss"  # Monitor eval loss for early stopping
+greater_is_better=false  # Lower loss is better
+# FP16 training
+fp16=true  # Match Fairseq's fp16
+# Misc
+dataloader_num_workers=4
+disable_tqdm=false
+
+[lstm]
+block_size = 128
+model_max_length = 2048
+mlm = false
+early_stopping_patience = 3
+
+
+[gpt2]
+block_size = 128
+model_max_length = 2048
+vocab_size=58
+max_position_embeddings=1024
+n_head=8  # Number of attention heads
+n_layer=3  # Number of hidden layers
+n_embd=1024  # Hidden size (embedding dimension)
+n_inner=4096  # Dimension of the feedforward network

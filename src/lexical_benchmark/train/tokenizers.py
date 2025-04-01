@@ -1,6 +1,15 @@
 import string
 
-from transformers import PreTrainedTokenizer
+from transformers import LineByLineTextDataset, PreTrainedTokenizer
+
+
+def tokenize_data(tokenizer, data_path, block_size: int) -> LineByLineTextDataset:
+    """Tokenize the dataset."""
+    return LineByLineTextDataset(
+        tokenizer=tokenizer,
+        file_path=data_path,
+        block_size=block_size,
+    )
 
 
 class CharacterTokenizer(PreTrainedTokenizer):

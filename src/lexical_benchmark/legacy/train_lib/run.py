@@ -34,45 +34,6 @@ class Trainer(t.Protocol):
         ...
 
 
-def lstm_training(args: train_lib.TrainArgs, logger: logging.Logger) -> Trainer:
-    """Run LSTM training on current arguments."""
-    from transformers import (
-        DataCollatorForLanguageModeling,
-        EarlyStoppingCallback,
-        Trainer,
-    )
-
-    # TODO: migrate magick numbers to a model config loader
-    block_size = 128
-    model_max_length = 2048
-    logger.info("Loading char-tokenizer")
-
-    # Load tokenizer and create data collator
-    tokenizer = train_lib.hf_tools.load_char_tokenizer(
-        model_max_length=model_max_length, special_token_lst=args.AddedTokens
-    )
-    print("Character tokenizer has been loaded")
-    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
-    logger.info(f"Vocabulary size: {len(tokenizer.get_vocab())}")
-
-    logger.info("Tokenizing the dataset")
-    train_dataset = train_lib.tokenize_data(tokenizer, args.train_text_path, block_size)
-    val_dataset = train_lib.tokenize_data(tokenizer, args.dev_text_path, block_size)
-    logger.info(f"Training dataset size: {len(train_dataset)}")
-    logger.info(f"Validation dataset size: {len(val_dataset)}")
-
-    logger.info("Loading configurations & initialising LSTM model trainer")
-    config = train_lib.LSTMConfig(vocab_size=len(tokenizer.get_vocab()))
-    # TODO: standardize model config loader
-    model = train_lib.LSTMForLanguageModeling(config)
-    return Trainer(
-        model=model,
-        args=train_lib.setup_training_arguments(args.current_model_path),
-        data_collator=data_collator,
-        train_dataset=train_dataset,
-        eval_dataset=val_dataset,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
-    )
 
 
 def transformer_training(args: train_lib.TrainArgs, logger: logging.Logger) -> Trainer:

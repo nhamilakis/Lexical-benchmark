@@ -38,22 +38,19 @@ def init_logging(log_level: LogLevelType, log_path: Path, job_name: str, *, log_
 
 
 def train_model(
-    model_type: lb_types.MODEL_TYPE,
     item: by_size.BySizeTrainItem,
     *,
-    model_params_file: Path | None,
-    override: bool = False,
-    resume_id: str | None = None,
+    model_params_file: Path | None = None,
 ) -> None:
     """Train a model on the given dataset item."""
-    L.info(f"Loading {model_type} trainer class.")
+    L.info(f"Loading {item.model_type} trainer class.")
     trainer = load_trainer(
-        model_type=model_type,
+        model_type=item.model_type,
         item=item,
         params_file=model_params_file,
     )
 
-    resume_file = item.get_resume_train(override=override, resume_id=resume_id)
+    resume_file = item.get_resume_train()
     if resume_file:
         L.info(f"Resuming previous training using {resume_file}")
 
@@ -74,6 +71,7 @@ class Single(Command):
     split: Positional[str]
     chunk: Positional[str]
     model_type: Positional[lb_types.MODEL_TYPE]
+    resume: bool = True
     override: bool = False
     resume_id: str | None = None
     log_to_std: bool = False
@@ -86,7 +84,12 @@ class Single(Command):
         dt_item: by_size.BySizeItemsLoader = by_size.BySizeItemsLoader.load(
             dataset_name=self.dataset_name, lang=self.lang, split=self.split, chunk=self.chunk
         )
-        train_args = dt_item.train_args(model_type=self.model_type)
+        train_args = dt_item.train_args(
+            model_type=self.model_type,
+            resume=self.resume,
+            override=self.override,
+            resume_id=self.resume_id,
+        )
         train_args.model_root_dir.mkdir(exist_ok=True, parents=True)
 
         init_logging(
@@ -98,12 +101,11 @@ class Single(Command):
 
         # Train
         train_model(
-            model_type=self.model_type,
             item=train_args,
         )
 
 
-class Array(Command):
+class ArrayIndex(Command):
     """Command line arguments for array-training script."""
 
     index_file: Positional[Path] = arg(parser=cp.Path(exists=True))
@@ -113,12 +115,31 @@ class Array(Command):
     model_config_file: Path | None = arg(None, parser=cp.Path(exists=True))
     added_tokens: list[str] = arg(default_factory=lambda: ["'", "|"], parser=cp.List(cp.Str()))
 
+    def load_from_index(self) -> by_size.BySizeTrainItem:
+        """Load train item from a file."""
+        index: dict[int, by_size.BySizeTrainStruct] = self.index_file.read_json()
+        # TODO: catch outOfBounds ?
+        return by_size.BySizeTrainItem.from_dict(index[self.current_index])
+
     async def run(self) -> None:
         """Command Entrypoint."""
-        # TODO: load index file and items from there
+        train_args = self.load_from_index()
+        train_args.model_root_dir.mkdir(exist_ok=True, parents=True)
+
+        init_logging(
+            log_level=self.log_level,
+            job_name=train_args.job_name,
+            log_path=train_args.train_logs_file,
+            log_to_std=self.log_to_std,
+        )
+
+        # Train
+        train_model(
+            item=train_args,
+        )
 
 
 class Train(Command):
     """Training script command."""
 
-    subcommand: Single | Array
+    subcommand: Single | ArrayIndex

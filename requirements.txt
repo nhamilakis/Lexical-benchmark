@@ -22,3 +22,4 @@ tomli-w
 beautifulsoup4
 httpx
 clypi
+pydantic

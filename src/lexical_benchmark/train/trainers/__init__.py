@@ -1,13 +1,14 @@
 import typing as t
+from pathlib import Path
 
 from lexical_benchmark import exc
-from lexical_benchmark.lb_types import MODEL_TYPE
+from lexical_benchmark.dataloaders import by_size
 
 # Forward reference for optuna.Trial since we don't import optuna
 OptunaTrial = t.TypeVar("OptunaTrial", bound="optuna.Trial")  # type: ignore[undefined-variable]# noqa: F821
 
 
-class Trainer(t.Protocol):
+class TrainerP(t.Protocol):
     """Protocol defining the interface for trainers."""
 
     def train(
@@ -31,16 +32,16 @@ class Trainer(t.Protocol):
         ...
 
 
-def load_trainer(model_type: MODEL_TYPE) -> Trainer:
+def load_trainer(item: by_size.BySizeTrainItem, *, model_params_file: Path | None = None) -> TrainerP:
     """Load model trainer."""
-    match model_type:
+    match item.model_type:
         case "lstm":
-            from .lstm import TrainClass
+            from .lstm import lstm_training
 
-            return ...
+            return lstm_training(args=item, params_file=model_params_file)
         case "gpt2":
             from .gpt2 import TrainClass
 
             return TrainClass
         case _:
-            raise exc.BadModelTypeError(f"Model {model_type} not in given model list !")
+            raise exc.BadModelTypeError(f"Model {item.model_type} not in given model list !")
