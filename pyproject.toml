@@ -23,6 +23,7 @@ dependencies = [
     "matplotlib",
     "seaborn",
     "pandas",
+    "polars",
     "numpy",
     "polyglot",
     "nltk",
@@ -81,10 +82,6 @@ dev = [
 ]
 # polyglot = ["polyglot", "pyicu", "pycld2", "morfessor"]
 asr = ["openai-whisper"]
-
-optimised = [
-    "polars",
-]
 
 [build-system]
 requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]

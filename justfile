@@ -13,7 +13,6 @@ JZ_SCRATCH_WORK := if hostname == "NicolasMBP.local" {
 
 JZ_SRC_DEV := JZ_SCRATCH_WORK + "/dev/code"
 JZ_SRC_TEST_1 := JZ_SCRATCH_WORK + "/test1/code"
-JZ_SRC_TEST_2 := JZ_SCRATCH_WORK + "/test2/code"
 
 hostname := `hostname`
 COML_WORKSPACE := if hostname == "NicolasMBP.local" {
@@ -51,7 +50,7 @@ deploy-jz-dev: exec-permissions
     fi
 
 [doc("Deploy source code to jean-folder in test env 1")]
-deploy-jz-test1: exec-permissions
+deploy-jz: exec-permissions
     #!/bin/bash
     # SSHPASS not set
     echo "Syncing source-code directory..."
@@ -61,26 +60,6 @@ deploy-jz-test1: exec-permissions
         sshpass -e rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_TEST_1}}"
     fi
 
-[doc("Deploy source code to jean-folder in test env 2")]
-deploy-jz-test2: exec-permissions
-    #!/bin/bash
-    # SSHPASS not set
-    echo "Syncing source-code directory..."
-    if [ -z "${SSHPASS}" ]; then
-        rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_TEST_2}}"
-    else
-        sshpass -e rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_TEST_2}}"
-    fi
-
-[doc("Connect to jean-zay server")]
-connect-jz:
-    #!/bin/bash
-    # SSHPASS not set
-    if [ -z "${SSHPASS}" ]; then
-        ssh jean-zay
-    else
-        sshpass -e ssh jean-zay
-    fi
 
 [doc("Make executables")]
 exec-permissions:
