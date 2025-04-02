@@ -446,7 +446,7 @@ class Rsync:
         short_args = self._build_short_args()
         long_args = self._build_long_args()
         if dry_run:
-            long_args.append("--dry-run")
+            long_args.insert(0, "--dry-run")
         return [
             f"{shutil.which('rsync')}",
             short_args,

@@ -137,8 +137,8 @@ class CHILDESDatasetConfig(DatasetConfig):
         # All path should be relative to root dir of the dataset
         return [
             self.preprocessed_root.relative_to(self.root_dir),  # src/preprocess
+            self.by_speech_type.relative_to(self.root_dir),  # by_type/
             self.meta_dir.relative_to(self.root_dir),  # metadata/
-            # TODO: add rest of CHILDES
         ]
 
     def id_list(self, lang_accent: str) -> t.Iterator[tuple[str, ...]]:
@@ -175,7 +175,9 @@ class ChildRealisticDatasetConfig(DatasetConfig):
 
     def transfer_pathlist(self) -> list[Path]:
         """A list of files to be included when transfering the final dataset."""
-        return []
+        return [
+            self.original_root.relative_to(self.root_dir),  # src/original
+        ]
 
 
 class STELADatasetConfig(DatasetConfig):
@@ -309,9 +311,9 @@ class STELADatasetConfig(DatasetConfig):
         return [
             self.preprocessed_root.relative_to(self.root_dir),  # src/preprocess
             self.by_hour_dir.relative_to(self.root_dir),  # by_hour/
-            self.meta_dir.relative_to(self.root_dir),  # metadata/
             self.by_size_dir.relative_to(self.root_dir),  # by_size/
             self.by_genre_dir.relative_to(self.root_dir),  # by_genre/
+            self.meta_dir.relative_to(self.root_dir),  # metadata/
         ]
 
 
@@ -357,6 +359,10 @@ class WordsCDIDatasetConfig(DatasetConfig):
     def forms(self, lang_accent: str) -> tuple[str, ...] | None:
         """Return all forms available for each language."""
         return tuple(self.FORM_INDEX.get(lang_accent, {}).keys())
+
+    def transfer_pathlist(self) -> list[Path]:
+        """A list of files to be included when transfering the final dataset."""
+        return ["*"]
 
     def form_path(
         self, lang_accent: str, form: str, cdi_type: t.Literal["undestand", "produce", "all"] = "produce"

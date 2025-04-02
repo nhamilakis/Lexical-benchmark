@@ -3,8 +3,8 @@ name = "lexical-benchmark"
 description = "A detailed comparison between human (CDI) and model performance at the lexical level"
 authors = [
     { name = "Nicolas Hamilakis", email = "nicolas.hamilakis@ens.psl.eu" },
+    { name = "Jing Liu", email = "jing.liu@ens.psl.eu" },
     { name = "CoML Team", email = "dev@cognitive-ml.fr" },
-    { name = "Jing Liu", email = "jing.liu@student.ru.nl" },
 ]
 license = { text = "MIT License" }
 readme = { file = "README.md", content-type = "text/markdown" }

@@ -114,6 +114,13 @@ class _MyPathSettings:
         return self.DATA_DIR / "models"
 
     @property
+    def model_light_root(self) -> _Path:
+        """Root directory containing light version of the model dir."""
+        if self.CURRENT_MODEL_VERSION > 0:
+            return self.DATA_DIR / f"models-light{self.CURRENT_MODEL_VERSION}"
+        return self.DATA_DIR / "models-light"
+
+    @property
     def generate_root(self) -> _Path:
         """Root directory to store data generated from models."""
         if self.CURRENT_MODEL_VERSION > 0:
