@@ -114,8 +114,6 @@ script-files = [
 exclude = [
     'parser\.py$' # Exclude parser.py -> sly does not type-check
 ]
-[tool.uv]
-default-groups = ["optimised"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

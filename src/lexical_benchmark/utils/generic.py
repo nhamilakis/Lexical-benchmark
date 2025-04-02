@@ -468,6 +468,7 @@ class Rsync:
     def __err_handler(
         self,
         err_msg: str,
+        *,
         output_handling: t.Literal["log_info", "log_debug", "print", "ignore"] = "log_debug",
     ) -> None:
         """Handle error based on selected option."""
@@ -538,8 +539,7 @@ class Rsync:
         if return_code != 0 and not ignore_errors:
             self.__err_handler(
                 (f"{cmd}\n{result.stderr}\nRSYNC Returned code : {return_code}"),
-                output_handling,
-                ignore_errors=ignore_errors,
+                output_handling=output_handling,
             )
             return return_code
 

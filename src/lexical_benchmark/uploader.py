@@ -35,7 +35,7 @@ class Datasets(Command):
     target: TargetTypes = "oberon2"
     dry_run: bool = False
     ignore_errors: bool = False
-    output_handling: t.Literal["log_info", "log_debug", "print", "ignore"] = "log_info"
+    output_handling: t.Literal["log_info", "log_debug", "print", "ignore"] = "print"
     logging: utils.generic.LOG_LEVELS = "INFO"
 
     def upload_command(self) -> utils.Rsync:
