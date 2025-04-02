@@ -17,78 +17,78 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Development Status :: 4 - Beta",
 ]
-dynamic = ["dependencies", "version"]
+
+dependencies = [
+    "typing_extensions",
+    "matplotlib",
+    "seaborn",
+    "pandas",
+    "numpy",
+    "polyglot",
+    "nltk",
+    "ipython",
+    "rich",
+    "scipy",
+    "statsmodels",
+    "num2words",
+    "humanize",
+    "psutil",
+    "librosa",
+    "openpyxl",
+    "python-dateutil",
+    "PyYAML",
+    "pyarrow",
+    "tomli; python_version < '3.11'",
+    "tomli-w",
+    "beautifulsoup4",
+    "httpx",
+    "clypi",
+    "pydantic",
+    "torch==2.5.1",
+    "torchtyping>=0.1.5",
+    "transformers==4.49.0",
+    "accelerate==1.3.0",
+    "tokenizers==0.21.0; sys_platform == 'linux' or sys_platform == 'linux2'",
+    # Spacy CUDA should not be installed on macOS
+    # This requires a cuda>12.1.1 to be available in the current env
+    # Tested on cuda/12.4.1 on JZ it works
+    # Failed on cuda/12.1.0
+    # Worked on cuda/12.1.1 on Oberon (??)
+    "spacy[cuda12x]; sys_platform == 'linux' or sys_platform == 'linux2'",
+    "spacy; sys_platform == 'darwin'",
+    # VLLM installation fails on macos
+    "vllm>=0.7.3; sys_platform == 'linux' or sys_platform == 'linux2'",
+    "wandb",
+]
+
+dynamic = ["version"]
 
 [project.urls]
-documentation = "https://github.com/Jing-L97/Lexical-benchmark"
-repository = "https://github.com/Jing-L97/Lexical-benchmark"
+documentation = "https://github.com/nhamilakis/Lexical-benchmark/tree/dev/docs"
+repository = "https://github.com/nhamilakis/Lexical-benchmark"
 
 
 [project.scripts]
 download-stela = "lexical_benchmark.data_download:download_stela"
 
-[project.optional-dependencies]
-dev = ["ruff", "mypy", "ipython", "jupyter", "pytest>=8.3.4", "pre-commit"]
-# polyglot = ["polyglot", "pyicu", "pycld2", "morfessor"]
-asr = ["openai-whisper"]
-# This requires a cuda>12.1.1 to be available in the current env
-# Tested on cuda/12.4.1 on JZ it works
-# Failed on cuda/12.1.0
-# Worked on cuda/12.1.1 on Oberon (??)
-optimised = [
-    "polars",
-    "torch==2.5.1; sys_platform == 'linux' or sys_platform == 'linux2'",
-    "spacy[cuda12x]; sys_platform == 'linux' or sys_platform == 'linux2'",
-    "spacy; sys_platform == 'darwin'",
-]
-train = [
-    "accelerate==1.3.0; sys_platform == 'linux' or sys_platform == 'linux2'",
-    "tokenizers==0.21.0; sys_platform == 'linux' or sys_platform == 'linux2'",
-    "torch==2.5.1; sys_platform == 'linux' or sys_platform == 'linux2'",
-    "torchtyping>=0.1.5; sys_platform == 'linux' or sys_platform == 'linux2'",
-    "transformers>=4.49.0; sys_platform == 'linux' or sys_platform == 'linux2'",
-    "vllm>=0.7.3; sys_platform == 'linux' or sys_platform == 'linux2'",
-    "wandb",
-]
-
-# Dependency groups not yet supported as optionals
 [dependency-groups]
 dev = [
     "ruff",
     "mypy",
-    "ipython",
     "jupyter",
     "pytest>=8.3.4",
     "pre-commit",
 ]
 # polyglot = ["polyglot", "pyicu", "pycld2", "morfessor"]
 asr = ["openai-whisper"]
-# This requires a cuda>12.1.1 to be available in the current env
-# Tested on cuda/12.4.1 on JZ it works
-# Failed on cuda/12.1.0
-# Worked on cuda/12.1.1 on Oberon (??)
+
 optimised = [
     "polars",
-    "torch==2.5.1; sys_platform == 'linux' or sys_platform == 'linux2'",
-    "spacy[cuda12x]; sys_platform == 'linux' or sys_platform == 'linux2'",
-    "spacy; sys_platform == 'darwin'",
-]
-train = [
-    "accelerate==1.3.0; sys_platform == 'linux' or sys_platform == 'linux2'",
-    "tokenizers==0.21.0; sys_platform == 'linux' or sys_platform == 'linux2'",
-    "torch==2.5.1; sys_platform == 'linux' or sys_platform == 'linux2'",
-    "torchtyping>=0.1.5; sys_platform == 'linux' or sys_platform == 'linux2'",
-    "transformers>=4.49.0; sys_platform == 'linux' or sys_platform == 'linux2'",
-    "vllm>=0.7.3; sys_platform == 'linux' or sys_platform == 'linux2'",
-    "wandb",
 ]
 
 [build-system]
 requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
-
-[tool.setuptools.dynamic]
-dependencies = { file = ["requirements.txt"] }
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -118,7 +118,7 @@ exclude = [
     'parser\.py$' # Exclude parser.py -> sly does not type-check
 ]
 [tool.uv]
-default-groups = ["train", "optimised"]
+default-groups = ["optimised"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
@@ -133,10 +133,10 @@ exclude = [
     "notebooks", "*ipynb", # Notebooks should be ignored
     "*.pyi", 
     ".venv", 
-    "src/lexical_benchmark/legacy", # Legacy code gets a pass for now (warning is thrown)
+    "src/lexical_benchmark/legacy", # Legacy code gets a pass for now (warning is thrown when importing)
     "src/lexical_benchmark/processing/turn_taking.py", # TODO: work-in-progress
     "src/scripts/archived/",  # ignore archived scripts for now
-] 
+]
 force-exclude = true
 
 
