@@ -103,17 +103,26 @@ def lstm_training(args: by_size.BySizeTrainItem, params_file: Path | None = None
     # Load tokenizer and create data collator
     # TODO: check added tokens on bySizeTrain
     L.info("Loading char-tokenizer")
-    tokenizer = tokenizers.load_char_tokenizer(
-        model_max_length=model_params.lstm.model_max_length, special_token_lst=args.AddedTokens
-    )
+    tokenizer = tokenizers.load_char_tokenizer()
 
     L.info("Character tokenizer has been loaded")
-    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=model_params.lstm.mlm)
+    data_collator = tokenizers.CustomDataCollatorForLanguageModeling(
+        tokenizer, max_seq_length=model_params.lstm.max_seq_length, mlm=model_params.lstm.mlm
+    )
     L.info(f"Vocabulary size: {len(tokenizer.get_vocab())}")
 
     L.info("Tokenizing the dataset")
-    train_dataset = tokenizers.tokenize_data(tokenizer, args.train_txt, model_params.lstm.block_size)
-    val_dataset = tokenizers.tokenize_data(tokenizer, args.dev_txt, model_params.lstm.block_size)
+    dataset = tokenizers.load_dataset(args.train_txt, args.dev_txt)
+    data_preprocessor = tokenizers.DataPreprocessor(tokenizer)
+    processed_dataset = dataset.map(
+        data_preprocessor,
+        batched=True,
+        num_proc=(64 if torch.cuda.is_available() else 1),
+        remove_columns=["text"],
+    )
+    train_dataset = processed_dataset["train"]
+    val_dataset = processed_dataset["valid"]
+
     L.info(f"Training dataset size: {len(train_dataset)}")
     L.info(f"Validation dataset size: {len(val_dataset)}")
 

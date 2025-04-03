@@ -150,18 +150,20 @@ class TextGenerator:
 
             outputs = self.model.generate(
                 input_ids=input_ids,
-                max_length=curr_length + 1,
                 do_sample=True,
                 temperature=temperature,
                 num_beams=1,
                 num_return_sequences=1,
                 pad_token_id=self.tokenizer.eos_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,  
+                early_stopping=True,  
                 position_ids=position_ids,
                 use_cache=True,
             )
 
             new_token = outputs[0, -1].item()
             return new_token, outputs
+    
         except RuntimeError as e:
             if "out of memory" in str(e):
                 self._handle_oom()
@@ -694,3 +696,4 @@ class LSTMForLanguageModeling(PreTrainedModel):
             raise
 
         return generated
+
