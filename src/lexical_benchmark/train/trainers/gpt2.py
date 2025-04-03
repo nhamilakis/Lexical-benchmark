@@ -5,7 +5,6 @@ from pathlib import Path
 import torch
 from transformers import (
     EarlyStoppingCallback,
-    GPT2Config,
     GPT2LMHeadModel,
     PretrainedConfig,
     Trainer,
@@ -21,7 +20,7 @@ if t.TYPE_CHECKING:
 L = logging.getLogger(__name__)
 
 
-class GPT2Config(PretrainedConfig):
+class CustomGPT2Config(PretrainedConfig):
     """Configuration class for gpt2 language model."""
 
     model_type = "gpt2"
@@ -48,7 +47,6 @@ class GPT2Config(PretrainedConfig):
 
 def transformer_training(args: by_size.BySizeTrainItem, params_file: Path | None = None) -> "TrainerP":
     """Run transformer training on current arguments."""
-
     model_params = train_params.load_model_params(params_file=params_file)
     # Load tokenizer and create data collator
     L.info("Loading char-tokenizer")
@@ -78,7 +76,7 @@ def transformer_training(args: by_size.BySizeTrainItem, params_file: Path | None
     L.info(f"Validation dataset size: {len(val_dataset)}")
 
     L.info("Loading configurations & initialising GPT2 model trainer")
-    config = GPT2Config(vocab_size=len(tokenizer.get_vocab()))
+    config = CustomGPT2Config(vocab_size=len(tokenizer.get_vocab()))
 
     model = GPT2LMHeadModel(config)
     return Trainer(

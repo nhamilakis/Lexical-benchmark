@@ -40,8 +40,8 @@ def load_trainer(item: by_size.BySizeTrainItem, *, model_params_file: Path | Non
 
             return lstm_training(args=item, params_file=model_params_file)
         case "gpt2":
-            from .gpt2 import TrainClass
+            from .gpt2 import transformer_training
 
-            return TrainClass
+            return transformer_training(args=item, params_file=model_params_file)
         case _:
             raise exc.BadModelTypeError(f"Model {item.model_type} not in given model list !")

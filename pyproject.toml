@@ -60,6 +60,7 @@ dependencies = [
     # VLLM installation fails on macos
     "vllm>=0.7.3; sys_platform == 'linux' or sys_platform == 'linux2'",
     "wandb",
+    "datasets>=3.5.0",
 ]
 
 dynamic = ["version"]

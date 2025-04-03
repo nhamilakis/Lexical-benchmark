@@ -93,7 +93,6 @@ class LSTMForLanguageModeling(PreTrainedModel):
 def lstm_training(args: by_size.BySizeTrainItem, params_file: Path | None = None) -> "TrainerP":
     """Run LSTM training on current arguments."""
     from transformers import (
-        DataCollatorForLanguageModeling,
         EarlyStoppingCallback,
         Trainer,
     )
