@@ -46,9 +46,11 @@ dropout = 0.1
 [gpt2]
 block_size = 128
 max_seq_length = 2048
-vocab_size=58
+early_stopping_patience = 3
+mlm=false
+vocab_size=58  # Is overwritten by tokenize(dataset).length
 max_position_embeddings=1024
-n_head=8  # Number of attention heads
-n_layer=3  # Number of hidden layers
-n_embd=1024  # Hidden size (embedding dimension)
-n_inner=4096  # Dimension of the feedforward network
+n_head=12  # Number of attention heads
+n_layer=12  # Number of hidden layers
+n_embd=768  # Hidden size (embedding dimension)
+n_inner=3072  # Dimension of the feedforward network

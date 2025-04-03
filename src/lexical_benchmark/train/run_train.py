@@ -70,10 +70,13 @@ class Single(Command):
     split: Positional[str]
     chunk: Positional[str]
     model_type: Positional[lb_types.MODEL_TYPE]
+    # TODO: make device something that is set from here
+    device: str = "cuda"  # Used by nothing, needs to be plugged into trainer
+    n_procs: int = 8  # TODO: any parallel operation should use this
     resume: bool = True
     override: bool = False
     resume_id: str | None = None
-    log_to_std: bool = False
+    log_to_std: bool = True
     log_level: LogLevelType = "INFO"
     model_config_file: Path | None = arg(None, parser=cp.Path(exists=True))
     added_tokens: list[str] = arg(default_factory=lambda: ["'", "|"], parser=cp.List(cp.Str()))
