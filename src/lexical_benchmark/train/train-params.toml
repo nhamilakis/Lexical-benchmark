@@ -1,4 +1,3 @@
-[generic]
 
 overwrite_output_dir=true
 # Batch size and optimization
@@ -35,14 +34,18 @@ disable_tqdm=false
 
 [lstm]
 block_size = 128
-model_max_length = 2048
+max_seq_length = 2048
 mlm = false
 early_stopping_patience = 3
-
+vocab_size= 58
+embedding_dim = 200
+hidden_size = 1024
+num_layers = 3
+dropout = 0.1
 
 [gpt2]
 block_size = 128
-model_max_length = 2048
+max_seq_length = 2048
 vocab_size=58
 max_position_embeddings=1024
 n_head=8  # Number of attention heads

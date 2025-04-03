@@ -35,7 +35,7 @@ notebook-tunnel node=compute_node port=jupyter_port:
 [doc("Deploy source code to remote")]
 deploy-oberon: exec-permissions
     echo "Syncing source-code directory..."
-    rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/source/"
+    rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/code/"
 
 
 [doc("Deploy source code to jean-folder test folder !!")]

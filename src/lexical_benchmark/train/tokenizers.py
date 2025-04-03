@@ -3,8 +3,9 @@ from pathlib import Path
 
 import datasets
 import numpy as np
-from torch.utils.data import BatchSampler, DataCollatorForLanguageModeling
+from torch.utils.data import BatchSampler
 from transformers import AutoTokenizer, PreTrainedTokenizer
+from transformers.data import DataCollatorForLanguageModeling
 
 
 class CustomDataCollatorForLanguageModeling(DataCollatorForLanguageModeling):
@@ -114,7 +115,7 @@ class DataPreprocessor:
                     "'WORD_BOUNDARY' in added tokens). Cannot extract or remove word boundaries."
                 )
 
-    def __call__(self, examples: list[str]) -> dict[str, t.Any]:  # noqa: C901
+    def __call__(self, examples: list[str]) -> dict[str, t.Any]:
         """The tokenizer should have been configured to add an utterance boundary to the start of each utterance.
 
         There are three options for joining utterances. If join_utts is None, each example contains a single utterance
@@ -149,13 +150,6 @@ class DataPreprocessor:
                 word_starts = np.logical_or(word_starts, np.array([0] + input_ids[:-1]) == self.tokenizer.eos_token_id)
                 # Utterance boundaries are not word boundaries
                 word_starts = np.logical_and(word_starts, np.array(input_ids) != self.tokenizer.eos_token_id)
-
-            if self.remove_word_boundaries:
-                mask = np.where(np.array(input_ids) != self.word_boundary_token)
-                input_ids = np.array(input_ids)[mask]
-                attention_mask = np.array(attention_mask)[mask]
-                if self.get_word_boundaries:
-                    word_starts = word_starts[mask]
 
             # Split the long vector into inputs of length max_input_length
             batch["input_ids"] = [
@@ -201,18 +195,10 @@ class DataPreprocessor:
                 # Every position after an utterance boundary is a word start
                 word_starts = np.logical_or(word_starts, np.array([0] + input_ids[:-1]) == self.tokenizer.eos_token_id)
                 word_starts = np.logical_and(
-                    word_starts, np.array(input_ids) != self.eos_token_id
+                    word_starts, np.array(input_ids) != self.tokenizer.eos_token_id
                 )  # Utterance boundaries are not word boundaries
                 word_starts[0] = 1  # First token is always a word start
                 word_starts_list.append(word_starts)
-
-        if self.remove_word_boundaries:
-            for i, input_ids in enumerate(tokenized["input_ids"]):
-                mask = np.where(np.array(input_ids) != self.word_boundary_token)
-                tokenized["input_ids"][i] = np.array(input_ids)[mask]
-                tokenized["attention_mask"][i] = np.array(tokenized["attention_mask"][i])[mask]
-                if self.get_word_boundaries:
-                    word_starts_list[i] = word_starts_list[i][mask]
 
         batch = {
             "input_ids": tokenized["input_ids"],
@@ -232,16 +218,19 @@ def load_from_text(text_path: Path) -> datasets.Dataset:
     return datasets.Dataset.from_dict({"text": lines})
 
 
-def load_dataset(train_path, dev_path) -> datasets.DatasetDict:
+def load_dataset(train_path: Path, dev_path: Path) -> datasets.DatasetDict:
     """Loads dataset from text path."""
     train_dataset = load_from_text(train_path)
     val_dataset = load_from_text(dev_path)
     # Combine into a DatasetDict
     return datasets.DatasetDict(
-        {"train": train_dataset.get("train", train_dataset), "valid": val_dataset.get("valid", val_dataset)}
+        {
+            "train": train_dataset["train"] if "train" in train_dataset else train_dataset,  # noqa: SIM401
+            "valid": val_dataset["valid"] if "valid" in val_dataset else val_dataset,  # noqa: SIM401
+        }
     )
 
 
 def load_char_tokenizer() -> AutoTokenizer:
     """Load autokenizer from pre-trained."""
-    return AutoTokenizer.from_pretrained("transformersegmentation/BabyLM-char-tokenizer")
+    return AutoTokenizer.from_pretrained("phonemetransformers/GPT2-85M-CHAR-TXT")

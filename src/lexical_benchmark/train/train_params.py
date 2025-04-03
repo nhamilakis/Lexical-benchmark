@@ -2,6 +2,7 @@ import logging
 import typing as t
 from pathlib import Path
 
+import IPython
 from pydantic import BaseModel
 from transformers import TrainingArguments
 
@@ -12,7 +13,8 @@ class GPT2Params(BaseModel):
     """Parameters specific to GPT2 Trainer."""
 
     block_size: int
-    model_max_length: int
+    max_seq_length: int
+
     vocab_size: int
     max_position_embeddings: int
     n_head: int
@@ -20,18 +22,20 @@ class GPT2Params(BaseModel):
     n_embd: int
     n_inner: int
 
-    def for_gpt2(self) -> dict[str, t.Any]:
-        """Export arguments to gpt2-config."""
-        return self.model_dump(exclude={"block_size", "model_max_length"})
-
 
 class LSTMParams(BaseModel):
     """Parameters specific to LSTM Trainer."""
 
     block_size: int
-    model_max_length: int
+    max_seq_length: int
     mlm: bool
     early_stopping_patience: int
+
+    vocab_size: int
+    embedding_dim: int
+    hidden_size: int
+    num_layers: int
+    dropout: float
 
 
 class ModelParams(BaseModel):
@@ -83,3 +87,8 @@ def load_model_params(params_file: Path | None = None) -> ModelParams:
 def setup_training_arguments(model_path: Path, params: ModelParams) -> TrainingArguments:
     """Configure training arguments to match Fairseq settings."""
     return TrainingArguments(output_dir=str(model_path), **(params.for_training_args()))
+
+
+if __name__ == "__main__":
+    parameters = load_model_params()
+    IPython.embed()

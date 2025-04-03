@@ -45,9 +45,8 @@ def train_model(
     """Train a model on the given dataset item."""
     L.info(f"Loading {item.model_type} trainer class.")
     trainer = load_trainer(
-        model_type=item.model_type,
         item=item,
-        params_file=model_params_file,
+        model_params_file=model_params_file,
     )
 
     resume_file = item.get_resume_train()

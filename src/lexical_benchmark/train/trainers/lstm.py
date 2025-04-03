@@ -26,20 +26,16 @@ class LSTMConfig(PretrainedConfig):
 
     def __init__(
         self,
-        vocab_size: int = 58,
-        embedding_dim: int = 200,
-        hidden_size: int = 1024,
-        num_layers: int = 3,
-        dropout: float = 0.1,
+        lstm_params: train_params.LSTMParams,
         **kwargs,
     ) -> None:
         """Initialize LSTM Config."""
         super().__init__(**kwargs)
-        self.vocab_size = vocab_size
-        self.embedding_dim = embedding_dim
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        self.dropout = dropout
+        self.vocab_size = lstm_params.vocab_size
+        self.embedding_dim = lstm_params.embedding_dim
+        self.hidden_size = lstm_params.hidden_size
+        self.num_layers = lstm_params.num_layers
+        self.dropout = lstm_params.dropout
 
 
 class LSTMForLanguageModeling(PreTrainedModel):
@@ -111,8 +107,9 @@ def lstm_training(args: by_size.BySizeTrainItem, params_file: Path | None = None
     L.info(f"Vocabulary size: {len(tokenizer.get_vocab())}")
 
     L.info("Tokenizing the dataset")
-    dataset = tokenizers.load_dataset(args.train_txt, args.dev_txt)
+    dataset = tokenizers.load_dataset(args.train_txt(), args.dev_txt())
     data_preprocessor = tokenizers.DataPreprocessor(tokenizer)
+    # TODO: this uses tqdm (disable it)
     processed_dataset = dataset.map(
         data_preprocessor,
         batched=True,
@@ -126,12 +123,12 @@ def lstm_training(args: by_size.BySizeTrainItem, params_file: Path | None = None
     L.info(f"Validation dataset size: {len(val_dataset)}")
 
     L.info("Loading configurations & initialising LSTM model trainer")
-    config = LSTMConfig(vocab_size=len(tokenizer.get_vocab()))
-    # TODO: standardize model config loader
-    model = LSTMForLanguageModeling(config)
+    model = LSTMForLanguageModeling(
+        config=LSTMConfig(lstm_params=model_params.lstm, vocab_size=len(tokenizer.get_vocab()))
+    )
     return Trainer(
         model=model,
-        args=train_params.setup_training_arguments(args.model_root_dir),
+        args=train_params.setup_training_arguments(args.model_root_dir, params=model_params),
         data_collator=data_collator,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,

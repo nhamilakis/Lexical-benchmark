@@ -27,22 +27,17 @@ class CustomGPT2Config(PretrainedConfig):
 
     def __init__(
         self,
-        vocab_size=58,
-        max_position_embeddings=1024,
-        n_head=8,  # Number of attention heads
-        n_layer=3,  # Number of hidden layers
-        n_embd=768,  # Hidden size (embedding dimension)
-        n_inner=3092,  # Dimension of the feedforward network
+        gpt_params: train_params.GPT2Params,
         **kwargs,
     ) -> None:
         """Initialize gpt2 Config."""
         super().__init__(**kwargs)
-        self.vocab_size = (vocab_size,)
-        self.max_position_embeddings = (max_position_embeddings,)
-        self.n_head = (n_head,)  # Number of attention heads
-        self.n_layer = (n_layer,)  # Number of hidden layers
-        self.n_embd = (n_embd,)  # Hidden size (embedding dimension)
-        self.n_inner = (n_inner,)  # Dimension of the feedforward network
+        self.vocab_size = kwargs.get("vocab_size", gpt_params.vocab_size)
+        self.max_position_embeddings = gpt_params.max_position_embeddings
+        self.n_head = gpt_params.n_head  # Number of attention heads
+        self.n_layer = gpt_params.n_layer  # Number of hidden layers
+        self.n_embd = gpt_params.n_embd  # Hidden size (embedding dimension)
+        self.n_inner = gpt_params.n_inner  # Dimension of the feedforward network
 
 
 def transformer_training(args: by_size.BySizeTrainItem, params_file: Path | None = None) -> "TrainerP":
@@ -76,12 +71,12 @@ def transformer_training(args: by_size.BySizeTrainItem, params_file: Path | None
     L.info(f"Validation dataset size: {len(val_dataset)}")
 
     L.info("Loading configurations & initialising GPT2 model trainer")
-    config = CustomGPT2Config(vocab_size=len(tokenizer.get_vocab()))
+    config = CustomGPT2Config(gpt_params=model_params.gpt2, vocab_size=len(tokenizer.get_vocab()))
 
     model = GPT2LMHeadModel(config)
     return Trainer(
         model=model,
-        args=train_params.setup_training_arguments(args.model_root_dir),
+        args=train_params.setup_training_arguments(args.model_root_dir, params=model_params),
         data_collator=data_collator,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
