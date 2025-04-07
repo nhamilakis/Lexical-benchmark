@@ -43,7 +43,6 @@ def transformer_training(args: by_size.BySizeTrainItem, params_file: Path | None
     train_dataset = tokenizers.load_joined_text(args.train_txt(), tokenizer, model_params.gpt2.max_seq_length)
     val_dataset = tokenizers.load_joined_text(args.dev_txt(), tokenizer, model_params.gpt2.max_seq_length)
 
-
     L.info(f"Training dataset size: {len(train_dataset)}")
     L.info(f"Validation dataset size: {len(val_dataset)}")
 
