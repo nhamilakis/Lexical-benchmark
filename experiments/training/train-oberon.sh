@@ -3,7 +3,7 @@
 #SBATCH --export=ALL
 #SBATCH --partition=gpu
 # Number of GPUs per task 
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:2
 #SBATCH --cpus-per-task=8
 #SBATCH --time=2-00:00:00
 # Array Number of Jobs to run in Parallel
@@ -11,6 +11,4 @@
 ##SBATCH --array=0-2
 #SBATCH --output=logs/%x-%j-%a.log
 
-uv run code/src/scripts/train/train.py single stela EN 01 00 lstm --resume
-
-uv run code/src/scripts/train/train.py single stela EN 01 00 gpt2 --resume
+uv run code/src/scripts/train/train.py single stela EN 01 00 $1 --resume
