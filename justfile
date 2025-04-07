@@ -18,9 +18,9 @@ hostname := `hostname`
 COML_WORKSPACE := if hostname == "NicolasMBP.local" {
     "workspace/src/LexicalBenchmark2"
 } else if hostname == "MBP-de-jliu" {
-    "projects/LexicalBenchmark"
+    "/home/jliu/projects/LexicalBenchmark"
 } else {
-    "workspace/LexicalBenchmark"
+    "/home/jliu/projects/LexicalBenchmark"
 }
 
 _default:

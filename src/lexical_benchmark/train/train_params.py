@@ -32,7 +32,7 @@ class LSTMParams(BaseModel):
     max_seq_length: int
     mlm: bool
     early_stopping_patience: int
-
+    hidden_size: int
     vocab_size: int
     embedding_dim: int
     num_layers: int

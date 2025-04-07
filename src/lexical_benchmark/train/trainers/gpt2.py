@@ -1,9 +1,12 @@
+
 import logging
+import os
 import typing as t
 from pathlib import Path
 
 from transformers import (
-    EarlyStoppingCallback,
+    AutoTokenizer,
+    DataCollatorForLanguageModeling,
     GPT2Config,
     GPT2LMHeadModel,
     Trainer,
@@ -12,59 +15,59 @@ from transformers import (
 from lexical_benchmark.dataloaders import by_size
 from lexical_benchmark.train import tokenizers, train_params
 
-if t.TYPE_CHECKING:
-    from lexical_benchmark.train.trainers import TrainerP
-
-
+# Set up logging
 L = logging.getLogger(__name__)
 
 
-def transformer_training(args: by_size.BySizeTrainItem, params_file: Path | None = None) -> "TrainerP":
-    """Run transformer training on current arguments."""
+def transformer_training(args: by_size.BySizeTrainItem, params_file: Path | None = None, tokenizer_name:str="phonemetransformers/GPT2-85M-CHAR-TXT") -> Trainer:
+    """Run transformer training using standard HuggingFace components with joined utterances."""
+    # Ensure tokenizers parallelism is disabled
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+    # Load model parameters
     model_params = train_params.load_model_params(params_file=params_file)
-    # Load tokenizer and create data collator
-    L.info("Loading char-tokenizer")
-    tokenizer = tokenizers.load_char_tokenizer()
 
-    L.info("Character tokenizer has been loaded")
-    data_collator = tokenizers.CustomDataCollatorForLanguageModeling(
-        tokenizer, max_seq_length=model_params.gpt2.max_seq_length, mlm=model_params.gpt2.mlm
+    # Load tokenizer - standard Hugging Face tokenizer
+    L.info("Loading char tokenizer")
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+    L.info(f"Tokenizer loaded with vocabulary size: {len(tokenizer.get_vocab())}")
+
+    # Use standard data collator
+    data_collator = DataCollatorForLanguageModeling(
+        tokenizer=tokenizer,
+        mlm=False,  # Use standard autoregressive LM (not masked LM)
     )
-    L.info(f"Vocabulary size: {len(tokenizer.get_vocab())}")
 
-    L.info("Tokenizing the dataset")
-    dataset = tokenizers.load_dataset(args.train_txt(), args.dev_txt())
+    # Load datasets with joined utterances to maximize context usage
+    L.info(f"Loading and processing datasets with joined utterances (max_length={model_params.gpt2.max_seq_length})")
+    train_dataset = tokenizers.load_joined_text(args.train_txt(), tokenizer, model_params.gpt2.max_seq_length)
+    val_dataset = tokenizers.load_joined_text(args.dev_txt(), tokenizer, model_params.gpt2.max_seq_length)
 
-    data_preprocessor = tokenizers.DataPreprocessor(tokenizer)
-
-    processed_dataset = dataset.map(
-        data_preprocessor,
-        batched=True,
-        num_proc=8,
-        remove_columns=["text"],
-    )
-    L.info("map finished ?")
-    train_dataset = processed_dataset["train"]
-    val_dataset = processed_dataset["valid"]
 
     L.info(f"Training dataset size: {len(train_dataset)}")
     L.info(f"Validation dataset size: {len(val_dataset)}")
 
-    L.info("Loading configurations & initialising GPT2 model trainer")
+
+    # Load GPT2 configuration
+    L.info("Creating GPT2 configuration")
     config = GPT2Config(
         vocab_size=len(tokenizer.get_vocab()),
-        max_position_embeddings=model_params.gpt2.max_position_embeddings,
-        n_head=model_params.gpt2.n_head,
-        n_layer=model_params.gpt2.n_layer,
-        n_embd=model_params.gpt2.n_embd,
-        n_inner=model_params.gpt2.n_inner,
+        n_positions=model_params.gpt2.max_position_embeddings,  # Use standard parameter name
+        n_ctx=model_params.gpt2.max_position_embeddings,  # Context size matches position embeddings
+        n_embd=model_params.gpt2.n_embd,  # Embedding dimension from params
+        n_layer=model_params.gpt2.n_layer,  # Number of layers from params
+        n_head=model_params.gpt2.n_head,  # Number of attention heads from params
     )
+
+    # Initialize GPT2 model
     model = GPT2LMHeadModel(config)
+    # Create Trainer
+    L.info("Creating standard Trainer")
     return Trainer(
         model=model,
         args=train_params.setup_training_arguments(args.model_root_dir, params=model_params),
         data_collator=data_collator,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=model_params.gpt2.early_stopping_patience)],
     )
+

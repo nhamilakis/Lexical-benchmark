@@ -12,3 +12,5 @@
 #SBATCH --output=logs/%x-%j-%a.log
 
 uv run scripts/train/train.py single stela EN 01 00 lstm --resume
+
+uv run scripts/train/train.py single stela EN 01 00 gpt2 --resume

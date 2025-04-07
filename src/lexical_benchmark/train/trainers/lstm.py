@@ -5,8 +5,11 @@ from pathlib import Path
 import torch
 from torch import nn
 from transformers import (
+    AutoTokenizer,
+    DataCollatorForLanguageModeling,
     PretrainedConfig,
     PreTrainedModel,
+    Trainer,
 )
 
 from lexical_benchmark.dataloaders import by_size
@@ -15,6 +18,14 @@ from lexical_benchmark.train import tokenizers, train_params
 if t.TYPE_CHECKING:
     from lexical_benchmark.train.trainers import TrainerP
 
+import logging as L
+import os
+
+T = t.TypeVar("T")
+TrainerP = t.TypeVar("TrainerP", bound=Trainer)
+
+# Set the environment variable before importing tokenizers
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 L = logging.getLogger(__name__)
 
@@ -86,42 +97,34 @@ class LSTMForLanguageModeling(PreTrainedModel):
         return (loss, logits)
 
 
-def lstm_training(args: by_size.BySizeTrainItem, params_file: Path | None = None) -> "TrainerP":
-    """Run LSTM training on current arguments."""
-    from transformers import (
-        EarlyStoppingCallback,
-        Trainer,
-    )
+def lstm_training(args: by_size.BySizeTrainItem, params_file: Path | None = None, tokenizer_name:str="phonemetransformers/GPT2-85M-CHAR-TXT") -> Trainer:
+    """Run transformer training using standard HuggingFace components with joined utterances."""
+    # Ensure tokenizers parallelism is disabled
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+    # Load model parameters
     model_params = train_params.load_model_params(params_file=params_file)
 
-    # Load tokenizer and create data collator
-    # TODO: check added tokens on bySizeTrain
+    # Load tokenizer - standard Hugging Face tokenizer
     L.info("Loading char-tokenizer")
-    tokenizer = tokenizers.load_char_tokenizer()
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+    L.info(f"Tokenizer loaded with vocabulary size: {len(tokenizer.get_vocab())}")
 
-    L.info("Character tokenizer has been loaded")
-    data_collator = tokenizers.CustomDataCollatorForLanguageModeling(
-        tokenizer, max_seq_length=model_params.lstm.max_seq_length, mlm=model_params.lstm.mlm
+    # Use standard data collator
+    data_collator = DataCollatorForLanguageModeling(
+        tokenizer=tokenizer,
+        mlm=False,  # Use standard autoregressive LM (not masked LM)
     )
-    L.info(f"Vocabulary size: {len(tokenizer.get_vocab())}")
 
-    L.info("Tokenizing the dataset")
-    dataset = tokenizers.load_dataset(args.train_txt(), args.dev_txt())
-    data_preprocessor = tokenizers.DataPreprocessor(tokenizer)
-    # TODO: this uses tqdm (disable it)
-    processed_dataset = dataset.map(
-        data_preprocessor,
-        batched=True,
-        num_proc=(64 if torch.cuda.is_available() else 1),
-        remove_columns=["text"],
-    )
-    train_dataset = processed_dataset["train"]
-    val_dataset = processed_dataset["valid"]
+    # Load datasets with joined utterances to maximize context usage
+    L.info(f"Loading and processing datasets with joined utterances (max_length={model_params.lstm.max_seq_length})")
+    train_dataset = tokenizers.load_joined_text(args.train_txt(), tokenizer, model_params.lstm.max_seq_length)
+    val_dataset = tokenizers.load_joined_text(args.dev_txt(), tokenizer, model_params.lstm.max_seq_length)
 
     L.info(f"Training dataset size: {len(train_dataset)}")
     L.info(f"Validation dataset size: {len(val_dataset)}")
 
+    # Create standard GPT2 configuration
     L.info("Loading configurations & initialising LSTM model trainer")
     model = LSTMForLanguageModeling(
         config=LSTMConfig(lstm_params=model_params.lstm, vocab_size=len(tokenizer.get_vocab()))
@@ -131,7 +134,5 @@ def lstm_training(args: by_size.BySizeTrainItem, params_file: Path | None = None
         args=train_params.setup_training_arguments(args.model_root_dir, params=model_params),
         data_collator=data_collator,
         train_dataset=train_dataset,
-        eval_dataset=val_dataset,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=model_params.lstm.early_stopping_patience)],
+        eval_dataset=val_dataset
     )
-    # TODO: we should write configs somewhere in the target dir ?
