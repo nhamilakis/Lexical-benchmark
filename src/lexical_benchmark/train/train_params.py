@@ -67,7 +67,7 @@ class ModelParams(BaseModel):
     fp16: bool
     dataloader_num_workers: int
     disable_tqdm: bool
-
+    early_stopping_patience:int
     lstm: LSTMParams
     gpt2: GPT2Params
 

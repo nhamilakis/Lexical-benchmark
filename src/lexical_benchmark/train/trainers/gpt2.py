@@ -7,6 +7,7 @@ from pathlib import Path
 from transformers import (
     AutoTokenizer,
     DataCollatorForLanguageModeling,
+    EarlyStoppingCallback,
     GPT2Config,
     GPT2LMHeadModel,
     Trainer,
@@ -68,5 +69,6 @@ def transformer_training(args: by_size.BySizeTrainItem, params_file: Path | None
         data_collator=data_collator,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=model_params.early_stopping_patience)]
     )
 

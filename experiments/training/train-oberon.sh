@@ -3,8 +3,8 @@
 #SBATCH --export=ALL
 #SBATCH --partition=gpu
 # Number of GPUs per task 
-#SBATCH --gres=gpu:2
-#SBATCH --cpus-per-task=8
+#SBATCH --gres=gpu:4
+#SBATCH --cpus-per-task=32
 #SBATCH --time=2-00:00:00
 # Array Number of Jobs to run in Parallel
 # Given via CMD arguments (because it varies depending on the number of jobs)

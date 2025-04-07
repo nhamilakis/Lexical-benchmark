@@ -7,6 +7,7 @@ from torch import nn
 from transformers import (
     AutoTokenizer,
     DataCollatorForLanguageModeling,
+    EarlyStoppingCallback,
     PretrainedConfig,
     PreTrainedModel,
     Trainer,
@@ -134,5 +135,6 @@ def lstm_training(args: by_size.BySizeTrainItem, params_file: Path | None = None
         args=train_params.setup_training_arguments(args.model_root_dir, params=model_params),
         data_collator=data_collator,
         train_dataset=train_dataset,
-        eval_dataset=val_dataset
+        eval_dataset=val_dataset,
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=model_params.early_stopping_patience)]
     )
