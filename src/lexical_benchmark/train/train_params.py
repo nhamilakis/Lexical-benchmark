@@ -15,7 +15,6 @@ class GPT2Params(BaseModel):
     block_size: int
     max_seq_length: int
     mlm: bool
-    early_stopping_patience: int
 
     vocab_size: int
     max_position_embeddings: int
@@ -31,7 +30,6 @@ class LSTMParams(BaseModel):
     block_size: int
     max_seq_length: int
     mlm: bool
-    early_stopping_patience: int
     hidden_size: int
     vocab_size: int
     embedding_dim: int
@@ -67,7 +65,7 @@ class ModelParams(BaseModel):
     fp16: bool
     dataloader_num_workers: int
     disable_tqdm: bool
-    early_stopping_patience:int
+    early_stopping_patience: int
     lstm: LSTMParams
     gpt2: GPT2Params
 
