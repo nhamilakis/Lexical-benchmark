@@ -71,7 +71,7 @@ class ModelParams(BaseModel):
 
     def for_training_args(self) -> dict[str, t.Any]:
         """Export arguments for training."""
-        return self.model_dump(exclude={"lstm", "gpt2"})
+        return self.model_dump(exclude={"lstm", "gpt2", "early_stopping_patience"})
 
 
 def load_model_params(params_file: Path | None = None) -> ModelParams:
