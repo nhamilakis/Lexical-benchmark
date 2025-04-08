@@ -38,16 +38,31 @@ class LSTMConfig(PretrainedConfig):
 
     def __init__(
         self,
-        lstm_params: train_params.LSTMParams,
+        vocab_size=None,
+        embedding_dim=None,
+        hidden_size=None,
+        num_layers=None,
+        dropout=None,
+        lstm_params=None,
         **kwargs,
     ) -> None:
         """Initialize LSTM Config."""
         super().__init__(**kwargs)
-        self.vocab_size = lstm_params.vocab_size
-        self.embedding_dim = lstm_params.embedding_dim
-        self.hidden_size = lstm_params.hidden_size
-        self.num_layers = lstm_params.num_layers
-        self.dropout = lstm_params.dropout
+
+        # If lstm_params is provided, use those values
+        if lstm_params is not None:
+            self.vocab_size = lstm_params.vocab_size
+            self.embedding_dim = lstm_params.embedding_dim
+            self.hidden_size = lstm_params.hidden_size
+            self.num_layers = lstm_params.num_layers
+            self.dropout = lstm_params.dropout
+        else:
+            # Otherwise use the provided individual parameters or defaults
+            self.vocab_size = vocab_size or 10000
+            self.embedding_dim = embedding_dim or 300
+            self.hidden_size = hidden_size or 512
+            self.num_layers = num_layers or 2
+            self.dropout = dropout or 0.1
 
 
 class LSTMForLanguageModeling(PreTrainedModel):
@@ -98,7 +113,11 @@ class LSTMForLanguageModeling(PreTrainedModel):
         return (loss, logits)
 
 
-def lstm_training(args: by_size.BySizeTrainItem, params_file: Path | None = None, tokenizer_name:str="phonemetransformers/GPT2-85M-CHAR-TXT") -> Trainer:
+def lstm_training(
+    args: by_size.BySizeTrainItem,
+    params_file: Path | None = None,
+    tokenizer_name: str = "phonemetransformers/GPT2-85M-CHAR-TXT",
+) -> Trainer:
     """Run transformer training using standard HuggingFace components with joined utterances."""
     # Ensure tokenizers parallelism is disabled
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -136,5 +155,5 @@ def lstm_training(args: by_size.BySizeTrainItem, params_file: Path | None = None
         data_collator=data_collator,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=model_params.early_stopping_patience)]
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=model_params.early_stopping_patience)],
     )

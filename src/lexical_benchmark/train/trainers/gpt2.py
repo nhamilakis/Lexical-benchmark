@@ -1,7 +1,5 @@
-
 import logging
 import os
-import typing as t
 from pathlib import Path
 
 from transformers import (
@@ -20,7 +18,11 @@ from lexical_benchmark.train import tokenizers, train_params
 L = logging.getLogger(__name__)
 
 
-def transformer_training(args: by_size.BySizeTrainItem, params_file: Path | None = None, tokenizer_name:str="phonemetransformers/GPT2-85M-CHAR-TXT") -> Trainer:
+def transformer_training(
+    args: by_size.BySizeTrainItem,
+    params_file: Path | None = None,
+    tokenizer_name: str = "phonemetransformers/GPT2-85M-CHAR-TXT",
+) -> Trainer:
     """Run transformer training using standard HuggingFace components with joined utterances."""
     # Ensure tokenizers parallelism is disabled
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -47,7 +49,6 @@ def transformer_training(args: by_size.BySizeTrainItem, params_file: Path | None
     L.info(f"Training dataset size: {len(train_dataset)}")
     L.info(f"Validation dataset size: {len(val_dataset)}")
 
-
     # Load GPT2 configuration
     L.info("Creating GPT2 configuration")
     config = GPT2Config(
@@ -69,6 +70,5 @@ def transformer_training(args: by_size.BySizeTrainItem, params_file: Path | None
         data_collator=data_collator,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=model_params.early_stopping_patience)]
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=model_params.early_stopping_patience)],
     )
-
