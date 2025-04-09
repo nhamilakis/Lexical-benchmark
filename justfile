@@ -12,7 +12,7 @@ JZ_SCRATCH_WORK := if hostname == "NicolasMBP.local" {
 }
 
 JZ_SRC_DEV := JZ_SCRATCH_WORK + "/dev/code"
-JZ_SRC_TEST_1 := JZ_SCRATCH_WORK + "/test1/code"
+JZ_SRC_PROD := JZ_SCRATCH_WORK + "/prod/code"
 
 hostname := `hostname`
 COML_WORKSPACE := if hostname == "NicolasMBP.local" {
@@ -55,9 +55,9 @@ deploy-jz: exec-permissions
     # SSHPASS not set
     echo "Syncing source-code directory..."
     if [ -z "${SSHPASS}" ]; then
-        rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_TEST_1}}"
+        rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_PROD}}"
     else
-        sshpass -e rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_TEST_1}}"
+        sshpass -e rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_PROD}}"
     fi
 
 
