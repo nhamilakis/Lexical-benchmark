@@ -6,6 +6,7 @@ import datasets
 # Set up logging
 L = logging.getLogger(__name__)
 
+
 def load_joined_text(file_path: Path, tokenizer, max_length: int) -> datasets.Dataset:
     """Load text and join utterances to maximize context usage up to max_length."""
     # Read all lines
@@ -52,16 +53,16 @@ def load_joined_text(file_path: Path, tokenizer, max_length: int) -> datasets.Da
     features = {"input_ids": [], "attention_mask": []}
 
     for example in joined_examples:
+        curr_example = example
+
         # Truncate if somehow still too long
-        if len(example) > max_length:
-            example = example[:max_length]
+        if len(curr_example) > max_length:
+            curr_example = curr_example[:max_length]
 
         # Create attention mask (all 1s since we have no padding yet)
-        attention_mask = [1] * len(example)
+        attention_mask = [1] * len(curr_example)
 
-        features["input_ids"].append(example)
+        features["input_ids"].append(curr_example)
         features["attention_mask"].append(attention_mask)
 
     return datasets.Dataset.from_dict(features)
-
-

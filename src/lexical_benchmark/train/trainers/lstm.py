@@ -19,14 +19,11 @@ from lexical_benchmark.train import tokenizers, train_params
 if t.TYPE_CHECKING:
     from lexical_benchmark.train.trainers import TrainerP
 
-import logging as L
 import os
 
 T = t.TypeVar("T")
 TrainerP = t.TypeVar("TrainerP", bound=Trainer)
 
-# Set the environment variable before importing tokenizers
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 L = logging.getLogger(__name__)
 

@@ -1,0 +1,34 @@
+import typing as t
+from pathlib import Path
+
+import pydantic
+
+from lexical_benchmark import lb_types
+
+
+class _IndexBase(pydantic.BaseModel):
+    """Item to pass into train-cmd."""
+
+    model_type: lb_types.MODEL_TYPE
+    dataset_name: t.Literal["stela", "child_realistic"]
+    lang: str
+    split: str
+    chunk: str
+    resume: bool
+    override: bool
+    model_config_file: Path
+
+
+class TrainIndex(_IndexBase):
+    """Item to pass into trai-index-cmd."""
+
+    resume_id: str | None = None
+
+
+class GenerationIndex(_IndexBase):
+    """Item to pass into generate-index-cmd."""
+
+    hour_per_year: int
+
+
+SlurmIndex = pydantic.RootModel[list[GenerationIndex | TrainIndex]]

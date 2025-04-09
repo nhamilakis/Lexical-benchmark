@@ -1,5 +1,14 @@
 """Definitions of custom exceptions."""
 
+from pathlib import Path
+
+
+class SlurmIndexNotFoundError(ValueError):
+    """Error raised when a slurm array job requests a non-valid index."""
+
+    def __init__(self, index: int, index_file: Path) -> None:
+        super().__init__(f"Cannot extract item [{index}] from {index_file} !!")
+
 
 class UnknownDatasetNameError(ValueError):
     """Error raised when the given dataset does not exist."""

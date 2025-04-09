@@ -1,4 +1,5 @@
 import dataclasses
+import random
 import typing as t
 from pathlib import Path
 
@@ -319,3 +320,81 @@ class BySizeTrainItem:
                 chunk=cfg_args["split"],
             ),
         )
+
+
+@dataclasses.dataclass
+class BySizeGenerateItem:
+    """Structure allowing inferring generation arguments."""
+
+    model_type: lb_types.MODEL_TYPE
+    data_item: BySizeItemsLoader
+    checkpoint_id: str | None
+    resume: bool
+    override: bool
+    temp_lst: list[float]
+    hour_per_year: int
+    seed: int
+    save_interval: int
+    debug: bool
+    added_tokens: list[str]
+    _try_vllm: bool
+
+    @property
+    def generation_root_dir(self) -> Path:
+        """Path to generation root."""
+        return self.data_item.geneneration_root / self.model_type
+
+    @property
+    def use_vllm(self) -> bool:
+        """Check if vllm needs to be used."""
+        return bool(self._try_vllm and self.model_type == "gpt2")
+
+    def get_random(self) -> random.Random:
+        """Load random item."""
+        if not hasattr(self, "_rnd"):
+            self._rnd = random.Random(self.seed)
+        return self._rnd
+
+    @property
+    def _filename(self) -> str:
+        return f"{self.hour_per_year}_hpy"
+
+    @property
+    def _out_file(self) -> Path:
+        if self.debug:
+            return self.generation_root_dir / f"{self._filename}.debug.csv"
+        return self.generation_root_dir / f"{self._filename}.csv"
+
+    @property
+    def _intermediate_file(self) -> Path:
+        """Generation intermediate file."""
+        if self.debug:
+            return self.generation_root_dir / f"{self._filename}.debug.intermediate.csv"
+        return self.generation_root_dir / f"{self._filename}.intermediate.csv"
+
+    def target_file(self, *, final: bool = False) -> Path:
+        """Build target file."""
+        if final:
+            return self._out_file
+        return self._intermediate_file
+
+    @property
+    def model_path(self) -> Path:
+        """Path to current model."""
+        model_root = self.data_item.model_root / self.model_type
+        if self.checkpoint_id:
+            model_root = model_root / f"checkpoint-{self.checkpoint_id}"
+        return model_root
+
+    def get_nb_tokens(self) -> int:
+        """Get number of tokens to generate."""
+        if self.debug:
+            return 500
+
+        # TODO: load index file get tokens for current item
+
+        """
+            1000hpy_size, 100hpy_size, 500hpy_size =  load for (stela3 / EN / 60 / 00).size_estimations
+            total_tokens = max(1000hpy_size, 100hpy_size, 500hpy_size)
+        """
+        return 0
