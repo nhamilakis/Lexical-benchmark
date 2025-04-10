@@ -2,12 +2,12 @@ import logging
 import os
 from pathlib import Path
 
+from flash_attn.models.gpt import GPTLMHeadModel
 from transformers import (
     AutoTokenizer,
     DataCollatorForLanguageModeling,
     EarlyStoppingCallback,
     GPT2Config,
-    GPT2LMHeadModel,
     Trainer,
 )
 
@@ -60,8 +60,8 @@ def transformer_training(
         n_head=model_params.gpt2.n_head,  # Number of attention heads from params
     )
 
-    # Initialize GPT2 model
-    model = GPT2LMHeadModel(config)
+    # intialize GPT model with FlashAttention
+    model = GPTLMHeadModel(config)
     # Create Trainer
     L.info("Creating standard Trainer")
     return Trainer(
