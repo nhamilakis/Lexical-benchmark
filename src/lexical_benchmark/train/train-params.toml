@@ -26,8 +26,9 @@ eval_steps=1000  # TODO: check whether applie in larger month
 load_best_model_at_end=true  # Required for early stopping
 metric_for_best_model="eval_loss"  # Monitor eval loss for early stopping
 greater_is_better=false  # Lower loss is better
-# FP16 training
-fp16=true  # Match Fairseq's fp16
+# bf16 training
+bf16=true  # bfp 
+
 # Misc
 dataloader_num_workers=4
 disable_tqdm=false

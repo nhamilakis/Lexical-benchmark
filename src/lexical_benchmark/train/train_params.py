@@ -62,7 +62,7 @@ class ModelParams(BaseModel):
     load_best_model_at_end: bool
     metric_for_best_model: str
     greater_is_better: bool
-    fp16: bool
+    bf16: bool
     dataloader_num_workers: int
     disable_tqdm: bool
     early_stopping_patience: int
