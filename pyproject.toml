@@ -59,6 +59,8 @@ dependencies = [
     "spacy; sys_platform == 'darwin'",
     # VLLM installation fails on macos
     "vllm>=0.7.3; sys_platform == 'linux' or sys_platform == 'linux2'",
+    # Requires CUDA to be available
+    "flash-attn>=2.7.4.post1; sys_platform == 'linux' or sys_platform == 'linux2'",
     "wandb",
     "datasets>=3.5.0",
 ]
