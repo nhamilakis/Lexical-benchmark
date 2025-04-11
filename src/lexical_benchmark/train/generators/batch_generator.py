@@ -110,7 +110,7 @@ class BatchGenerator:
     def _count_words(self, generated_text: str) -> int:
         # Replace all punctuation with pipe character
         for char in string.punctuation:
-            if char != "|":  # Avoid replacing existing pipe characters
+            if char != "|":
                 generated_text = generated_text.replace(char, "|")
         # Split by pipe character and count non-empty elements
         words = [word for word in generated_text.split("|") if word.strip()]
@@ -121,7 +121,7 @@ class BatchGenerator:
         # Apply the same replacements as in count_words to get consistent tokenization
         text_for_splitting = generated_text
         for char in string.punctuation:
-            if char != "|":  # Avoid replacing existing pipe characters
+            if char != "|":
                 text_for_splitting = text_for_splitting.replace(char, "|")
         # Split into tokens
         tokens = [token for token in text_for_splitting.split("|") if token.strip()]
