@@ -2,7 +2,7 @@ import logging
 import os
 from pathlib import Path
 
-from flash_attn.models.gpt import GPTLMHeadModel
+from flash_attn.models.gpt import GPTLMHeadModel  # type: ignore[missing-import]
 from transformers import (
     AutoTokenizer,
     DataCollatorForLanguageModeling,

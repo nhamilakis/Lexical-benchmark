@@ -28,14 +28,12 @@ class BatchGenerator:
         device: str,
         use_vllm: bool,
         model_type: lb_types.MODEL_TYPE,
-        temp: float,
         nb_tokens: int,
     ) -> None:
         self.device = device
         self.model_path = model_path
         self.use_vllm = use_vllm
         self.model_type = model_type
-        self.temp = temp
         self.nb_tokens = nb_tokens
         self.tokenizer_name = tokenizer_name
         if not self.use_vllm:
@@ -61,23 +59,40 @@ class BatchGenerator:
             return model.to(self.device)
         return None
 
-    def generate_text(self) -> str:
+    def generate_text(
+        self,
+        temperature: float,
+        target_file: Path,  # noqa: ARG002
+        *,
+        resume: bool = True,  # noqa: ARG002
+        override: bool = False,  # noqa: ARG002
+    ) -> str:
         """Generate text from model."""
+        # TODO(@Jing): connect variables to actual process
         # Initialize or load existing generated text
+        """
+            # TODO:
+            if target_file.is_file():
+                gen_result = load_generation_intermediary(target_file)
+            else:
+                gen_result = {...}
+
+            --> gen_result["target"] >= gen_result["count"]
+        """
         generated_text = ""
         curr_tokens = 0
 
         # Generate text sentence by sentence until we reach the desired token count
         while curr_tokens < self.nb_tokens:
             # Generate new text
-            new_text = self._generate_vllm() if self.use_vllm else self._generate_vanilla()
+            new_text = self._generate_vllm(temperature) if self.use_vllm else self._generate_vanilla(temperature)
             generated_text += new_text
             curr_tokens = self._count_words(generated_text)
         if curr_tokens > self.nb_tokens:
             generated_text = self._cut_text(generated_text)
         return generated_text
 
-    def _generate_vanilla(self) -> str:
+    def _generate_vanilla(self, temperature: float) -> str:
         """Generate next token using vanilla generation."""
         input_ids = self.tokenizer("", return_tensors="pt").input_ids.to(self.device)
         output = self.model.generate(
@@ -86,16 +101,16 @@ class BatchGenerator:
             eos_token_id=self.tokenizer.eos_token_id,
             pad_token_id=self.tokenizer.eos_token_id,
             do_sample=True,
-            temperature=self.temp,
+            temperature=temperature,
         )
         # Decode the generated text
         return self.tokenizer.decode(output[0], skip_special_tokens=True)
 
-    def _generate_vllm(self) -> str:
+    def _generate_vllm(self, temperature: float) -> str:
         """Generate next token using vLLM."""
         prompt = ""
         sampling_params = SamplingParams(
-            temperature=self.temp,
+            temperature=temperature,
             max_tokens=1024,
             frequency_penalty=0.0,
             presence_penalty=0.0,

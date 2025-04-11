@@ -13,7 +13,7 @@ from lexical_benchmark.dataloaders import by_size
 from lexical_benchmark.utils import generic as generic_utils
 
 from .array_index_params import GenerationIndex, SlurmIndex
-from .generators import batch_generator
+from .generation import BatchGenerator
 
 L = None
 
@@ -41,24 +41,34 @@ def generate(data_item: by_size.BySizeGenerateItem) -> None:
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-    data_generator = batch_generator.BatchGenerator(
+    """
+        If has_final_gen.exists():
+            skip_all
+
+    """
+
+    data_generator = BatchGenerator(
         model_path=data_item.model_path,
+        tokenizer_name="phonemetransformers/GPT2-85M-CHAR-TXT",  # TODO: move this into params
+        device=...,  # TODO: Get the device from args or use default
         use_vllm=data_item.use_vllm,
         model_type=data_item.model_type,
+        nb_tokens=...,  # TODO: extract number of tokens from guide index
     )
 
-    # Generate our tokens
-    data_generator.generate_items(
-        nb_tokens=data_item.get_nb_tokens(),
-        target_file=data_item.target_file(final=False),
-        resume=data_item.resume,
-        override=data_item.override,
-    )
+    for temp in data_item.temp_lst:
+        # Generate our tokens
+        data_generator.generate_text(
+            temperature=temp,
+            target_file=data_item.target_file(final=False, temp=temp),
+            resume=data_item.resume,
+            override=data_item.override,
+        )
 
-    # TODO: post-process results
-    # ... (split results into hpy  :::> 100 | 500 | 1000)
-
-    # TODO: move intermediate to final file
+    # Do some post processing
+    # TODO: ... (split results into hpy  :::> )
+    # TODO: move to final file
+    # TODO: delete intermediary file
 
 
 class ArrayIndex(Command):
