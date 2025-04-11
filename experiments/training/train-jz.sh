@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=lb-training-LSTM
+#SBATCH --job-name=lb-training
 #SBATCH --account=hhb@a100
 # Partition (A100)
 #SBATCH -C a100
@@ -22,4 +22,4 @@
 
 export JZ=1
 
-uv run code/src/scripts/train/train.py single stela EN 01 00 $1 --resume
+uv run code/src/scripts/train/train.py single stela EN 60 00 $1 --resume
