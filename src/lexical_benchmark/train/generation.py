@@ -3,10 +3,11 @@ import typing as t
 from pathlib import Path
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from vllm import LLM, SamplingParams
+from vllm import LLM, SamplingParams  # type: ignore[missing-dependency]
 
 from lexical_benchmark import lb_types
-from lexical_benchmark.train.generators.lstm import LSTMConfig, LSTMForLanguageModeling
+
+from .trainers.lstm import LSTMConfig, LSTMForLanguageModeling
 
 Model = t.Any
 
@@ -22,6 +23,7 @@ class BatchGenerator:
     def __init__(
         self,
         model_path: Path,
+        *,
         tokenizer_name: str,
         device: str,
         use_vllm: bool,
@@ -87,8 +89,7 @@ class BatchGenerator:
             temperature=self.temp,
         )
         # Decode the generated text
-        generated_text = self.tokenizer.decode(output[0], skip_special_tokens=True)
-        return generated_text
+        return self.tokenizer.decode(output[0], skip_special_tokens=True)
 
     def _generate_vllm(self) -> str:
         """Generate next token using vLLM."""
@@ -104,8 +105,7 @@ class BatchGenerator:
             sampling_params=sampling_params,
             use_tqdm=False,
         )
-        generated_text = outputs[0].outputs[0].text
-        return generated_text
+        return outputs[0].outputs[0].text
 
     def _count_words(self, generated_text: str) -> int:
         # Replace all punctuation with pipe character
@@ -129,6 +129,6 @@ class BatchGenerator:
         # Join the tokens back with spaces
         return "|".join(truncated_tokens)
 
-    def save_text(self, nb_tokens: int, target_file: Path, resume: bool = True, override: bool = False) -> None:
+    def save_text(self, nb_tokens: int, target_file: Path, *, resume: bool = True, override: bool = False) -> None:
         """Generate data from model."""
-        return generated_text
+        raise NotImplementedError("TODO")
