@@ -1,41 +1,90 @@
 import itertools
 import json
 import typing as t
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
-try:
-    import polars as pl
-except ImportError:
-    import pandas as pd
-
-    pl = None
+import polars as pl
 
 from lexical_benchmark import datasets
+
+from .definitions import DatasetItemsLoader
 
 DialogFormatType = list[tuple[str, str]]
 
 
+class DatasetWithDialogs(t.Protocol):
+    """Dataset config with support for dialog data."""
+
+    @property
+    def by_dialogs(self) -> Path:
+        """Dialog path."""
+
+
+def check_speech(speaker: str, speech_type: datasets.CHILDES_SPEECH_TYPES) -> bool:
+    """Check if speaker is in speech_type."""
+    match speaker:
+        case "CHI":
+            return speech_type == "child"
+        case _:
+            return speech_type == "adult"
+
+
 @dataclass
-class CHILDESTextLoader:
+class CHILDESTextLoader(DatasetItemsLoader):
     """Loader for clean txt items in the CHILDES dataset."""
 
     lang_accent: str
     item_id: str
     speech_type: datasets.CHILDES_SPEECH_TYPES
+    dt_cfg: DatasetWithDialogs = field(default_factory=lambda: datasets.get_config("childes"))
+
+    @classmethod
+    def load(
+        cls, *, lang_accent: str, item_id: str, speech_type: datasets.CHILDES_SPEECH_TYPES
+    ) -> "DatasetItemsLoader":
+        """Load item directly."""
+        return cls(lang_accent=lang_accent, item_id=item_id, speech_type=speech_type)
 
     @property
-    def root_dir(self) -> Path:
-        """Root directory of current sub-set."""
-        return self.dt_cfg.root_dir / self.speech_type / self.lang_accent
-
-    @property
-    def text(self) -> Path:
+    def source_file(self) -> Path:
         """Path to the text of the current item."""
-        return self.root_dir / f"{self.item_id}.txt"
+        return self.dt_cfg.by_dialogs / self.lang_accent / f"{self.item_id}.json"
 
-    def __post_init__(self) -> None:
-        self.dt_cfg = datasets.get_config("childes")
+    def load_speech(self) -> t.Iterable[str]:
+        """Load current speech type."""
+        return iter(text for [speaker, text] in self.source_file.read_json() if check_speech(speaker, self.speech_type))
+
+    @classmethod
+    def iter_items(cls, **kwargs) -> t.Iterable["CHILDESTextLoader"]:
+        """Iterate over preprocessed items."""
+        cfg: datasets.CHILDESDatasetConfig = datasets.get_config("childes")
+        langs_list = kwargs.get("langs", cfg.langs)
+        speech_types = kwargs.get("speech_types", cfg.SPEECH_TYPES)
+
+        if "lang_accents" not in kwargs:
+            lang_accents = [cfg.LANG_ACCENT.get(lang, ()) for lang in langs_list]
+            lang_accents = tuple(itertools.chain(*lang_accents))
+        else:
+            lang_accents = kwargs.get("lang_accents")
+
+        for lg_accent in lang_accents:
+            if lg_accent not in cfg.all_accents:
+                continue
+
+            for item_parts in cfg.id_list(lang_accent=lg_accent):
+                item_id = "_".join(item_parts)
+
+                for spt in speech_types:
+                    if spt not in cfg.SPEECH_TYPES:
+                        continue
+
+                    # Return invidivual items
+                    yield cls.load(
+                        lang_accent=lg_accent,
+                        speech_type=spt,
+                        item_id=item_id,
+                    )
 
 
 @dataclass
@@ -132,9 +181,9 @@ class TurnTakeDataLoader:
             return pl.read_csv(self.csv_path)
     else:
 
-        def load_df(self) -> pd.DataFrame:
+        def load_df(self) -> pl.DataFrame:
             """Load as dataframe."""
-            return pd.read_csv(self.csv_path)
+            return pl.read_csv(self.csv_path)
 
     def load(self) -> list[TurnTakingCSVData]:
         """Load data from CSV."""

@@ -108,15 +108,10 @@ class CHILDESPreparation:
                 filelist, description=f"Processing {lang_code} .cha files...", disable=not show_progress
             ):
                 try:
-                    data_typed = parsing.cha.extract(file, name)  # type: ignore[call-arg]
-
-                    (root_dir / "child" / f"{name}.raw").safe_write_text("\n".join(data_typed.child_speech))
-                    (root_dir / "adult" / f"{name}.raw").safe_write_text("\n".join(data_typed.adult_speech))
-                    metadata.append(data_typed.csv_entry())
-
                     data_dialog = parsing.cha.extract_with_tags(file, name)  # type: ignore[call-arg]
                     as_json = json.dumps(data_dialog.speech, indent=4, default=utils.default_json_encoder)
-                    (root_dir / "dialogs" / f"{name}.raw.json").safe_write_text(as_json)
+                    (root_dir / f"{name}.raw.json").safe_write_text(as_json)
+                    metadata.append(data_dialog.csv_entry())
 
                 except UnicodeDecodeError:
                     print(f"Failed to process {file}...", file=sys.stderr)

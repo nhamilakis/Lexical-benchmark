@@ -62,6 +62,33 @@ class DatasetCleaner:
                 logfile.write_json(logs)
 
     @classmethod
+    def clean_dialog_files(
+        cls,
+        *,
+        filemap: t.Sequence[tuple[Path, Path, Path]] | t.Iterable[tuple[Path, Path, Path]],
+        ruleset: dict[str, list[text_cleaners.CleanerFN]],
+        save_logs: bool = True,
+    ) -> None:
+        """Clean Dialog files using a given rulset."""
+
+        def line_clean(speaker: str, text: str) -> str:
+            """Clean a line of text."""
+            c_ruleset = ruleset["child"] if speaker == "CHI" else ruleset["adult"]
+            return text_cleaners.piped(f" {text} ", *c_ruleset)
+
+        for source_file, target_file, logfile in filemap:
+            dirty_dialog = source_file.read_json()
+            clean_dialog = [[speaker, line_clean(speaker, f" {text} ")] for [speaker, text] in dirty_dialog]
+
+            # Write cleaned text
+            target_file.write_json(clean_dialog)
+
+            # Save section logs
+            logs = text_cleaners.WordLogger.dumps_logs()
+            if save_logs and logfile:
+                logfile.write_json(logs)
+
+    @classmethod
     def filter_files(
         cls,
         *,

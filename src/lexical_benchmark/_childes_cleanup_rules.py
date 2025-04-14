@@ -1,8 +1,36 @@
 import re
 import typing as t
 
-from lexical_benchmark import settings
 from lexical_benchmark.text_lib import text_cleaners as txt
+
+# Extracted directly from dataset
+# Using the following command (ripgrep required):
+# `rg --no-filename  -i "(@s:\w+)" -or '$1' | cut -d: -f1,2 > langs.txt`
+EXTRA_LANGS: tuple = (  # Represents extra languages present in our version of childes
+    "@s:afr",
+    "@s:ara",
+    "@s:deu",
+    "@s:ell",
+    "@s:eng",
+    "@s:fra",
+    "@s:haw",
+    "@s:heb",
+    "@s:hin",
+    "@s:hun",
+    "@s:ind",
+    "@s:ita",
+    "@s:jpn",
+    "@s:kik",
+    "@s:lat",
+    "@s:nld",
+    "@s:pan",
+    "@s:rus",
+    "@s:spa",
+    "@s:tgl",
+    "@s:und",
+    "@s:yid",
+    "@s:zho",
+)
 
 
 class TagCleaner(txt.TextActionFN):
@@ -230,7 +258,7 @@ _adult_tag_removal: list[txt.CleanerFN] = [
     # Dialect Word (@d): KEEP
     TagCleaner(tag="@d", label="@d"),
     # Handle Second (or other) Language (@s:...) [Discard]
-    *[TagCleaner(tag=f"{lang_tag}", label=f"({lang_tag})") for lang_tag in settings.CHILDES.EXTRA_LANGS],
+    *[TagCleaner(tag=f"{lang_tag}", label=f"({lang_tag})") for lang_tag in EXTRA_LANGS],
     # Neologism (@n): KEEP
     TagCleaner(tag="@n", label="@n"),
     # Singing (@si): KEEP
@@ -272,7 +300,7 @@ _child_tag_removal: list[txt.CleanerFN] = [
     # Dialect Word (@d): KEEP
     TagCleaner(tag="@d", label="@d"),
     # Handle Second (or other) Language (@s:...) [Discard]
-    *[TagCleaner(tag=f"{lang_tag}", label=f"({lang_tag})") for lang_tag in settings.CHILDES.EXTRA_LANGS],
+    *[TagCleaner(tag=f"{lang_tag}", label=f"({lang_tag})") for lang_tag in EXTRA_LANGS],
     # Neologism (@n): KEEP
     TagCleaner(tag="@n", label="@n"),
     # Singing (@si): KEEP

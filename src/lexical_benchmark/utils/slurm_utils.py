@@ -13,7 +13,6 @@ from threading import Thread
 
 import humanize
 import psutil
-import tap
 
 try:
     import torch
@@ -251,9 +250,9 @@ End Time: {datetime.now()}
     )
 
 
-def info_args(args: argparse.Namespace | tap.Tap, separator: str = "-", width: int = 30) -> None:
+def info_args(args: argparse.Namespace, separator: str = "-", width: int = 30) -> None:
     """Print command line arguments."""
-    data = args.as_dict() if isinstance(args, tap.Tap) else dict(vars(args))
+    data = dict(vars(args))
 
     print(separator * width, flush=True)
     print("#### Arguments passed", flush=True)

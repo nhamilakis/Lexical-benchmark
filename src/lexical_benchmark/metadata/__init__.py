@@ -1,10 +1,11 @@
 from lexical_benchmark import datasets, exc
 
+from .childes import CHILDESMetaDir
 from .core import MetadataDir
 from .stela import STELAMetaDir
 
 
-def get_config(name: datasets.DATASET_NAMES, lang: str) -> MetadataDir:
+def get_config(name: datasets.DATASET_NAMES, lang: str, **kwargs) -> MetadataDir:
     """Load dataset configuration from name."""
     match name:
         case "stela":
@@ -12,7 +13,7 @@ def get_config(name: datasets.DATASET_NAMES, lang: str) -> MetadataDir:
         case "child_realistic":
             raise NotImplementedError("child_realistic/metadata")
         case "childes":
-            raise NotImplementedError("childes/metadata")
+            return CHILDESMetaDir(lang=lang)
         case "word-cdi":
             raise NotImplementedError("word-cdi/metadata")
         case "wordstats":
@@ -22,6 +23,7 @@ def get_config(name: datasets.DATASET_NAMES, lang: str) -> MetadataDir:
 
 
 __all__ = [
+    "CHILDESMetaDir",
     "STELAMetaDir",
     "get_config",
 ]

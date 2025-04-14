@@ -128,22 +128,26 @@ class CHILDESPreprocessedItems(PreprocessedItemsLoader):
 
     lang_accent: str
     item_id: str
-    speech_type: datasets.CHILDES_SPEECH_TYPES
+
+    @classmethod
+    def load(cls, lang_accent: str, item_id: str) -> "CHILDESPreprocessedItems":
+        """Load item directly."""
+        return cls(lang_accent=lang_accent, item_id=item_id)
 
     @property
     def root_dir(self) -> Path:
         """Path to root dir for item."""
-        return self._dt_cfg.preprocessed_root / self.lang_accent / self.speech_type
+        return self._dt_cfg.preprocessed_root / self.lang_accent
 
     @property
     def raw(self) -> Path:
         """Path to raw text file."""
-        return self.root_dir / f"{self.item_id}.raw"
+        return self.root_dir / f"{self.item_id}.raw.json"
 
     @property
     def processed(self) -> Path:
         """Path to raw text file."""
-        return self.root_dir / f"{self.item_id}.processed"
+        return self._dt_cfg.root_dir / "dialogs" / self.lang_accent / f"{self.item_id}.json"
 
     @property
     def cleanup_meta(self) -> Path:
@@ -163,7 +167,7 @@ class CHILDESPreprocessedItems(PreprocessedItemsLoader):
         """Iterate over items of the dataset."""
         cfg: datasets.CHILDESDatasetConfig = datasets.get_config("childes")
         langs_list = kwargs.get("langs", cfg.langs)
-        speech_types = kwargs.get("speech_types", cfg.SPEECH_TYPES)
+
         if "lang_accents" not in kwargs:
             lang_accents = [cfg.LANG_ACCENT.get(lang, ()) for lang in langs_list]
             lang_accents = tuple(itertools.chain(*lang_accents))
@@ -177,15 +181,11 @@ class CHILDESPreprocessedItems(PreprocessedItemsLoader):
             for item_parts in cfg.id_list(lang_accent=lg_accent):
                 item_id = "_".join(item_parts)
 
-                for spt in speech_types:
-                    if spt not in cfg.SPEECH_TYPES:
-                        continue
-                    # Return invidivual items
-                    yield cls(
-                        lang_accent=lg_accent,
-                        speech_type=spt,
-                        item_id=item_id,
-                    )
+                # Return invidivual items
+                yield cls.load(
+                    lang_accent=lg_accent,
+                    item_id=item_id,
+                )
 
     @classmethod
     def raw2processed_filesmap(cls, lang: str, *, include_meta: bool = True) -> t.Iterable[tuple[Path, Path, Path]]:

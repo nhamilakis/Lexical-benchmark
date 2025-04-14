@@ -67,6 +67,10 @@ class CHILDESDatasetConfig(DatasetConfig):
     LANG_ACCENT: t.ClassVar[dict[str, tuple[str, ...]]] = {
         "EN": ("Eng-NA", "Eng-UK"),
     }
+    ACCENT_TRANS: t.ClassVar[dict[str, tuple[str, ...]]] = {
+        "Eng-NA": ("EN", "NA"),
+        "Eng-UK": ("EN", "UK"),
+    }
     SPEECH_TYPES: tuple[str, ...] = ("adult", "child")
 
     @property
@@ -87,12 +91,7 @@ class CHILDESDatasetConfig(DatasetConfig):
     @property
     def by_dialogs(self) -> Path:
         """Path to data formatted as_dialog."""
-        return self.root_dir / "by_dialog"
-
-    @property
-    def by_speech_type(self) -> Path:
-        """Path to data formatted by speech-type."""
-        return self.root_dir / "by_type"
+        return self.root_dir / "dialogs"
 
     @property
     def all_accents(self) -> tuple[str, ...]:

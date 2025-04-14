@@ -25,8 +25,9 @@ logger.info("Cleaning CHILDES | EN ...")
 childes_en_iter = progress.iter_progress(
     preprocess_dataloaders.CHILDESPreprocessedItems.raw2processed_filesmap(lang="EN")
 )
-txt_cleaner.DatasetCleaner.cleanup_files(
+
+txt_cleaner.DatasetCleaner.clean_dialog_files(
     filemap=childes_en_iter, ruleset=dataset_cfg.clean_up_rules(lang="EN"), save_logs=True
 )
 progress.complete()
-print("Finished cleaning CHILDES | EN !")
+logger.info("Finished cleaning CHILDES | EN !")
