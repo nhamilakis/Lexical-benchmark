@@ -144,6 +144,7 @@ fixable = ["ALL"]
 unfixable = []
 # remove the ones that make no sense
 ignore = [
+    "S301",    # Pickling is safe in our context
     "ARG001",  # No need to type kwargs as they are dynamicly set.
     "NPY002",  # Allow numpy unsafe generations
     "S105",    # ignore hardcoded stuff
