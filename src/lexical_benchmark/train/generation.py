@@ -7,6 +7,7 @@ from vllm import LLM, SamplingParams  # type: ignore[missing-dependency]
 
 from lexical_benchmark import lb_types
 
+from .checkpoint_utils import GenerationCheckpoint
 from .trainers.lstm import LSTMConfig, LSTMForLanguageModeling
 
 Model = t.Any
@@ -79,6 +80,20 @@ class BatchGenerator:
 
             --> gen_result["target"] >= gen_result["count"]
         """
+        checkpoint = GenerationCheckpoint.load_intermediate(location=self.model_path, temperature=temperature)
+        if checkpoint is not None:
+            checkpoint = GenerationCheckpoint(temperature=temperature, target_word_count=self.nb_tokens)
+
+        """
+        TODO: update these during generation
+        checkpoint.text.append(...)
+        checkpoint.current_word_count += ...
+
+
+        # TODO: When saving checkpoint
+        checkpoint.save_intermediate(self.model_path)
+        """
+
         generated_text = ""
         curr_tokens = 0
 
