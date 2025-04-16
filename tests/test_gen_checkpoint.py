@@ -33,10 +33,10 @@ def generate(words: int, rndr: random.Random | None = None) -> tuple[list[str], 
     while True:
         new_line = get_line()
         line_count = word_count(new_line)
-        if (current_words + line_count) > words:
-            break
         lines.append(new_line)
         current_words += line_count
+        if current_words > words:
+            break
 
     return lines, current_words
 
@@ -70,8 +70,32 @@ def test_generation(gen_attrs):
     print("Completed generation")
 
 
+def alternative_gen(gen_attrs):
+    resume_checkpoint = checkpoint_utils.GenerationCheckpoint.load_intermediate(Path("data"), temperature=0.9)
+    if not resume_checkpoint:
+        print("Initialising New Generation")
+        resume_checkpoint = checkpoint_utils.GenerationCheckpoint.init_from_args(temperature=0.9, word_counts=gen_attrs)
+
+    if resume_checkpoint.remaining_count() == 0:
+        print("No more items require generation, exiting")
+        return
+
+    # While items still left to generate
+    while resume_checkpoint.remaining_count() > 0:
+        next_id, leftover = resume_checkpoint.get_next_gen()
+        text, count = generate(leftover)
+        resume_checkpoint.append_to(gen_id=next_id, text=text, token_count=count)
+        print("Saving checkpoint to disk")
+        resume_checkpoint.save_intermediate(Path("data"))
+        if random.random() > 0.6:
+            print("Quitting because i got bored !")
+            break
+    else:
+        print("Completed generation")
+
+
 if __name__ == "__main__":
-    test_generation(
+    alternative_gen(
         {
             ("100hpy", 6): 300,
             ("100hpy", 7): 250,

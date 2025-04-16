@@ -66,6 +66,29 @@ class GenerationCheckpoint:
             if obj["current_count"] < (obj["target_count"] - self.count_error_margin):
                 yield est, month, obj
 
+    def get_next_gen(self) -> tuple[tuple[lb_types.ESTIMATION_TYPE, int], int]:
+        """Fetches the next item for generation."""
+        next_id, next_obj = next(
+            iter(
+                [
+                    (n_id, obj)
+                    for n_id, obj in self.gen_items.items()
+                    if obj["current_count"] < (obj["target_count"] - self.count_error_margin)
+                ]
+            ),
+            (None, None),
+        )
+        if next_obj is None:
+            return (None, None), None
+
+        leftover_to_generate = next_obj["target_count"] - next_obj["current_count"]
+        return (next_id, leftover_to_generate)
+
+    def append_to(self, gen_id: tuple[lb_types.ESTIMATION_TYPE, int], text: list[str], token_count: int) -> None:
+        """Append generated text to a given set."""
+        self.gen_items[gen_id]["text"].extend(text)
+        self.gen_items[gen_id]["current_count"] += token_count
+
     def remaining_count(self) -> int:
         """Get count of non-completed items."""
         return len(
@@ -82,13 +105,20 @@ class FinalGeneratedData:
     """Class to handle merge of generations."""
 
     temperature: float
-    by_month: dict[str, GenerationsStruct] = field(default_factory=dict)
 
     @classmethod
     def build(cls, checkpoint: GenerationCheckpoint, mapping_info: dict[str, t.Any]) -> "FinalGeneratedData":  # noqa: ARG003
         """Build final generation data from given checkpoint."""
         thing = FinalGeneratedData(temperature=checkpoint.temperature)  # noqa: F841
         # TODO: implement the rest (requires the estimation mapping)
+
+
+"""
+generation / checkpoints / stela3 / EN / 01 / 00 / lstm / checkpoint_0.6.obj checkpoint_0.3.obj ou_0.6.log
+
+generation / text / stela3 / lstm / 100hpy / 07  / 0.6.txt
+
+"""
 
 
 class CheckPointExplorerCMD(Command):
