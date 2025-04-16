@@ -3,22 +3,29 @@ import typing as t
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from clypi import Command, Positional
+
+from lexical_benchmark import lb_types
+
+ESTIMATION_MONTH_KEY_TYPE = tuple[lb_types.ESTIMATION_TYPE, int]
+TEXTType = list[str]
+
+
+class GenerationsStruct(t.TypedDict):
+    """Struct to store generations."""
+
+    target_count: int
+    current_count: int
+    text: TEXTType
+
 
 @dataclass
 class GenerationCheckpoint:
     """class to handle generation checkpointing."""
 
     temperature: float
-    target_word_count: int
-    current_word_count: int = 0
-    text: list[str] = field(default_factory=list)
-
-    def save_intermediate(self, location: Path) -> None:
-        """Save progress to intermediate file."""
-        file_path = location / f"generation_{self.temperature}.intermediate.obj"
-        file_path.parent.mkdir(exist_ok=True, parents=True)
-        with file_path.open("wb") as fh:
-            pickle.dump(self, fh)
+    gen_items: dict[ESTIMATION_MONTH_KEY_TYPE, GenerationsStruct] = field(default_factory=dict)
+    count_error_margin: int = 20
 
     @classmethod
     def load_intermediate(cls, location: Path, temperature: float) -> "GenerationCheckpoint | None":
@@ -29,21 +36,45 @@ class GenerationCheckpoint:
                 return pickle.load(fh)
         return None
 
+    @classmethod
+    def init_from_args(
+        cls, temperature: float, word_counts: dict[ESTIMATION_MONTH_KEY_TYPE, int]
+    ) -> "GenerationCheckpoint":
+        """Initialise generation checkpoint."""
+        obj = cls(temperature=temperature)
+        for (est, month), count in word_counts.items():
+            obj.gen_items[(est, month)] = {"current_count": 0, "target_count": count, "text": []}
+        return obj
+
+    def save_intermediate(self, location: Path) -> None:
+        """Save progress to intermediate file."""
+        file_path = location / f"generation_{self.temperature}.intermediate.obj"
+        file_path.parent.mkdir(exist_ok=True, parents=True)
+        with file_path.open("wb") as fh:
+            pickle.dump(self, fh)
+
     def as_dict(self) -> dict[str, t.Any]:
         """Export item to dictionairy."""
         return {
             "temperature": self.temperature,
-            "word_count_target": self.target_word_count,
-            "current_word_count": self.current_word_count,
-            "text": self.text,
+            "text": self.gen_items,
         }
 
+    def iter_items(self) -> t.Iterable[tuple[lb_types.ESTIMATION_TYPE, int, GenerationsStruct]]:
+        """Iter over non completed items."""
+        for (est, month), obj in self.gen_items.items():
+            if obj["current_count"] < (obj["target_count"] - self.count_error_margin):
+                yield est, month, obj
 
-class GenerationsStruct(t.TypedDict):
-    """Struct containing generation."""
-
-    word_count: int
-    text: list[str]
+    def remaining_count(self) -> int:
+        """Get count of non-completed items."""
+        return len(
+            [
+                obj
+                for obj in self.gen_items.values()
+                if obj["current_count"] < (obj["target_count"] - self.count_error_margin)
+            ]
+        )
 
 
 @dataclass
@@ -58,3 +89,26 @@ class FinalGeneratedData:
         """Build final generation data from given checkpoint."""
         thing = FinalGeneratedData(temperature=checkpoint.temperature)  # noqa: F841
         # TODO: implement the rest (requires the estimation mapping)
+
+
+class CheckPointExplorerCMD(Command):
+    """Command Arg Object to explore a generation checkpoint."""
+
+    checkpoint_dir: Positional[Path]
+    temperature: Positional[float]
+
+    def run_cmd(self) -> None:
+        """Run CMD."""
+        import IPython
+
+        checkpoint = GenerationCheckpoint.load_intermediate(self.checkpoint_dir, temperature=self.temperature)  # noqa: F841
+        IPython.embed()
+
+
+def check_point_explorer() -> None:
+    """Command line to explore a checkpoint object."""
+    cmd = CheckPointExplorerCMD.parse()
+    cmd.run_cmd()
+
+
+__all__ = ["GenerationCheckpoint"]

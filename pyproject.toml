@@ -74,6 +74,7 @@ repository = "https://github.com/nhamilakis/Lexical-benchmark"
 
 [project.scripts]
 download-stela = "lexical_benchmark.downloader:entrypoint"
+gen-checkpoint = "lexical_benchmark.train.checkpoint_utils:check_point_explorer"
 
 [dependency-groups]
 dev = [
