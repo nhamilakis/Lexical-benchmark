@@ -37,6 +37,15 @@ class GenerationCheckpoint:
         return None
 
     @classmethod
+    def load_final(cls, location: Path, temperature: float) -> "GenerationCheckpoint | None":
+        """Load finished checkpoint."""
+        file_path = location / f"generation_{temperature}.obj"
+        if file_path.is_file():
+            with file_path.open("rb") as fh:
+                return pickle.load(fh)
+        return None
+
+    @classmethod
     def init_from_args(
         cls, temperature: float, word_counts: dict[ESTIMATION_MONTH_KEY_TYPE, int]
     ) -> "GenerationCheckpoint":
@@ -49,6 +58,13 @@ class GenerationCheckpoint:
     def save_intermediate(self, location: Path) -> None:
         """Save progress to intermediate file."""
         file_path = location / f"generation_{self.temperature}.intermediate.obj"
+        file_path.parent.mkdir(exist_ok=True, parents=True)
+        with file_path.open("wb") as fh:
+            pickle.dump(self, fh)
+
+    def save_final(self, location: Path) -> None:
+        """Save final file to disk."""
+        file_path = location / f"generation_{self.temperature}.obj"
         file_path.parent.mkdir(exist_ok=True, parents=True)
         with file_path.open("wb") as fh:
             pickle.dump(self, fh)

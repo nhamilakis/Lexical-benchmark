@@ -94,7 +94,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["lexical_benchmark*"]
-exclude = ["examples*", "tests*", "src/scripts*", "scripts*", "experiments*"]
+exclude = ["examples*", "tests*", "src/scripts*", "scripts*",  "src/slurm_scripts*"]
 
 [tool.setuptools.package-data]
 "*" = ["py.typed"]
@@ -135,6 +135,7 @@ exclude = [
     "src/lexical_benchmark/legacy", # Legacy code gets a pass for now (warning is thrown when importing)
     "src/lexical_benchmark/processing/turn_taking.py", # TODO: work-in-progress
     "src/scripts/archived/",  # ignore archived scripts for now
+    "src/slurm_scripts/",
 ]
 force-exclude = true
 

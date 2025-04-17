@@ -1,6 +1,5 @@
 import abc
 import itertools
-import os
 import typing as t
 from pathlib import Path
 
@@ -9,14 +8,6 @@ from lexical_benchmark.text_lib import text_cleaners
 
 CHILDES_SPEECH_TYPES = t.Literal["adult", "child"]
 DATASET_NAMES = t.Literal["childes", "stela", "child_realistic", "word-cdi", "wordstats"]
-
-# Default version of the dataset (changes root directory used)
-DATASET_VERSIONS = {
-    "childes": int(os.environ.get("CHILDES_VERSION", 0)),
-    "stela": int(os.environ.get("STELA_VERSION", 3)),
-    "child_realistic": int(os.environ.get("CHILD_REALISTIC_VERSION", 0)),
-    "word-cdi": int(os.environ.get("WORD_CDI_VERSION", 0)),
-}
 
 
 class DatasetConfig(abc.ABC):
@@ -43,11 +34,7 @@ class DatasetConfig(abc.ABC):
         """List available languages."""
 
     def __init__(self, dataset_name: DATASET_NAMES) -> None:
-        if DATASET_VERSIONS[dataset_name] > 0:
-            self.dataset_name = f"{dataset_name}{DATASET_VERSIONS[dataset_name]}"
-        else:
-            self.dataset_name = settings.PATH.dataset_root / dataset_name
-
+        self.dataset_name = dataset_name
         self.root_dir = settings.PATH.dataset_root / self.dataset_name
 
     @staticmethod
@@ -216,6 +203,16 @@ class STELADatasetConfig(DatasetConfig):
         "50": 1,
         "60": 1,
     }
+
+    @property
+    def generation_checkpoint_root(self) -> Path:
+        """Root location for checkpoint of generations."""
+        return settings.PATH.generate_root / "checkpoints" / self.dataset_name
+
+    @property
+    def generation_text_root(self) -> Path:
+        """Root location for generated text."""
+        return settings.PATH.generate_root / "text" / self.dataset_name
 
     @property
     def by_hour_dir(self) -> Path:

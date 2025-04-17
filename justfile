@@ -64,7 +64,7 @@ deploy-jz: exec-permissions
 [doc("Make executables")]
 exec-permissions:
     find src/scripts -name "*.py" -exec chmod +x {} \;
-    find experiments -name "*.sh" -exec chmod +x {} \;
+    find src/ -name "*.sh" -exec chmod +x {} \;
 
 [doc("Install module & dependencies")]
 install:

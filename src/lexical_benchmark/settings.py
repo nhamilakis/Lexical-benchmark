@@ -11,6 +11,9 @@ LEXICON_ITEMS = ("kaikki", "SCOWLv2", "yawl")
 PLACEHOLDER_MONTH = "placeholder"
 
 
+GENERATION_TEMPERATURES = (0.3, 0.6, 1.0, 1.5)
+ALL_LANGS = ("EN",)
+
 ###
 # proportions to use for statification of data
 STRATIFY_CHUNK_NB = 66
@@ -26,6 +29,7 @@ dataset_name_dict = {
 
 # CHUNKS used for training
 TRAIN_CHUNKS = ("00", "01")
+MODEL_TYPES = ("lstm", "gpt2")
 
 
 def chunk2month(chunk_num: int, hour_per_year: int, hour_per_chunk: int = 50) -> int:
