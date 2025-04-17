@@ -116,27 +116,6 @@ class GenerationCheckpoint:
         )
 
 
-@dataclass
-class FinalGeneratedData:
-    """Class to handle merge of generations."""
-
-    temperature: float
-
-    @classmethod
-    def build(cls, checkpoint: GenerationCheckpoint, mapping_info: dict[str, t.Any]) -> "FinalGeneratedData":  # noqa: ARG003
-        """Build final generation data from given checkpoint."""
-        thing = FinalGeneratedData(temperature=checkpoint.temperature)  # noqa: F841
-        # TODO: implement the rest (requires the estimation mapping)
-
-
-"""
-generation / checkpoints / stela3 / EN / 01 / 00 / lstm / checkpoint_0.6.obj checkpoint_0.3.obj ou_0.6.log
-
-generation / text / stela3 / lstm / 100hpy / 07  / 0.6.txt
-
-"""
-
-
 class CheckPointExplorerCMD(Command):
     """Command Arg Object to explore a generation checkpoint."""
 

@@ -61,7 +61,7 @@ REMOVED_WORDS = {"'"}
 #######################################################
 BY_SIZE_MODELS: list[int] = [1, 2, 3, 4, 5, 6, 10, 15, 20, 30, 40, 50, 60]
 MONTH_RANGE = (6, 36)  # Range of months to use
-MONTH_ESTIMATES = ["100hpy", "500hpy", "1000hpy"]
+MONTH_ESTIMATES = ("100hpy", "500hpy", "1000hpy")
 MONTH_2_PSEUDO_MONTH = {
     "100hpy": {
         6: 1,
