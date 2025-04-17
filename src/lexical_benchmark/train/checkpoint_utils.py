@@ -5,7 +5,7 @@ from pathlib import Path
 
 from clypi import Command, Positional
 
-from lexical_benchmark import lb_types
+from lexical_benchmark import dataloaders, lb_types
 
 ESTIMATION_MONTH_KEY_TYPE = tuple[lb_types.ESTIMATION_TYPE, int]
 TEXTType = list[str]
@@ -116,8 +116,32 @@ class GenerationCheckpoint:
         )
 
 
+def build_text_dataset(datasets: tuple[str, ...] = ("stela",), langs=("EN",)) -> None:
+    """Build text dataset from generation checkpoints."""
+    items_iter: t.Iterable[dataloaders.generation_loaders.GenerationCheckpointLoader] = (
+        dataloaders.generation_loaders.GenerationCheckpointLoader.iter_items(
+            datasets=datasets,
+            langs=langs,
+        )
+    )
+    for item in items_iter:
+        if item.is_finished():
+            checkpoint: GenerationCheckpoint = item.load_final()
+            for (estim, month), struct in checkpoint.gen_items.items():
+                text_item = dataloaders.generation_loaders.GenerationItemsLoader.load(
+                    dataset_name=item.dt_cfg.dataset_name,
+                    lang=item.lang,
+                    model_type=item.model_type,
+                    estimation_type=estim,
+                    month=month,
+                    temperature=item.temperature,
+                )
+                # TODO: clip extra tokens ??
+                text_item.text_file.safe_append_text("\n".join(struct["text"]))
+
+
 class CheckPointExplorerCMD(Command):
-    """Command Arg Object to explore a generation checkpoint."""
+    """Command Arg Object to explore a checkpoint."""
 
     checkpoint_dir: Positional[Path]
     temperature: Positional[float]
@@ -126,8 +150,13 @@ class CheckPointExplorerCMD(Command):
         """Run CMD."""
         import IPython
 
-        checkpoint = GenerationCheckpoint.load_intermediate(self.checkpoint_dir, temperature=self.temperature)  # noqa: F841
-        IPython.embed()
+        checkpoint: GenerationCheckpoint = GenerationCheckpoint.load_intermediate(
+            self.checkpoint_dir, temperature=self.temperature
+        )
+        if checkpoint:
+            IPython.embed()
+        else:
+            print(f"Failed to find intermediate checkpoint @ {self.checkpoint_dir}")
 
 
 def check_point_explorer() -> None:

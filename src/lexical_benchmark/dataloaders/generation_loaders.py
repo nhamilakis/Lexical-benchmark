@@ -1,4 +1,5 @@
 import dataclasses
+import itertools
 import typing as t
 from pathlib import Path
 
@@ -9,7 +10,7 @@ from .definitions import DatasetItemsLoader
 
 
 @t.runtime_checkable
-class DatasetWithGenerations(t.Protocol):
+class _DatasetWithGenerations(t.Protocol):
     """Dataset config with support for by_chunk split."""
 
     @property
@@ -42,7 +43,7 @@ class DatasetWithGenerations(t.Protocol):
         ...
 
 
-class CheckPointIteratorKwargs(t.TypedDict):
+class _CheckPointIteratorKwargs(t.TypedDict):
     """Optional Arguments for checkpoint iteration."""
 
     datasets: tuple[datasets.DATASET_NAMES, ...]
@@ -66,7 +67,7 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
     chunk: str
     temperature: float
     model_type: lb_types.MODEL_TYPE
-    dt_cfg: DatasetWithGenerations
+    dt_cfg: _DatasetWithGenerations
 
     @property
     def root_dir(self) -> Path:
@@ -116,8 +117,8 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
     def __post_init__(self) -> None:
         """post-creation checks."""
         # Check if correct dataset is provided.
-        if not isinstance(self.dt_cfg, DatasetWithGenerations):
-            raise exc.DatasetTypeError(dataset=type(self.dt_cfg), protocol=DatasetWithGenerations)
+        if not isinstance(self.dt_cfg, _DatasetWithGenerations):
+            raise exc.DatasetTypeError(dataset=type(self.dt_cfg), protocol=_DatasetWithGenerations)
 
     @classmethod
     def load(
@@ -140,16 +141,19 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
         )
 
     @classmethod
-    def iter_items(cls, **kwargs: t.Unpack[CheckPointIteratorKwargs]) -> t.Iterator["GenerationCheckpointLoader"]:
+    def iter_items(cls, **kwargs: t.Unpack[_CheckPointIteratorKwargs]) -> t.Iterator["GenerationCheckpointLoader"]:
         """Iterate over a set of items."""
         dataset_list = kwargs.get("datasets", ("stela", "child_realistic"))
         temperatures = kwargs.get("temperatures", settings.GENERATION_TEMPERATURES)
+        model_type_list = kwargs.get("model_types", settings.MODEL_TYPES)
+        params_items = itertools.product(model_type_list, temperatures)
+
         for dt_name in dataset_list:
-            dt_cfg: DatasetWithGenerations = datasets.get_config(dt_name)
+            dt_cfg: _DatasetWithGenerations = datasets.get_config(dt_name)
             langs_list = kwargs.get("langs", dt_cfg.langs)
             split_list = kwargs.get("splits", dt_cfg.size_splits)
             chunk_list = kwargs.get("chunks", settings.TRAIN_CHUNKS)
-            model_type_list = kwargs.get("model_types", settings.MODEL_TYPES)
+
             for _lang in langs_list:
                 # Skip non-valid languages
                 if _lang not in dt_cfg.langs:
@@ -159,24 +163,23 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
                     if _split not in dt_cfg.size_splits:
                         continue
 
-                for _chunk in dt_cfg.chunks_by_size(_lang, _split):
-                    # If a filter list is set keep only given chunks
-                    if len(chunk_list) != 0 and _chunk not in chunk_list:
-                        continue
+                    for _chunk in dt_cfg.chunks_by_size(_lang, _split):
+                        # If a filter list is set keep only given chunks
+                        if len(chunk_list) != 0 and _chunk not in chunk_list:
+                            continue
 
-                    for temp in temperatures:
-                        for _model in model_type_list:
+                        for params in params_items:
                             yield cls.load(
                                 dataset_name=dt_cfg.dataset_name,
                                 lang=_lang,
                                 split=_split,
                                 chunk=_chunk,
-                                model_type=_model,
-                                temperature=temp,
+                                model_type=params[0],
+                                temperature=params[1],
                             )
 
 
-class GenTextIteratorKwargs(t.TypedDict):
+class _GenTextIteratorKwargs(t.TypedDict):
     """Optional Arguments for checkpoint iteration."""
 
     datasets: tuple[datasets.DATASET_NAMES, ...]
@@ -193,15 +196,16 @@ class GenerationItemsLoader(DatasetItemsLoader):
     """Dataset loader for the generated text architecture.
 
     Example File Path:
-    /<root-dir>/generation / text / stela3 / EN /  07 / lstm / 100hpy / 0.6.txt
+    /<root-dir> / generation / text / stela3 / EN /  07 / lstm / 100hpy / 01_00_0.6.txt
     """
 
     estimation_type: lb_types.ESTIMATION_TYPE
     model_type: lb_types.MODEL_TYPE
     lang: str
     month: int
+    model_chunk: str
     temperature: float
-    dt_cfg: DatasetWithGenerations
+    dt_cfg: _DatasetWithGenerations
 
     @property
     def root_dir(self) -> Path:
@@ -213,7 +217,7 @@ class GenerationItemsLoader(DatasetItemsLoader):
     @property
     def text_file(self) -> Path:
         """Path to the text file."""
-        return self.root_dir / f"{self.temperature}.txt"
+        return self.root_dir / f"{self.model_chunk}_{self.temperature}.txt"
 
     @classmethod
     def load(
@@ -222,6 +226,7 @@ class GenerationItemsLoader(DatasetItemsLoader):
         model_type: lb_types.MODEL_TYPE,
         estimation_type: lb_types.ESTIMATION_TYPE,
         lang: str,
+        model_chunk: str,
         month: int,
         temperature: float,
     ) -> "GenerationItemsLoader":
@@ -231,12 +236,13 @@ class GenerationItemsLoader(DatasetItemsLoader):
             estimation_type=estimation_type,
             model_type=model_type,
             lang=lang,
+            model_chunk=model_chunk,
             month=month,
             temperature=temperature,
         )
 
     @classmethod
-    def iter_items(cls, **kwargs: t.Unpack[GenTextIteratorKwargs]) -> t.Iterable["GenerationItemsLoader"]:
+    def iter_items(cls, **kwargs: t.Unpack[_GenTextIteratorKwargs]) -> t.Iterable["GenerationItemsLoader"]:
         """Iterate over checkpoint items."""
         dataset_list = kwargs.get("datasets", ("stela", "child_realistic"))
         temperatures = kwargs.get("temperatures", settings.GENERATION_TEMPERATURES)
@@ -244,26 +250,42 @@ class GenerationItemsLoader(DatasetItemsLoader):
         estimation_list = kwargs.get("estimation_types", settings.MONTH_ESTIMATES)
         default_months = tuple(range(settings.MONTH_RANGE[0], settings.MONTH_RANGE[1] + 1))
         month_list = kwargs.get("month_include", default_months)
+        chunk_list = kwargs.get("chunks", settings.TRAIN_CHUNKS)
+
+        params_items = itertools.product(
+            temperatures,  # 0
+            model_type_list,  # 1
+            estimation_list,  # 2
+            month_list,  # 3
+        )
 
         for dt_name in dataset_list:
-            dt_cfg: DatasetWithGenerations = datasets.get_config(dt_name)
+            dt_cfg: _DatasetWithGenerations = datasets.get_config(dt_name)
             langs_list = kwargs.get("langs", dt_cfg.langs)
+            split_list = kwargs.get("splits", dt_cfg.size_splits)
+            chunk_list = kwargs.get("chunks", settings.TRAIN_CHUNKS)
+
             for _lang in langs_list:
                 # Skip non-valid languages
                 if _lang not in dt_cfg.langs:
                     continue
-                for _month in month_list:
-                    if _month not in default_months:
+                for _split in split_list:
+                    # Skip non-existing hours
+                    if _split not in dt_cfg.size_splits:
                         continue
 
-                    for _model in model_type_list:
-                        for estim in estimation_list:
-                            for temp in temperatures:
-                                yield cls.load(
-                                    dataset_name=dt_name,
-                                    model_type=_model,
-                                    lang=_lang,
-                                    month=_month,
-                                    estimation_type=estim,
-                                    temperature=temp,
-                                )
+                    for _chunk in dt_cfg.chunks_by_size(_lang, _split):
+                        # If a filter list is set keep only given chunks
+                        if len(chunk_list) != 0 and _chunk not in chunk_list:
+                            continue
+
+                        for params in params_items:
+                            yield cls.load(
+                                dataset_name=dt_name,
+                                temperature=params[0],
+                                model_type=params[1],
+                                estimation_type=params[2],
+                                month=params[3],
+                                lang=_lang,
+                                model_chunk=_chunk,
+                            )
