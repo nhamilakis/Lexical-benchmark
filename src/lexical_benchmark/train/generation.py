@@ -12,31 +12,27 @@ from .trainers.lstm import LSTMConfig, LSTMForLanguageModeling
 
 Model = t.Any
 
-"""
-0. resume and override logic
-2. parallel decoding
-"""
-
 
 class BatchGenerator:
     """Generator class."""
 
     def __init__(
         self,
-        model_path: Path,
         *,
+        model_path: Path,
         tokenizer_name: str,
         device: str,
         use_vllm: bool,
         model_type: lb_types.MODEL_TYPE,
-        nb_tokens: int,
+        batch_size: int = 1,
     ) -> None:
         self.device = device
         self.model_path = model_path
         self.use_vllm = use_vllm
         self.model_type = model_type
-        self.nb_tokens = nb_tokens
         self.tokenizer_name = tokenizer_name
+        self.batch_size = batch_size
+
         if not self.use_vllm:
             self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name)
         self.model = self.load_model()
@@ -45,81 +41,83 @@ class BatchGenerator:
         """Load the model."""
         if self.model_type == "lstm":
             config = LSTMConfig.from_pretrained(self.model_path)
-            model = LSTMForLanguageModeling.from_pretrained(self.model_path, config=config)
-            return model.to(self.device)
+            return LSTMForLanguageModeling.from_pretrained(self.model_path, config=config).to(self.device)
         if self.model_type == "gpt2":
             if self.use_vllm:
-                self.model = LLM(
+                return LLM(
                     model=str(self.model_path),
                     tokenizer=self.tokenizer_name,
                     gpu_memory_utilization=0.9,
                     tensor_parallel_size=1,
                 )
-                return self.model
             model = AutoModelForCausalLM.from_pretrained(self.model_path)
             return model.to(self.device)
         return None
 
-    def generate_text(
+    def save_generation(
         self,
         temperature: float,
-        target_file: Path,  # noqa: ARG002
+        gen_attrs: dict,
         *,
-        resume: bool = True,  # noqa: ARG002
-        override: bool = False,  # noqa: ARG002
-    ) -> str:
+        resume: bool = True,
+        override: bool = False,
+    ) -> None:
         """Generate text from model."""
-        # TODO(@Jing): connect variables to actual process
-        # Initialize or load existing generated text
-        """
-            # TODO:
-            if target_file.is_file():
-                gen_result = load_generation_intermediary(target_file)
-            else:
-                gen_result = {...}
+        # initialize the model
+        if resume:
+            resume_checkpoint = GenerationCheckpoint.load_intermediate(
+                location=self.model_path, temperature=temperature
+            )
+        if override or not resume_checkpoint:
+            resume_checkpoint = GenerationCheckpoint.init_from_args(temperature=temperature, word_counts=gen_attrs)
 
-            --> gen_result["target"] >= gen_result["count"]
-        """
-        checkpoint = GenerationCheckpoint.load_intermediate(location=self.model_path, temperature=temperature)
-        if checkpoint is not None:
-            checkpoint = GenerationCheckpoint(temperature=temperature, target_word_count=self.nb_tokens)
+        if resume_checkpoint.remaining_count() == 0:
+            print("No more items require generation, exiting")
+            return
 
-        """
-        TODO: update these during generation
-        checkpoint.text.append(...)
-        checkpoint.current_word_count += ...
+        # While items still left to generate
+        while resume_checkpoint.remaining_count() > 0:
+            next_id, leftover = resume_checkpoint.get_next_gen()
+            text, count = self.generate_text(temperature, leftover)
+            resume_checkpoint.append_to(gen_id=next_id, text=text, token_count=count)
+            print(f"Saving checkpoint of {next_id} to disk")
+            resume_checkpoint.save_intermediate(Path("data"))
+        print("Completed generation")
 
-
-        # TODO: When saving checkpoint
-        checkpoint.save_intermediate(self.model_path)
-        """
-
+    def generate_text(self, temperature: float, nb_tokens: int) -> str:
+        """Generate text from model."""
         generated_text = ""
         curr_tokens = 0
-
-        # Generate text sentence by sentence until we reach the desired token count
-        while curr_tokens < self.nb_tokens:
-            # Generate new text
-            new_text = self._generate_vllm(temperature) if self.use_vllm else self._generate_vanilla(temperature)
+        while curr_tokens < nb_tokens:
+            new_text = self._generate_sequence(temperature)
             generated_text += new_text
             curr_tokens = self._count_words(generated_text)
-        if curr_tokens > self.nb_tokens:
-            generated_text = self._cut_text(generated_text)
-        return generated_text
+            if curr_tokens >= nb_tokens:
+                break
+        return generated_text, curr_tokens  # type: ignore
 
-    def _generate_vanilla(self, temperature: float) -> str:
-        """Generate next token using vanilla generation."""
-        input_ids = self.tokenizer("", return_tensors="pt").input_ids.to(self.device)
-        output = self.model.generate(
+    def _generate_sequence(self, temperature) -> str:
+        """Generate sequences based on model types."""
+        if self.use_vllm:
+            return self._generate_vllm(temperature)
+        return self._generate_batch_vanilla(temperature)
+
+    def _generate_batch_vanilla(self, temperature: float) -> str:
+        """Generate a batch of sentences using GPT2 or LSTM."""
+        input_ids = self.tokenizer([""] * self.batch_size, return_tensors="pt", padding=True).input_ids.to(self.device)
+        outputs = self.model.generate(
             input_ids,
-            max_length=1024,  # Maximum length limit
+            max_length=1024,  # reasonable for batch generation
             eos_token_id=self.tokenizer.eos_token_id,
             pad_token_id=self.tokenizer.eos_token_id,
             do_sample=True,
             temperature=temperature,
         )
-        # Decode the generated text
-        return self.tokenizer.decode(output[0], skip_special_tokens=True)
+        # decode and flatten the batched generation
+        generated_text = ""
+        for output in outputs:
+            generated_text += self.tokenizer.decode(output, skip_special_tokens=True)
+        return generated_text  # type: ignore
 
     def _generate_vllm(self, temperature: float) -> str:
         """Generate next token using vLLM."""
@@ -138,27 +136,16 @@ class BatchGenerator:
         return outputs[0].outputs[0].text
 
     def _count_words(self, generated_text: str) -> int:
-        # Replace all punctuation with pipe character
         for char in string.punctuation:
             if char != "|":
                 generated_text = generated_text.replace(char, "|")
-        # Split by pipe character and count non-empty elements
         words = [word for word in generated_text.split("|") if word.strip()]
         return len(words)
 
-    def _cut_text(self, generated_text: str) -> str:
-        """Cut the generated text to the desired number of tokens."""
-        # Apply the same replacements as in count_words to get consistent tokenization
+    def _cut_text(self, generated_text: str, nb_tokens: int) -> str:
         text_for_splitting = generated_text
         for char in string.punctuation:
             if char != "|":
                 text_for_splitting = text_for_splitting.replace(char, "|")
-        # Split into tokens
         tokens = [token for token in text_for_splitting.split("|") if token.strip()]
-        truncated_tokens = tokens[: self.nb_tokens]
-        # Join the tokens back with spaces
-        return "|".join(truncated_tokens)
-
-    def save_text(self, nb_tokens: int, target_file: Path, *, resume: bool = True, override: bool = False) -> None:
-        """Generate data from model."""
-        raise NotImplementedError("TODO")
+        return "|".join(tokens[:nb_tokens])
