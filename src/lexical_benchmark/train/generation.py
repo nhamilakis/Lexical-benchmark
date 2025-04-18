@@ -3,7 +3,7 @@ import typing as t
 from pathlib import Path
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from vllm import LLM, SamplingParams  # type: ignore[missing-dependency]
+from vllm import LLM, SamplingParams
 
 from lexical_benchmark import lb_types
 
