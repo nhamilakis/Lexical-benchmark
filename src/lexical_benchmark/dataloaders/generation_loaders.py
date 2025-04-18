@@ -69,6 +69,21 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
     model_type: lb_types.MODEL_TYPE
     dt_cfg: _DatasetWithGenerations
 
+    def to_args_dict(self) -> dict[str, t.Any]:
+        """Convert to dictionairy for args-index."""
+        return {
+            "dataset_name": self.dt_cfg.dataset_name,
+            "lang": self.lang,
+            "split": self.split,
+            "chunk": self.chunk,
+            "model_type": self.model_type,
+            "temperature": self.temperature,
+            "checkpoint_id": None,
+            "resume": True,
+            "override": False,
+            "hour_per_year": settings.GENERATION_HPY_ITEMS,
+        }
+
     @property
     def root_dir(self) -> Path:
         """Location to write to."""

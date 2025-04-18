@@ -6,16 +6,17 @@ authors = [
     { name = "Jing Liu", email = "jing.liu@ens.psl.eu" },
     { name = "CoML Team", email = "dev@cognitive-ml.fr" },
 ]
-license = { text = "MIT License" }
+license = "MIT"
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11,<3.12"
 keywords = ["python"]
 classifiers = [
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
 ]
 
 dependencies = [
@@ -39,12 +40,11 @@ dependencies = [
     "python-dateutil",
     "PyYAML",
     "pyarrow",
-    "tomli; python_version < '3.11'",
-    "tomli-w",
     "beautifulsoup4",
     "httpx",
     "clypi",
     "pydantic",
+    "rtoml",
     "torch==2.5.1",
     "torchtyping>=0.1.5",
     "transformers==4.49.0",
@@ -68,9 +68,10 @@ dependencies = [
 dynamic = ["version"]
 
 [project.urls]
-documentation = "https://github.com/nhamilakis/Lexical-benchmark/tree/dev/docs"
-repository = "https://github.com/nhamilakis/Lexical-benchmark"
-
+Documentation = "https://github.com/nhamilakis/Lexical-benchmark/tree/dev/docs"
+Repository = "https://github.com/nhamilakis/Lexical-benchmark"
+Issues = "https://github.com/nhamilakis/Lexical-benchmark/issues"
+Changelog = "https://github.com/nhamilakis/Lexical-benchmark/blob/dev/CHANGELOG.md"
 
 [project.scripts]
 download-stela = "lexical_benchmark.downloader:entrypoint"
@@ -94,7 +95,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["lexical_benchmark*"]
-exclude = ["examples*", "tests*", "src/scripts*", "scripts*",  "src/slurm_scripts*"]
+exclude = ["examples*", "tests*",  "src/slurm_scripts*"]
 
 [tool.setuptools.package-data]
 "*" = ["py.typed"]
@@ -102,11 +103,7 @@ exclude = ["examples*", "tests*", "src/scripts*", "scripts*",  "src/slurm_script
 [tool.setuptools]
 script-files = [ 
     # Build Scripts
-    "src/scripts/build_preprocess/lm_build_childes.py",
-    "src/scripts/build_preprocess/lm_build_stela.py",
     # Clean Scripts
-    "src/scripts/clean_text/lm_clean_childes.py",
-    "src/scripts/clean_text/lm_clean_stela.py"
     # Process Datasets
     # Compute Stuff
     # Train

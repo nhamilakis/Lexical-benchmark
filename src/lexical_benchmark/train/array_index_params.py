@@ -16,7 +16,7 @@ class _IndexBase(pydantic.BaseModel):
     chunk: str
     resume: bool
     override: bool
-    model_config_file: Path
+    model_config_file: Path | None = None
 
 
 class TrainIndex(_IndexBase):
@@ -28,7 +28,12 @@ class TrainIndex(_IndexBase):
 class GenerationIndex(_IndexBase):
     """Item to pass into generate-index-cmd."""
 
-    hour_per_year: int
+    hour_per_year: tuple[str, ...]
+    temperature_list: tuple[float, ...]
+    checkpoint_id: int | None
 
 
-SlurmIndex = pydantic.RootModel[list[GenerationIndex | TrainIndex]]
+class SlurmIndex(pydantic.BaseModel):
+    """Base item for slurm index."""
+
+    index: dict[str, TrainIndex | GenerationIndex]

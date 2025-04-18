@@ -1,5 +1,4 @@
 import logging
-import sys
 import typing as t
 from pathlib import Path
 
@@ -8,19 +7,20 @@ import numpy as np
 import torch
 from clypi import Command, Positional, arg
 
-from lexical_benchmark import exc, lb_types
+from lexical_benchmark import exc, lb_types, settings
 from lexical_benchmark.dataloaders import by_size
 from lexical_benchmark.utils import generic as generic_utils
 
 from .array_index_params import GenerationIndex, SlurmIndex
 from .generation import BatchGenerator
+from .generation_constants import get_token_count_dict
 
 L = None
 
 LogLevelType = t.Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 
-def init_logging(log_level: LogLevelType, log_path: Path, job_name: str, *, log_to_std: bool = False) -> None:
+def init_logging(log_level: LogLevelType, log_path: Path, *, log_to_std: bool = False) -> None:
     """Initialise logging."""
     global L  # noqa: PLW0603
     if log_to_std:
@@ -31,44 +31,29 @@ def init_logging(log_level: LogLevelType, log_path: Path, job_name: str, *, log_
     L = logging.getLogger(__name__)
 
 
-def generate(data_item: by_size.BySizeGenerateItem) -> None:
-    """Function handling generation."""
+def load_generator(
+    model_path: Path,
+    device: lb_types.DEVICE_TYPE,
+    model_type: lb_types.MODEL_TYPE,
+    seed: int,
+    *,
+    use_vllm: bool,
+) -> BatchGenerator:
+    """Load the generation object."""
     # Setup SEEDs
-    torch.manual_seed(data_item.seed)
-    np.random.seed(data_item.seed)
+    torch.manual_seed(seed)
+    np.random.seed(seed)
     if torch.cuda.is_available():
-        torch.cuda.manual_seed(data_item.seed)
+        torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-
-    """
-        If has_final_gen.exists():
-            skip_all
-
-    """
-
-    data_generator = BatchGenerator(
-        model_path=data_item.model_path,
+    return BatchGenerator(
+        model_path=model_path,
         tokenizer_name="phonemetransformers/GPT2-85M-CHAR-TXT",  # TODO: move this into params
-        device=...,  # TODO: Get the device from args or use default
-        use_vllm=data_item.use_vllm,
-        model_type=data_item.model_type,
-        nb_tokens=...,  # TODO: extract number of tokens from guide index
+        device=device,
+        use_vllm=use_vllm,
+        model_type=model_type,
     )
-
-    for temp in data_item.temp_lst:
-        # Generate our tokens
-        data_generator.generate_text(
-            temperature=temp,
-            target_file=data_item.target_file(final=False, temp=temp),
-            resume=data_item.resume,
-            override=data_item.override,
-        )
-
-    # Do some post processing
-    # TODO: ... (split results into hpy  :::> )
-    # TODO: move to final file
-    # TODO: delete intermediary file
 
 
 class ArrayIndex(Command):
@@ -78,53 +63,81 @@ class ArrayIndex(Command):
     current_index: Positional[int]
 
     # Inherited
-    checkpoint_id: str | None = arg(inherited=True)
-    temp_lst: list[float] = arg(inherited=True)
-    seed: int = arg(inherited=True)
-    use_vllm: bool = arg(inherited=True)
-    save_interval: int = arg(inherited=True)
-    debug: bool = arg(inherited=True)
-    added_tokens: list[str] = arg(inherited=True)
+    seed: int = arg(inherited=True, group="global-params")
+    device: lb_types.DEVICE_TYPE = arg(inherited=True, group="global-params")
+    use_vllm: bool = arg(inherited=True, group="global-params")
+    save_interval: int = arg(inherited=True, group="global-params")
+    debug: bool = arg(inherited=True, group="global-params")
+    added_tokens: list[str] = arg(inherited=True, group="global-params")
+    model_config_file: Path | None = arg(inherited=True, group="global-params")
 
-    model_config_file: Path | None = arg(inherited=True)
-    log_to_std: bool = arg(inherited=True)
-    log_level: LogLevelType = arg(inherited=True)
+    log_to_std: bool = arg(inherited=True, group="logs")
+    log_level: LogLevelType = arg(inherited=True, group="logs")
 
-    def load_index(self) -> SlurmIndex:
-        """Load index."""
-        return SlurmIndex(self.index_file.read_toml())
+    interactive: bool = arg(inherited=True)
 
-    def make_item(self) -> by_size.BySizeGenerateItem:
+    def load_index(self) -> GenerationIndex:
         """Make data-item."""
-        slurm_index = self.load_index()
+        slurm_index = SlurmIndex(self.index_file.read_toml())
         try:
-            current_i: GenerationIndex = slurm_index[self.current_index]
+            return slurm_index.index[str(self.current_index)]
         except KeyError as err:
             raise exc.SlurmIndexNotFoundError(index=self.current_index, index_file=self.index_file) from err
 
-        return by_size.BySizeGenerateItem(
-            model_type=current_i.model_type,
-            data_item=by_size.BySizeItemsLoader.load(
-                dataset_name=current_i.dataset_name,
-                lang=current_i.lang,
-                split=current_i.split,
-                chunk=current_i.chunk,
-            ),
-            resume=current_i.resume,
-            override=current_i.override,
-            temp_lst=self.temp_lst,
-            hour_per_year=current_i.hour_per_year,
-            seed=self.seed,
-            save_interval=self.save_interval,
-            debug=self.debug,
-            added_tokens=self.added_tokens,
-            _try_vllm=self.use_vllm,
+    def make_item(self, current_i: GenerationIndex) -> by_size.BySizeItemsLoader:
+        """Extract item from index."""
+        return by_size.BySizeItemsLoader.load(
+            dataset_name=current_i.dataset_name,
+            lang=current_i.lang,
+            split=current_i.split,
+            chunk=current_i.chunk,
         )
+
+    def model_path(self, model_root: Path, current_i: GenerationIndex) -> Path:
+        """Location of model."""
+        model_root = model_root / current_i.model_type
+        if current_i.checkpoint_id:
+            model_root = model_root / f"checkpoint-{current_i.checkpoint_id}"
+        return model_root
+
+    def generation_root(self, item: by_size.BySizeItemsLoader, current_i: GenerationIndex) -> Path:
+        """Root directory for generation."""
+        return item.geneneration_checkpoint_root / current_i.model_type
+
+    def can_use_vllm(self, model_type: lb_types.MODEL_TYPE) -> bool:
+        """Check if vllm needs to be used."""
+        return bool(self.use_vllm and model_type == "gpt2")
 
     async def run(self) -> None:
         """Entrypoint."""
-        print("WORK in progress")
-        sys.exit(1)
+        current_i = self.load_index()
+        data_item = self.make_item(current_i)
+
+        init_logging(
+            log_level=self.log_level, log_path=data_item.geneneration_checkpoint_root, log_to_std=self.log_to_std
+        )
+        generator = load_generator(
+            model_path=self.model_path(data_item.model_root, current_i),
+            device=self.device,
+            use_vllm=self.can_use_vllm(current_i.model_type),
+            model_type=current_i.model_type,
+            seed=self.seed,
+        )
+
+        token_nb_mapping = get_token_count_dict(
+            model_size=int(data_item.split),
+            lang=data_item.lang,
+            month_estimates=current_i.hour_per_year,
+        )
+
+        for temp in current_i.temperature_list:
+            text = generator.save_generation(
+                temperature=temp,
+                gen_attrs=token_nb_mapping,
+                resume=current_i.resume,
+                override=current_i.override,
+            )
+            L.debug(f"Generated text for {temp=}" + text)
 
 
 class Single(Command):
@@ -137,47 +150,77 @@ class Single(Command):
     model_type: Positional[lb_types.MODEL_TYPE]
 
     # Inherited
-    checkpoint_id: str | None = arg(inherited=True)
-    temp_lst: list[float] = arg(inherited=True)
-    hour_per_year: int = arg(inherited=True)
-    seed: int = arg(inherited=True)
-    use_vllm: bool = arg(inherited=True)
-    save_interval: int = arg(inherited=True)
-    resume: bool = arg(inherited=True)
-    override: bool = arg(inherited=True)
-    debug: bool = arg(inherited=True)
-    added_tokens: list[str] = arg(inherited=True)
+    checkpoint_id: str | None = arg(inherited=True, group="generation-params")
+    temperature_list: tuple[float] = arg(inherited=True, group="generation-params")
+    hour_per_year: int = arg(inherited=True, group="generation-params")
+    resume: bool = arg(inherited=True, group="generation-params")
+    override: bool = arg(inherited=True, group="generation-params")
 
-    model_config_file: Path | None = arg(inherited=True)
-    log_to_std: bool = arg(inherited=True)
-    log_level: LogLevelType = arg(inherited=True)
+    seed: int = arg(inherited=True, group="global-params")
+    device: lb_types.DEVICE_TYPE = arg(inherited=True, group="global-params")
+    use_vllm: bool = arg(inherited=True, group="global-params")
+    save_interval: int = arg(inherited=True, group="global-params")
+    debug: bool = arg(inherited=True, group="global-params")
+    added_tokens: list[str] = arg(inherited=True, group="global-params")
+    model_config_file: Path | None = arg(inherited=True, group="global-params")
 
-    def make_item(self) -> by_size.BySizeGenerateItem:
+    log_to_std: bool = arg(inherited=True, group="logs")
+    log_level: LogLevelType = arg(inherited=True, group="logs")
+
+    interactive: bool = arg(inherited=True)
+
+    def make_item(self) -> by_size.BySizeItemsLoader:
         """Make data-item."""
-        return by_size.BySizeGenerateItem(
-            model_type=self.model_type,
-            data_item=by_size.BySizeItemsLoader.load(
-                dataset_name=self.dataset_name,
-                lang=self.lang,
-                split=self.split,
-                chunk=self.chunk,
-            ),
-            resume=self.resume,
-            override=self.override,
-            temp_lst=self.temp_lst,
-            hour_per_year=self.hour_per_year,
-            seed=self.seed,
-            use_vllm=self.use_vllm,
-            save_interval=self.save_interval,
-            debug=self.debug,
-            added_tokens=self.added_tokens,
+        return by_size.BySizeItemsLoader.load(
+            dataset_name=self.dataset_name,
+            lang=self.lang,
+            split=self.split,
+            chunk=self.chunk,
         )
+
+    def model_path(self, item: by_size.BySizeItemsLoader) -> Path:
+        """Location of model."""
+        model_root = item.model_root / self.model_type
+        if self.checkpoint_id:
+            model_root = model_root / f"checkpoint-{self.checkpoint_id}"
+        return model_root
+
+    def generation_root(self, item: by_size.BySizeItemsLoader) -> Path:
+        """Root directory for generation."""
+        return item.geneneration_checkpoint_root / self.model_type
+
+    def can_use_vllm(self) -> bool:
+        """Check if vllm needs to be used."""
+        return bool(self.use_vllm and self.model_type == "gpt2")
 
     async def run(self) -> None:
         """Entrypoint."""
         data_item = self.make_item()
-        init_logging(log_level=self.log_level, log_path=data_item.generation_root_dir, log_to_std=self.log_to_std)
-        generate(data_item)
+        init_logging(
+            log_level=self.log_level, log_path=data_item.geneneration_checkpoint_root, log_to_std=self.log_to_std
+        )
+        generator = load_generator(
+            model_path=self.model_path(data_item),
+            device=self.device,
+            use_vllm=self.can_use_vllm(),
+            model_type=self.model_type,
+            seed=self.seed,
+        )
+
+        token_nb_mapping = get_token_count_dict(
+            model_size=int(data_item.split),
+            lang=data_item.lang,
+            month_estimates=self.hour_per_year,
+        )
+
+        for temp in self.temperature_list:
+            text = generator.save_generation(
+                temperature=temp,
+                gen_attrs=token_nb_mapping,
+                resume=self.resume,
+                override=self.override,
+            )
+            L.debug(f"Generated text for {temp=}" + text)
 
 
 class Generate(Command):
@@ -186,16 +229,20 @@ class Generate(Command):
     subcommand: Single | ArrayIndex
 
     checkpoint_id: str | None = None
-    temp_lst: list[float] = arg(default_factory=lambda: [0.3, 0.6, 1.0, 1.5], parser=cp.List(cp.Float()))
-    hour_per_year: int = 1000
+    temperature_list: tuple[float, ...] = arg(settings.GENERATION_TEMPERATURES, parser=cp.Tuple(cp.Float()))
+    hour_per_year: tuple[str, ...] = arg(settings.GENERATION_HPY_ITEMS, parser=cp.Tuple(cp.Str()))
     seed: int = 562
     use_vllm: bool = True
     save_interval: int = 1024
     resume: bool = True
     override: bool = False
-    debug: bool = False
+    debug: bool = False  # TODO: debug should generate less text ?
+    device: lb_types.DEVICE_TYPE = "cuda"
     added_tokens: list[str] = arg(default_factory=lambda: ["'", "|"], parser=cp.List(cp.Str()))
 
     model_config_file: Path | None = arg(None, parser=cp.Path(exists=True))
     log_to_std: bool = False
     log_level: LogLevelType = "INFO"
+
+    # Introspection
+    interactive: bool = arg(default=False, hidden=True)

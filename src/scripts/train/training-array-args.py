@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import json
 import typing as t
 from pathlib import Path
 
@@ -8,11 +7,9 @@ import IPython  # type: ignore[missing-source]
 import polars as pl
 from clypi import Command, arg
 
-from lexical_benchmark import lb_types
+from lexical_benchmark import lb_types, settings
 from lexical_benchmark.dataloaders import by_size
 from lexical_benchmark.utils import ipython_utils
-
-_DBG = None
 
 
 class TrainArguments(Command):
@@ -21,28 +18,34 @@ class TrainArguments(Command):
     dataset_name: tuple[t.Literal["stela", "child_realistic"], ...] = arg(
         ("stela",),
         parser=cp.Tuple(cp.Str(), num=None),
+        group="params",
         help="List of datasets to use (default: 'stela', 'child_realistic').",
     )
-    lang: str = arg("EN", help="Language to use (default: EN)")
+    lang: str = arg("EN", group="params", help="Language to use (default: EN)")
     train_chunks: tuple[int, ...] = arg(
-        (0, 1), parser=cp.Tuple(cp.Int(), num=None), help="Chunks to use (default: 0, 1)"
+        (0, 1), parser=cp.Tuple(cp.Int(), num=None), group="params", help="Chunks to use (default: 0, 1)"
     )
     model_types: tuple[lb_types.MODEL_TYPE, ...] = arg(
         ("lstm", "gpt2"),
         parser=cp.Tuple(cp.Str(), num=None),
+        group="params",
         help="Model types to use for introspection (default: 'lstm', 'gpt2')",
     )
-    skip_completed: bool = arg(default=False, help="Skip all models that are trained (default: TRUE).")
-    output_file: Path = arg(
-        default=Path.cwd() / "training-args.json", parser=cp.Path(), help="File to write results into"
+    skip_completed: bool = arg(
+        short="s", default=False, group="params", help="Skip all models that are trained (default: False)."
     )
-    result_format: t.Literal["csv", "json", "toml"] = "toml"
 
-    launch_interactive: bool = arg(default=False, group="debug", hidden=True)
+    preview: bool = arg(default=False, group="output")
+    to_csv: bool = arg(default=False, group="output")
+    to_args: bool = arg(default=False, group="output")
+
+    output_file: Path = arg(short="o", default=Path("to_train.toml"), group="output")
+    report_file: Path = arg(short="f", default=Path("to_train.csv"), group="output")
+
+    interactive: bool = arg(default=False, group="debug", hidden=True)
     verbose: bool = arg(default=False, group="debug")
-    preview: bool = arg(default=False, group="debug")
 
-    def get_items(self) -> list[by_size.BySizeTrainItem]:
+    def get_items(self) -> list[by_size.BySizeTrainStruct]:
         """Load arguments for all items."""
         train_args: list[by_size.BySizeTrainItem] = []
         for dataset in self.dataset_name:
@@ -52,60 +55,64 @@ class TrainArguments(Command):
                 train_args.extend([item.train_args(model_type=md_type) for md_type in self.model_types])
 
         if self.skip_completed:
-            train_args = [item for item in train_args if item.completed_training]
+            train_args = [item for item in train_args if not item.completed_training]
 
-        return train_args
+        return [item.to_dict() for item in train_args]
 
-    def dump_args(self, items: list[by_size.BySizeTrainStruct]) -> None:
+    def show_preview(self, model_items: list[by_size.BySizeTrainStruct]) -> None:
+        """Show preview of to train items to console."""
+        df = pl.DataFrame(model_items)
+        df = df.with_columns(
+            pl.col("last_checkpoint")
+            .map_elements(lambda x: str(Path(x).relative_to(settings.PATH.model_root)), return_dtype=str)
+            .alias("last_checkpoint")
+        )
+        ipython_utils.print_polars_df(
+            df=df,
+            title=f"Training arguments ({len(df)} items)",
+            columns=[
+                "lang",
+                "split",
+                "chunk",
+                "dataset_name",
+                "model_type",
+                "completed_training",
+                "last_checkpoint",
+            ],
+        )
+
+    def write_preview(self, model_items: list[by_size.BySizeTrainStruct]) -> None:
+        """Write preview file into CSV."""
+        df = pl.DataFrame(model_items)
+        print(f"Writing csv-report to {self.report_file} (change using '--output-file /path/to/xxx.csv')")
+        df.write_csv(self.report_file, separator=";", include_header=True)
+
+    def write_args(self, model_items: list[by_size.BySizeTrainStruct]) -> None:
         """Dump arguments into a file."""
-        formatted_items = {
-            idx: {
-                row["model_type"],
-                row["dataset_name"],
-                row["lang"],
-                row["split"],
-                str(row["chunk"]),
-                str(row["completed_training"]),
-                str(row["last_checkpoint"]),
-            }
-            for idx, row in enumerate(items)
-        }
-        with self.output_file.open("w") as fh:
-            json.dump(formatted_items, fh, indent=4)
+        # Write as toml
+        print(f"Writing toml arg-inedx to {self.output_file} (change using '--report-file /path/to/xxx.toml')")
+        self.output_file.write_toml({"index": {f"{idx}": val for idx, val in enumerate(model_items)}})
 
     async def run(self) -> None:
         """Main CMD Entrypoint."""
-        global _DBG  # noqa: PLW0603
-        model_items: list[by_size.BySizeTrainStruct] = [item.to_dict() for item in self.get_items()]
-        if self.launch_interactive:
-            _DBG = model_items
+        model_items = self.get_items()
 
         if self.preview:
-            df = pl.DataFrame(model_items)
-            ipython_utils.print_polars_df(
-                df=df,
-                title="Training arguments",
-                columns=[
-                    "lang",
-                    "split",
-                    "chunk",
-                    "dataset_name",
-                    "model_type",
-                    "completed_training",
-                    "last_checkpoint",
-                ],
-            )
-        elif self.result_format in (".json", ".toml"):
-            self.dump_args(model_items)
-
-        elif self.result_format == "csv":
-            df = pl.DataFrame(model_items)
-            df.write_csv(self.output_file, include_header=True, separator=";")
-            print(f"Writing CSV to {self.output_file}")
+            self.show_preview(model_items)
+        elif self.to_csv:
+            self.write_preview(model_items)
+        elif self.to_args:
+            self.write_args(model_items)
+        else:
+            print("No option chosen for training-args use : --preview, --to-csv or --to-args")
 
 
 if __name__ == "__main__":
     cmd = TrainArguments.parse()
-    cmd.start()
-    if cmd.launch_interactive:
+    if cmd.interactive:
+        models = cmd.get_items()
+        df = pl.DataFrame(models)
+        print("Explore models as list ('models') or as a DataFrame ('df')")
         IPython.embed()
+    else:
+        cmd.start()

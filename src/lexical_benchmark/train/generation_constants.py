@@ -59,13 +59,19 @@ MODEL_PROPORTION: dict[lb_types.ESTIMATION_TYPE, dict[int, float]] = {
 
 
 def get_token_count_dict(
-    model_size: int, lang: str, month_range: tuple[int, int] = settings.MONTH_RANGE
+    model_size: int,
+    lang: str,
+    month_range: tuple[int, int] = settings.MONTH_RANGE,
+    month_estimates: lb_types.ESTIMATION_TYPE = settings.MONTH_ESTIMATES,
 ) -> dict[tuple[str, int], int]:
     """Get token count for a corresponding model size."""
     f_mapping = {}
     token_count_index = get_tokens_per_month(month_range=month_range, lang=lang)
+    model_proportion: dict[lb_types.ESTIMATION_TYPE, dict[int, float]] = {
+        estimation: proportions(estimation_type=estimation) for estimation in month_estimates
+    }
 
-    for estimation, prop_obj in MODEL_PROPORTION.items():
+    for estimation, prop_obj in model_proportion.items():
         for month, proportion in prop_obj.items():
             if model_size in proportion:
                 tk_count = np.round(proportion[model_size] * token_count_index[month])

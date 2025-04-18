@@ -12,11 +12,6 @@ import typing as t
 import pandas as pd
 
 try:
-    import tomli_w  # type: ignore[import-not-found, import-untyped]
-except ImportError:
-    tomli_w = None
-
-try:
     import yaml  # type: ignore[import-not-found, import-untyped]
 except ImportError:
     yaml = None
@@ -25,6 +20,13 @@ try:
     import tomllib  # type: ignore[import-not-found, import-untyped]
 except ImportError:
     tomllib = None  # type: ignore[assignment]
+
+
+try:
+    # This is quite superior to tomli-w
+    import rtoml  # type: ignore[import-not-found, import-untyped]
+except ImportError:
+    rtoml = None
 
 try:
     import polars as pl  # type: ignore[import-not-found, import-untyped]
@@ -92,10 +94,9 @@ def read_json(self: pathlib.Path) -> t.Any:
 
 def write_toml(self: pathlib.Path, data: t.Any) -> None:
     """Dump object into a toml file."""
-    if tomli_w is None:
-        raise OSError("Failed to find tomli_w library !!")
-    sr_data = tomli_w.dumps(data, indent=1)
-    safe_write_text(self, sr_data)
+    if rtoml is None:
+        raise OSError("Failed to find rtoml library !!")
+    safe_write_text(self, rtoml.dumps(data, pretty=True))
 
 
 def read_toml(self: pathlib.Path) -> t.Any:

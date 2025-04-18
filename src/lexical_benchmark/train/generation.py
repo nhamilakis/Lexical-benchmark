@@ -1,3 +1,4 @@
+import logging
 import string
 import typing as t
 from pathlib import Path
@@ -12,6 +13,8 @@ from .trainers.lstm import LSTMConfig, LSTMForLanguageModeling
 
 Model = t.Any
 
+L = logging.getLogger(__name__)
+
 
 class BatchGenerator:
     """Generator class."""
@@ -21,7 +24,7 @@ class BatchGenerator:
         *,
         model_path: Path,
         tokenizer_name: str,
-        device: str,
+        device: lb_types.DEVICE_TYPE,
         use_vllm: bool,
         model_type: lb_types.MODEL_TYPE,
         batch_size: int = 1,
@@ -58,6 +61,7 @@ class BatchGenerator:
         self,
         temperature: float,
         gen_attrs: dict,
+        target_dir: Path,
         *,
         resume: bool = True,
         override: bool = False,
@@ -65,14 +69,13 @@ class BatchGenerator:
         """Generate text from model."""
         # initialize the model
         if resume:
-            resume_checkpoint = GenerationCheckpoint.load_intermediate(
-                location=self.model_path, temperature=temperature
-            )
+            resume_checkpoint = GenerationCheckpoint.load_intermediate(location=target_dir, temperature=temperature)
+
         if override or not resume_checkpoint:
             resume_checkpoint = GenerationCheckpoint.init_from_args(temperature=temperature, word_counts=gen_attrs)
 
         if resume_checkpoint.remaining_count() == 0:
-            print("No more items require generation, exiting")
+            L.info("No more items require generation, exiting")
             return
 
         # While items still left to generate
@@ -80,11 +83,12 @@ class BatchGenerator:
             next_id, leftover = resume_checkpoint.get_next_gen()
             text, count = self.generate_text(temperature, leftover)
             resume_checkpoint.append_to(gen_id=next_id, text=text, token_count=count)
-            print(f"Saving checkpoint of {next_id} to disk")
-            resume_checkpoint.save_intermediate(Path("data"))
-        print("Completed generation")
+            L.info(f"Saving checkpoint of {next_id} to disk")
+            resume_checkpoint.save_intermediate(target_dir)
+        L.info(f"Completed generation, checkpoint can be found @ {target_dir}")
+        resume_checkpoint.save_final(target_dir)
 
-    def generate_text(self, temperature: float, nb_tokens: int) -> str:
+    def generate_text(self, temperature: float, nb_tokens: int) -> tuple[str, int]:
         """Generate text from model."""
         generated_text = ""
         curr_tokens = 0
@@ -94,7 +98,7 @@ class BatchGenerator:
             curr_tokens = self._count_words(generated_text)
             if curr_tokens >= nb_tokens:
                 break
-        return generated_text, curr_tokens  # type: ignore
+        return generated_text, curr_tokens
 
     def _generate_sequence(self, temperature) -> str:
         """Generate sequences based on model types."""
@@ -117,7 +121,7 @@ class BatchGenerator:
         generated_text = ""
         for output in outputs:
             generated_text += self.tokenizer.decode(output, skip_special_tokens=True)
-        return generated_text  # type: ignore
+        return generated_text
 
     def _generate_vllm(self, temperature: float) -> str:
         """Generate next token using vLLM."""

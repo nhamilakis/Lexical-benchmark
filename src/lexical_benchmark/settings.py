@@ -12,6 +12,7 @@ PLACEHOLDER_MONTH = "placeholder"
 
 
 GENERATION_TEMPERATURES = (0.3, 0.6, 1.0, 1.5)
+GENERATION_HPY_ITEMS = ("100hpy", "500hpy", "1000hpy")
 ALL_LANGS = ("EN",)
 
 ###
