@@ -7,7 +7,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-build = ["torch", "setuptools", "packaging"]
+build = ["torch==2.5.1", "setuptools>=78.1.0", "packaging>=24.2"]
 accelerate = [
     # VLLM installation fails on macos
     "vllm>=0.7.3; sys_platform == 'linux' or sys_platform == 'linux2'",
