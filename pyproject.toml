@@ -57,10 +57,6 @@ dependencies = [
     # Worked on cuda/12.1.1 on Oberon (??)
     "spacy[cuda12x]; sys_platform == 'linux' or sys_platform == 'linux2'",
     "spacy; sys_platform == 'darwin'",
-    # VLLM installation fails on macos
-    "vllm>=0.7.3; sys_platform == 'linux' or sys_platform == 'linux2'",
-    # Requires CUDA to be available
-    "flash-attn>=2.7.4.post1; sys_platform == 'linux' or sys_platform == 'linux2'",
     "wandb",
     "datasets>=3.5.0",
 ]
@@ -77,7 +73,7 @@ Changelog = "https://github.com/nhamilakis/Lexical-benchmark/blob/dev/CHANGELOG.
 download-stela = "lexical_benchmark.downloader:entrypoint"
 gen-checkpoint = "lexical_benchmark.train.checkpoint_utils:check_point_explorer"
 
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
     "ruff",
     "mypy",
@@ -85,8 +81,13 @@ dev = [
     "pytest>=8.3.4",
     "pre-commit",
 ]
-# polyglot = ["polyglot", "pyicu", "pycld2", "morfessor"]
-asr = ["openai-whisper"]
+build = ["torch", "setuptools", "packaging"]
+accelerate = [
+    # VLLM installation fails on macos
+    "vllm>=0.7.3; sys_platform == 'linux' or sys_platform == 'linux2'",
+    # Requires CUDA to be available
+    "flash-attn>=2.7.4.post1; sys_platform == 'linux' or sys_platform == 'linux2'",
+]
 
 [build-system]
 requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
@@ -110,6 +111,14 @@ script-files = [
     # Generate
     # Analysis
 ]
+
+[tool.uv]
+no-build-isolation-package = ["flash-attn"]
+
+[[tool.uv.dependency-metadata]]
+name = "flash-attn"
+version = ">=2.7.4.post1"
+requires-dist = ["torch", "einops"]
 
 [tool.mypy]
 exclude = [
