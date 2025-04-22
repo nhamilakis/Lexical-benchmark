@@ -6,5 +6,23 @@ dependencies = [
     "lexical-benchmark",
 ]
 
+[project.optional-dependencies]
+build = ["torch", "setuptools", "packaging"]
+accelerate = [
+    # VLLM installation fails on macos
+    "vllm>=0.7.3; sys_platform == 'linux' or sys_platform == 'linux2'",
+    # Requires CUDA to be available
+    "flash-attn>=2.7.4.post1; sys_platform == 'linux' or sys_platform == 'linux2'",
+]
+
+[tool.uv]
+no-build-isolation-package = ["flash-attn"]
+
 [tool.uv.sources]
 lexical-benchmark = { path = "code", editable = true }
+
+[[tool.uv.dependency-metadata]]
+name = "flash-attn"
+version = "2.7.4.post1"
+requires-dist = ["torch", "einops"]
+
