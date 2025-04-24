@@ -25,6 +25,7 @@ class TrainArguments(Command):
     train_chunks: tuple[int, ...] = arg(
         (0, 1), parser=cp.Tuple(cp.Int(), num=None), group="params", help="Chunks to use (default: 0, 1)"
     )
+    split_include: tuple[int, ...] | None = arg(default=None, group="params", parser=cp.Tuple(cp.Int(), num=None))
     model_types: tuple[lb_types.MODEL_TYPE, ...] = arg(
         ("lstm", "gpt2"),
         parser=cp.Tuple(cp.Str(), num=None),
@@ -48,10 +49,16 @@ class TrainArguments(Command):
     def get_items(self) -> list[by_size.BySizeTrainStruct]:
         """Load arguments for all items."""
         train_args: list[by_size.BySizeTrainItem] = []
+        items_filters = {
+            "langs": (self.lang,),
+            "chunks": self.train_chunks,
+        }
+
+        if self.split_include:
+            items_filters["splits"] = self.split_include
+
         for dataset in self.dataset_name:
-            for item in by_size.BySizeItemsLoader.iter_items(
-                dataset_name=dataset, langs=(self.lang,), chunks=self.train_chunks
-            ):
+            for item in by_size.BySizeItemsLoader.iter_items(dataset_name=dataset, **items_filters):
                 train_args.extend([item.train_args(model_type=md_type) for md_type in self.model_types])
 
         if self.skip_completed:

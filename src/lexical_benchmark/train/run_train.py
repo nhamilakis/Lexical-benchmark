@@ -67,22 +67,26 @@ class Single(Command):
 
     dataset_name: Positional[t.Literal["stela", "child_realistic"]]
     lang: Positional[str]
-    split: Positional[str]
-    chunk: Positional[str]
+    split: Positional[int]
+    chunk: Positional[int]
     model_type: Positional[lb_types.MODEL_TYPE]
-    # TODO: make device something that is set from here
-    device: str = "cuda"  # Used by nothing, needs to be plugged into trainer
-    n_procs: int = 8  # TODO: any parallel operation should use this
+
     resume: bool = True
     override: bool = False
     resume_id: str | None = None
-    log_to_std: bool = True
-    log_level: LogLevelType = "INFO"
-    model_config_file: Path | None = arg(None, parser=cp.Path(exists=True))
-    added_tokens: list[str] = arg(default_factory=lambda: ["'", "|"], parser=cp.List(cp.Str()))
 
-    async def run(self) -> None:
-        """Command Entrypoint."""
+    added_tokens: list[str] = arg(inherited=True, group="global-params")
+
+    # TODO: make device something that is set from here
+    device: lb_types.DEVICE_TYPE = arg(inherited=True, group="global-params")
+    debug: bool = arg(inherited=True, group="global-params")
+    model_config_file: Path | None = arg(inherited=True, group="global-params")
+
+    log_to_std: bool = arg(inherited=True, group="logs")
+    log_level: LogLevelType = arg(inherited=True, group="logs")
+
+    def prep_args(self) -> by_size.BySizeTrainItem:
+        """Prepare training arguments."""
         dt_item: by_size.BySizeItemsLoader = by_size.BySizeItemsLoader.load(
             dataset_name=self.dataset_name, lang=self.lang, split=self.split, chunk=self.chunk
         )
@@ -100,8 +104,12 @@ class Single(Command):
             log_path=train_args.train_logs_file,
             log_to_std=self.log_to_std,
         )
+        return train_args
 
+    async def run(self) -> None:
+        """Command Entrypoint."""
         # Train
+        train_args = self.prep_args()
         train_model(
             item=train_args,
         )
@@ -112,10 +120,15 @@ class ArrayIndex(Command):
 
     index_file: Positional[Path] = arg(parser=cp.Path(exists=True))
     current_index: Positional[int]
-    log_to_std: bool = False
-    log_level: LogLevelType = "INFO"
-    model_config_file: Path | None = arg(None, parser=cp.Path(exists=True))
-    added_tokens: list[str] = arg(default_factory=lambda: ["'", "|"], parser=cp.List(cp.Str()))
+
+    added_tokens: list[str] = arg(inherited=True, group="global-params")
+
+    device: lb_types.DEVICE_TYPE = arg(inherited=True, group="global-params")
+    debug: bool = arg(inherited=True, group="global-params")
+    model_config_file: Path | None = arg(inherited=True, group="global-params")
+
+    log_to_std: bool = arg(inherited=True, group="logs")
+    log_level: LogLevelType = arg(inherited=True, group="logs")
 
     def load_from_index(self) -> by_size.BySizeTrainItem:
         """Load train item from a file."""
@@ -123,8 +136,8 @@ class ArrayIndex(Command):
         # TODO: catch outOfBounds ?
         return by_size.BySizeTrainItem.from_dict(index[self.current_index])
 
-    async def run(self) -> None:
-        """Command Entrypoint."""
+    def prep_args(self) -> by_size.BySizeTrainItem:
+        """Prepare training arguments."""
         train_args = self.load_from_index()
         train_args.model_root_dir.mkdir(exist_ok=True, parents=True)
 
@@ -135,7 +148,10 @@ class ArrayIndex(Command):
             log_to_std=self.log_to_std,
         )
 
+    async def run(self) -> None:
+        """Command Entrypoint."""
         # Train
+        train_args = self.prep_args()
         train_model(
             item=train_args,
         )
@@ -145,3 +161,15 @@ class Train(Command):
     """Training script command."""
 
     subcommand: Single | ArrayIndex
+
+    debug: bool = False  # TODO: debug should generate less text ?
+    n_procs: int = 8  # TODO: any parallel operation should use this
+    device: lb_types.DEVICE_TYPE = "cuda"  # TODO: pass this to the training
+    added_tokens: list[str] = arg(default_factory=lambda: ["'", "|"], parser=cp.List(cp.Str()))
+
+    model_config_file: Path | None = arg(None, parser=cp.Path(exists=True))
+    log_to_std: bool = False
+    log_level: LogLevelType = "INFO"
+
+    # Introspection
+    interactive: bool = arg(default=False, hidden=True)

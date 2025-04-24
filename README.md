@@ -6,7 +6,7 @@
 
 #### Installation
 
-To get started with this module you will need to have the following requirements : [uv](https://docs.astral.sh/uv/getting-started/installation/).
+To get started with this module you will need to have the following requirements : [uv](https://docs.astral.sh/uv/getting-started/installation/) 
 
 
 Recommended way use the installation script : 
