@@ -138,10 +138,52 @@ class ChildRealisticDatasetConfig(DatasetConfig):
     """Configurations for the ChildRealistic dataset."""
 
     langs: tuple[str, ...] = ("EN",)
-    month_splits: tuple[str, ...] = ("01", "02", "03", "04", "05", "06", "10", "15", "20", "25", "30", "40", "50", "60")
+    size_splits: tuple[str, ...] = ("01", "02", "03", "04", "05", "06", "10", "15", "20", "25", "30", "40", "50", "60")
+    BY_SIZE_CHUNK_NUMBER: t.ClassVar[dict[str, int]] = {
+        "01": 60,
+        "02": 30,
+        "03": 20,
+        "04": 15,
+        "05": 12,
+        "06": 10,
+        "10": 6,
+        "15": 4,
+        "20": 3,
+        "25": 2,
+        "30": 2,
+        "40": 1,
+        "50": 1,
+        "60": 1,
+    }
+
+    @property
+    def generation_checkpoint_root(self) -> Path:
+        """Root location for checkpoint of generations."""
+        return settings.PATH.generate_root / "checkpoints" / self.dataset_name
+
+    @property
+    def generation_text_root(self) -> Path:
+        """Root location for generated text."""
+        return settings.PATH.generate_root / "text" / self.dataset_name
+
+    @property
+    def by_size_dir(self) -> Path:
+        """Path to by chunk split."""
+        return self.root_dir / "by_size"
 
     def __init__(self) -> None:
         super().__init__(dataset_name="child_realistic")
+
+    def chunks_by_size(self, lang: str, split: str, *, hardcoded: bool = True) -> tuple[str, ...]:
+        """List of chunks per split in by_size version."""
+        if hardcoded:
+            return tuple(f"{n:0>2}" for n in range(self.BY_SIZE_CHUNK_NUMBER.get(split, 0)))
+
+        section_dir = self.by_size_dir / lang / split
+        if section_dir.is_dir():
+            return tuple([d.name for d in section_dir.iterdir()])
+
+        raise FileNotFoundError("Cannot infer chunk size from disk")
 
     @staticmethod
     def clean_up_rules(lang: str) -> list[text_cleaners.CleanerFN]:
@@ -163,6 +205,9 @@ class ChildRealisticDatasetConfig(DatasetConfig):
         """A list of files to be included when transfering the final dataset."""
         return [
             self.original_root.relative_to(self.root_dir),  # src/original
+            self.preprocessed_root.relative_to(self.root_dir),  # src/preprocess
+            self.by_size_dir.relative_to(self.root_dir),  # by_size/
+            self.meta_dir.relative_to(self.root_dir),  # metadata/
         ]
 
 
