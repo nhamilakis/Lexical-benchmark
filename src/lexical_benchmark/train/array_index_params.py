@@ -30,7 +30,7 @@ class GenerationIndex(_IndexBase):
 
     hour_per_year: tuple[str, ...]
     temperature_list: tuple[float, ...]
-    checkpoint_id: int | None
+    checkpoint_id: int | None = None
 
 
 class SlurmIndex(pydantic.BaseModel):

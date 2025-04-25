@@ -1,14 +1,22 @@
 import logging
 import string
 import typing as t
+import warnings
 from pathlib import Path
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from vllm import LLM, SamplingParams  # type: ignore[missing-dependency]
+
+try:
+    import vllm  # type: ignore[missing-dependency]
+    from vllm import LLM, SamplingParams  # type: ignore[missing-dependency]
+except ImportError:
+    warnings.warn("'vllm' could not be imported, is it not installed ?", category=ImportWarning, stacklevel=1)
+    vllm = None
+    LLM, SamplingParams = (None, None)
 
 from lexical_benchmark import lb_types
 
-from .checkpoint_utils import GenerationCheckpoint
+from .checkpoint_utils import ESTIMATION_MONTH_KEY_TYPE, GenerationCheckpoint, GenerationsStruct
 from .trainers.lstm import LSTMConfig, LSTMForLanguageModeling
 
 Model = t.Any
@@ -46,7 +54,7 @@ class BatchGenerator:
             config = LSTMConfig.from_pretrained(self.model_path)
             return LSTMForLanguageModeling.from_pretrained(self.model_path, config=config).to(self.device)
         if self.model_type == "gpt2":
-            if self.use_vllm:
+            if self.use_vllm and vllm:
                 return LLM(
                     model=str(self.model_path),
                     tokenizer=self.tokenizer_name,
@@ -60,7 +68,7 @@ class BatchGenerator:
     def save_generation(
         self,
         temperature: float,
-        gen_attrs: dict,
+        gen_attrs: dict[ESTIMATION_MONTH_KEY_TYPE, GenerationsStruct],
         target_dir: Path,
         *,
         resume: bool = True,
@@ -102,7 +110,7 @@ class BatchGenerator:
 
     def _generate_sequence(self, temperature) -> str:
         """Generate sequences based on model types."""
-        if self.use_vllm:
+        if self.use_vllm and vllm:
             return self._generate_vllm(temperature)
         return self._generate_batch_vanilla(temperature)
 

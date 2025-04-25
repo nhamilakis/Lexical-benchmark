@@ -174,8 +174,10 @@ class ChildRealisticDatasetConfig(DatasetConfig):
     def __init__(self) -> None:
         super().__init__(dataset_name="child_realistic")
 
-    def chunks_by_size(self, lang: str, split: str, *, hardcoded: bool = True) -> tuple[str, ...]:
+    def chunks_by_size(self, lang: str, split: str | int, *, hardcoded: bool = True) -> tuple[str, ...]:
         """List of chunks per split in by_size version."""
+        split = f"{split:02}"  # Make sure padding is properly applied
+
         if hardcoded:
             return tuple(f"{n:0>2}" for n in range(self.BY_SIZE_CHUNK_NUMBER.get(split, 0)))
 
@@ -313,8 +315,9 @@ class STELADatasetConfig(DatasetConfig):
                     raise FileNotFoundError("STELA dataset not found on disk")
         return tuple([d.name for d in section_dir.iterdir()])
 
-    def chunks_by_size(self, lang: str, split: str, *, hardcoded: bool = True) -> tuple[str, ...]:
+    def chunks_by_size(self, lang: str, split: str | int, *, hardcoded: bool = True) -> tuple[str, ...]:
         """List of chunks per split in by_size version."""
+        split = f"{split:02}"  # Make sure padding is properly applied
         if hardcoded:
             return tuple(f"{n:0>2}" for n in range(self.BY_SIZE_CHUNK_NUMBER.get(split, 0)))
 

@@ -26,6 +26,7 @@ def init_logging(log_level: LogLevelType, log_path: Path, *, log_to_std: bool = 
     if log_to_std:
         generic_utils.setup_logging(log_level)
     else:
+        log_path.parent.mkdir(exist_ok=True, parents=True)
         generic_utils.setup_logging(log_level, log_file=log_path, no_stdout=True)
 
     L = logging.getLogger(__name__)
@@ -74,11 +75,9 @@ class ArrayIndex(Command):
     log_to_std: bool = arg(inherited=True, group="logs")
     log_level: LogLevelType = arg(inherited=True, group="logs")
 
-    interactive: bool = arg(inherited=True)
-
     def load_index(self) -> GenerationIndex:
         """Make data-item."""
-        slurm_index = SlurmIndex(self.index_file.read_toml())
+        slurm_index = SlurmIndex(**self.index_file.read_toml())
         try:
             return slurm_index.index[str(self.current_index)]
         except KeyError as err:
@@ -108,11 +107,10 @@ class ArrayIndex(Command):
         """Check if vllm needs to be used."""
         return bool(self.use_vllm and model_type == "gpt2")
 
-    async def run(self) -> None:
-        """Entrypoint."""
+    def prep_args(self) -> tuple[GenerationIndex, by_size.BySizeItemsLoader, BatchGenerator, dict]:
+        """Prepare arguments for generation."""
         current_i = self.load_index()
         data_item = self.make_item(current_i)
-
         init_logging(
             log_level=self.log_level, log_path=data_item.geneneration_checkpoint_root, log_to_std=self.log_to_std
         )
@@ -129,7 +127,11 @@ class ArrayIndex(Command):
             lang=data_item.lang,
             month_estimates=current_i.hour_per_year,
         )
+        return current_i, data_item, generator, token_nb_mapping
 
+    async def run(self) -> None:
+        """Entrypoint."""
+        current_i, _, generator, token_nb_mapping = self.prep_args()
         for temp in current_i.temperature_list:
             text = generator.save_generation(
                 temperature=temp,
@@ -167,8 +169,6 @@ class Single(Command):
     log_to_std: bool = arg(inherited=True, group="logs")
     log_level: LogLevelType = arg(inherited=True, group="logs")
 
-    interactive: bool = arg(inherited=True)
-
     def make_item(self) -> by_size.BySizeItemsLoader:
         """Make data-item."""
         return by_size.BySizeItemsLoader.load(
@@ -193,8 +193,8 @@ class Single(Command):
         """Check if vllm needs to be used."""
         return bool(self.use_vllm and self.model_type == "gpt2")
 
-    async def run(self) -> None:
-        """Entrypoint."""
+    def prep_args(self) -> tuple[by_size.BySizeItemsLoader, BatchGenerator, dict]:
+        """Prepare arguments."""
         data_item = self.make_item()
         init_logging(
             log_level=self.log_level, log_path=data_item.geneneration_checkpoint_root, log_to_std=self.log_to_std
@@ -212,7 +212,11 @@ class Single(Command):
             lang=data_item.lang,
             month_estimates=self.hour_per_year,
         )
+        return data_item, generator, token_nb_mapping
 
+    async def run(self) -> None:
+        """Entrypoint."""
+        _, generator, token_nb_mapping = self.prep_args()
         for temp in self.temperature_list:
             text = generator.save_generation(
                 temperature=temp,
@@ -229,10 +233,10 @@ class Generate(Command):
     subcommand: Single | ArrayIndex
 
     checkpoint_id: str | None = None
-    temperature_list: tuple[float, ...] = arg(settings.GENERATION_TEMPERATURES, parser=cp.Tuple(cp.Float()))
+    temperature_list: tuple[float, ...] = arg(settings.GENERATION_TEMPERATURES, parser=cp.Tuple(cp.Float(max=1000)))
     hour_per_year: tuple[str, ...] = arg(settings.GENERATION_HPY_ITEMS, parser=cp.Tuple(cp.Str()))
     seed: int = 562
-    use_vllm: bool = True
+    use_vllm: bool = False
     save_interval: int = 1024
     resume: bool = True
     override: bool = False

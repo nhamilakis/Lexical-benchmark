@@ -137,6 +137,7 @@ def build_text_dataset(datasets: tuple[str, ...] = ("stela",), langs=("EN",)) ->
                     temperature=item.temperature,
                 )
                 # TODO: clip extra tokens ??
+                struct["current_count"], struct["target_count"]
                 text_item.text_file.safe_append_text("\n".join(struct["text"]))
 
 

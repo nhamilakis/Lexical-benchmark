@@ -73,15 +73,14 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
         """Convert to dictionairy for args-index."""
         return {
             "dataset_name": self.dt_cfg.dataset_name,
+            "model_type": self.model_type,
             "lang": self.lang,
             "split": self.split,
             "chunk": self.chunk,
-            "model_type": self.model_type,
-            "temperature": self.temperature,
-            "checkpoint_id": None,
             "resume": True,
             "override": False,
-            "hour_per_year": settings.GENERATION_HPY_ITEMS,
+            "temperature": self.temperature,
+            "completed": self.is_finished(),
         }
 
     @property
@@ -118,6 +117,7 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
 
     def has_intermediate(self) -> bool:
         """Return if generation has started."""
+        return self.intermediate_checkpoint_file.is_file()
 
     def is_finished(self) -> bool:
         """Return if generation is completed."""
@@ -146,6 +146,8 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
         model_type: lb_types.MODEL_TYPE,
     ) -> "GenerationCheckpointLoader":
         """Load item."""
+        split = f"{split:02}"  # Make sure padding is properly applied
+        chunk = f"{chunk:02}"  # Make sure padding is properly applied
         return cls(
             lang=lang,
             split=split,
@@ -161,18 +163,19 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
         dataset_list = kwargs.get("datasets", ("stela", "child_realistic"))
         temperatures = kwargs.get("temperatures", settings.GENERATION_TEMPERATURES)
         model_type_list = kwargs.get("model_types", settings.MODEL_TYPES)
-        params_items = itertools.product(model_type_list, temperatures)
 
         for dt_name in dataset_list:
             dt_cfg: _DatasetWithGenerations = datasets.get_config(dt_name)
             langs_list = kwargs.get("langs", dt_cfg.langs)
-            split_list = kwargs.get("splits", dt_cfg.size_splits)
-            chunk_list = kwargs.get("chunks", settings.TRAIN_CHUNKS)
+            # Fix potential padding in chunk definitions
+            split_list = tuple([f"{sp:02}" for sp in kwargs.get("splits", dt_cfg.size_splits)])
+            chunk_list = tuple([f"{ck:02}" for ck in kwargs.get("chunks", settings.TRAIN_CHUNKS)])
 
             for _lang in langs_list:
                 # Skip non-valid languages
                 if _lang not in dt_cfg.langs:
                     continue
+
                 for _split in split_list:
                     # Skip non-existing hours
                     if _split not in dt_cfg.size_splits:
@@ -180,17 +183,18 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
 
                     for _chunk in dt_cfg.chunks_by_size(_lang, _split):
                         # If a filter list is set keep only given chunks
-                        if len(chunk_list) != 0 and _chunk not in chunk_list:
+                        if chunk_list and _chunk not in chunk_list:
                             continue
 
-                        for params in params_items:
+                        params_items = itertools.product(model_type_list, temperatures)
+                        for _model, _temp in params_items:
                             yield cls.load(
                                 dataset_name=dt_cfg.dataset_name,
                                 lang=_lang,
                                 split=_split,
                                 chunk=_chunk,
-                                model_type=params[0],
-                                temperature=params[1],
+                                model_type=_model,
+                                temperature=_temp,
                             )
 
 
