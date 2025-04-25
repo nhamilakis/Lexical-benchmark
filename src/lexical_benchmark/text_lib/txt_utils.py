@@ -1,6 +1,33 @@
 from pathlib import Path
 
 
+def trim_sentence_list(text: list[str], max_token_count: int) -> list[str]:
+    """Trim text to keep sentences within a target word count.
+
+    Removes sentences from the end of the text list until the word count
+    is less than or equal to the target count. Never splits sentences.
+    """
+    if max_token_count < 0:
+        raise ValueError("max_token_count cannot be negative !!")
+    if not text:
+        return []
+
+    total_words = 0
+    trimmed_text = []
+
+    for sentence in text:
+        word_count = len(sentence.split())
+        new_total = total_words + word_count
+
+        if new_total <= max_token_count:
+            trimmed_text.append(sentence)
+            total_words = new_total
+        else:
+            break
+
+    return trimmed_text
+
+
 def word_count(lines: list[str], *, skip_stupid: bool = True) -> int:
     """Count number of words."""
     total = 0

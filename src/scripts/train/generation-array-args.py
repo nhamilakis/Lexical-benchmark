@@ -92,7 +92,7 @@ class GenerationArguments(Command):
             df.rename({"temperatures": "temperature_list"})  # 1. Rename temperatures column
             .drop("completed")  # 2. Remove completed column
             .with_columns(
-                pl.lit(self.hour_per_year_estimations).alias("hour_per_year"),  # 3. Add hours_per_year column
+                pl.lit(self.hour_per_year_estimations).alias("hour_per_year"),  # 3. Add hours_per_year columnr
             )
         )
         return SlurmIndex(index={f"{idx}": GenerationIndex(**obj) for idx, obj in enumerate(df.to_dicts())})
