@@ -39,11 +39,19 @@ class BatchGenerator:
         batch_size: int = 1,
     ) -> None:
         self.device = device
-        self.model_path = model_path
+
         self.use_vllm = use_vllm
         self.model_type = model_type
         self.tokenizer_name = tokenizer_name
         self.batch_size = batch_size
+
+        # Set model path
+        if model_path.is_dir():
+            self.model_path = model_path
+        elif model_path.is_file():
+            self.model_path = model_path.parent
+        else:
+            raise ValueError(f"Given {model_path} does not exist !!")
 
         if not self.use_vllm:
             self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name)
@@ -79,9 +87,13 @@ class BatchGenerator:
         # initialize the model
         if resume:
             resume_checkpoint = GenerationCheckpoint.load_intermediate(location=target_dir, temperature=temperature)
+            if resume_checkpoint:
+                L.info(f"Resuming generation from {target_dir / f'generation_{temperature}.intermediate.obj'}")
 
         if override or not resume_checkpoint:
+            L.info("Starting generation...")
             resume_checkpoint = GenerationCheckpoint.init_from_args(temperature=temperature, word_counts=gen_attrs)
+            target_dir.mkdir(exist_ok=True, parents=True)
 
         if resume_checkpoint.remaining_count() == 0:
             L.info("No more items require generation, exiting")
@@ -91,7 +103,7 @@ class BatchGenerator:
         while resume_checkpoint.remaining_count() > 0:
             next_id, leftover = resume_checkpoint.get_next_gen()
             text, count = self.generate_text(temperature, leftover)
-            resume_checkpoint.append_to(gen_id=next_id, text=text, token_count=count)
+            resume_checkpoint.append_text(gen_id=next_id, text=text, token_count=count)
             L.info(f"Saving checkpoint of {next_id} to disk")
             resume_checkpoint.save_intermediate(target_dir)
         L.info(f"Completed generation, checkpoint can be found @ {target_dir}")

@@ -37,6 +37,7 @@ def load_generator(
     device: lb_types.DEVICE_TYPE,
     model_type: lb_types.MODEL_TYPE,
     seed: int,
+    tokenizer_name: str,
     *,
     use_vllm: bool,
 ) -> BatchGenerator:
@@ -50,7 +51,7 @@ def load_generator(
     torch.backends.cudnn.benchmark = False
     return BatchGenerator(
         model_path=model_path,
-        tokenizer_name="phonemetransformers/GPT2-85M-CHAR-TXT",  # TODO: move this into params
+        tokenizer_name=tokenizer_name,
         device=device,
         use_vllm=use_vllm,
         model_type=model_type,
@@ -74,6 +75,8 @@ class ArrayIndex(Command):
 
     log_to_std: bool = arg(inherited=True, group="logs")
     log_level: LogLevelType = arg(inherited=True, group="logs")
+
+    tokenizer_name: str = arg(inherited=True, group="global-params")
 
     def load_index(self) -> GenerationIndex:
         """Make data-item."""
@@ -114,11 +117,13 @@ class ArrayIndex(Command):
         init_logging(
             log_level=self.log_level, log_path=data_item.geneneration_checkpoint_root, log_to_std=self.log_to_std
         )
+        L.info("Loading generation parameters...")
         generator = load_generator(
             model_path=self.model_path(data_item.model_root, current_i),
             device=self.device,
             use_vllm=self.can_use_vllm(current_i.model_type),
             model_type=current_i.model_type,
+            tokenizer_name=self.tokenizer_name,
             seed=self.seed,
         )
 
@@ -131,9 +136,10 @@ class ArrayIndex(Command):
 
     async def run(self) -> None:
         """Entrypoint."""
-        current_i, _, generator, token_nb_mapping = self.prep_args()
+        current_i, data_item, generator, token_nb_mapping = self.prep_args()
         for temp in current_i.temperature_list:
             text = generator.save_generation(
+                target_dir=data_item.geneneration_checkpoint_root / current_i.model_type,
                 temperature=temp,
                 gen_attrs=token_nb_mapping,
                 resume=current_i.resume,
@@ -169,6 +175,8 @@ class Single(Command):
     log_to_std: bool = arg(inherited=True, group="logs")
     log_level: LogLevelType = arg(inherited=True, group="logs")
 
+    tokenizer_name: str = arg(inherited=True, group="global-params")
+
     def make_item(self) -> by_size.BySizeItemsLoader:
         """Make data-item."""
         return by_size.BySizeItemsLoader.load(
@@ -199,11 +207,13 @@ class Single(Command):
         init_logging(
             log_level=self.log_level, log_path=data_item.geneneration_checkpoint_root, log_to_std=self.log_to_std
         )
+        L.info("Loading generation parameters...")
         generator = load_generator(
             model_path=self.model_path(data_item),
             device=self.device,
             use_vllm=self.can_use_vllm(),
             model_type=self.model_type,
+            tokenizer_name=self.tokenizer_name,
             seed=self.seed,
         )
 
@@ -216,15 +226,18 @@ class Single(Command):
 
     async def run(self) -> None:
         """Entrypoint."""
-        _, generator, token_nb_mapping = self.prep_args()
+        data_item, generator, token_nb_mapping = self.prep_args()
         for temp in self.temperature_list:
+            L.info(f"Generating for temperature={temp}")
             text = generator.save_generation(
+                target_dir=data_item.geneneration_checkpoint_root / self.model_type,
                 temperature=temp,
                 gen_attrs=token_nb_mapping,
                 resume=self.resume,
                 override=self.override,
             )
-            L.debug(f"Generated text for {temp=}" + text)
+            L.info(f"Finished generating text for {temp=}")
+            L.debug(f"::{text}")
 
 
 class Generate(Command):
@@ -247,6 +260,8 @@ class Generate(Command):
     model_config_file: Path | None = arg(None, parser=cp.Path(exists=True))
     log_to_std: bool = False
     log_level: LogLevelType = "INFO"
+
+    tokenizer_name: str = "phonemetransformers/GPT2-85M-CHAR-TXT"
 
     # Introspection
     interactive: bool = arg(default=False, hidden=True)

@@ -100,7 +100,12 @@ class GenerationCheckpoint:
         leftover_to_generate = next_obj["target_count"] - next_obj["current_count"]
         return (next_id, leftover_to_generate)
 
-    def append_to(self, gen_id: tuple[lb_types.ESTIMATION_TYPE, int], text: list[str], token_count: int) -> None:
+    def append_text(self, gen_id: tuple[lb_types.ESTIMATION_TYPE, int], text: str, token_count: int) -> None:
+        """Append generated text to a given set."""
+        self.gen_items[gen_id]["text"].append(text)
+        self.gen_items[gen_id]["current_count"] += token_count
+
+    def append_text_list(self, gen_id: tuple[lb_types.ESTIMATION_TYPE, int], text: list[str], token_count: int) -> None:
         """Append generated text to a given set."""
         self.gen_items[gen_id]["text"].extend(text)
         self.gen_items[gen_id]["current_count"] += token_count

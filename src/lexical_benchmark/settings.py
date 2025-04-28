@@ -10,6 +10,11 @@ LEXICON_ITEMS = ("kaikki", "SCOWLv2", "yawl")
 # Placeholder string for empty rows
 PLACEHOLDER_MONTH = "placeholder"
 
+CLUSTER_DATADIRS = {
+    "coml-cluster": _Path("/scratch1/projects/lexical-benchmark/v2"),
+    "jean-zay": _Path("/lustre/fswork/projects/rech/hhb/commun/lexical-benchmark"),
+}
+COML_HOSTNAMES: tuple = tuple({"oberon", "oberon2", "habilis", *[f"puck{i}" for i in range(1, 7)]})
 
 GENERATION_TEMPERATURES = (0.3, 0.6, 1.0, 1.5)
 GENERATION_HPY_ITEMS = ("100hpy", "500hpy", "1000hpy")
@@ -111,25 +116,32 @@ def _assert_dir(dir_location: _Path) -> None:
         )
 
 
+def get_cluster_name() -> str:
+    """Get current cluster name if known."""
+    if "CLUSTER_NAME" in _os.environ:
+        return _os.environ["CLUSTER_NAME"]
+
+    if _platform.node() in COML_HOSTNAMES:
+        return "coml-cluster"
+
+    # Legacy support
+    if "JZ" in _os.environ:
+        return "jean-zay"
+
+    return None
+
+
 @_dataclasses.dataclass
 class _MyPathSettings:
-    def is_jz(self) -> bool:
-        """Check wether we are running in the jean-zay cluster."""
-        if "JZ" in _os.environ:
-            return _os.environ.get("JZ") == "1"
-        return False
-
     DATA_DIR: _Path = _Path(_os.environ.get("DATA_DIR", "data/"))
-    COML_SERVERS: tuple = tuple({"oberon", "oberon2", "habilis", *[f"puck{i}" for i in range(1, 7)]})
     CURRENT_MODEL_VERSION: int = _dataclasses.field(default_factory=lambda: int(_os.environ.get("MODEL_VERSION", 0)))
 
     def __post_init__(self) -> None:
         if "DATA_DIR" not in _os.environ:
-            if _platform.node() in self.COML_SERVERS:
-                self.DATA_DIR = _Path("/scratch1/projects/lexical-benchmark/v2")
-
-            elif self.is_jz():
-                self.DATA_DIR = _Path("/lustre/fswork/projects/rech/hhb/commun/lexical-benchmark")
+            # check if in known cluster
+            cluster = get_cluster_name()
+            if cluster in CLUSTER_DATADIRS:
+                self.DATA_DIR = CLUSTER_DATADIRS[cluster]
 
         if not self.DATA_DIR.is_dir():
             _warnings.warn(
@@ -167,7 +179,6 @@ class _MyPathSettings:
 
     @property
     def lexicon_root(self) -> _Path:
-        _assert_dir(self.DATA_DIR / "datasets" / "lexicon")
         return self.dataset_root / "lexicon"
 
     @property
