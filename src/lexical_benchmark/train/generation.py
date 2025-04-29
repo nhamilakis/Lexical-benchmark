@@ -102,12 +102,15 @@ class BatchGenerator:
         # While items still left to generate
         while resume_checkpoint.remaining_count() > 0:
             next_id, leftover = resume_checkpoint.get_next_gen()
-            text, count = self.generate_text(temperature, leftover)
-            resume_checkpoint.append_text(gen_id=next_id, text=text, token_count=count)
-            L.info(f"Saving checkpoint of {next_id} to disk")
-            resume_checkpoint.save_intermediate(target_dir)
-        L.info(f"Completed generation, checkpoint can be found @ {target_dir}")
+            resume_checkpoint = self.generate_checkpoint_text(
+                temperature=temperature,
+                nb_tokens=leftover,
+                index=next_id,
+                checkpoint=resume_checkpoint,
+            )
+
         resume_checkpoint.save_final(target_dir)
+        L.info(f"Completed generation, checkpoint can be found @ {target_dir}")
 
     def generate_text(self, temperature: float, nb_tokens: int) -> tuple[str, int]:
         """Generate text from model."""
@@ -120,6 +123,20 @@ class BatchGenerator:
             if curr_tokens >= nb_tokens:
                 break
         return generated_text, curr_tokens
+
+    def generate_checkpoint_text(
+        self, temperature: float, nb_tokens: int, index: ESTIMATION_MONTH_KEY_TYPE, checkpoint: GenerationCheckpoint
+    ) -> GenerationCheckpoint:
+        """Generate text from model, and save it into the checkpoint."""
+        curr_tokens = 0
+        while curr_tokens < nb_tokens:
+            new_text = self._generate_sequence(temperature)
+            count = self._count_words(new_text)
+            checkpoint.append_text_list(index, new_text, count)
+            curr_tokens += count
+            if curr_tokens >= nb_tokens:
+                break
+        return checkpoint
 
     def _generate_sequence(self, temperature) -> str:
         """Generate sequences based on model types."""

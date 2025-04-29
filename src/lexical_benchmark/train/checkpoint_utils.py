@@ -1,3 +1,4 @@
+import logging
 import pickle
 import typing as t
 from dataclasses import dataclass, field
@@ -9,6 +10,8 @@ from lexical_benchmark import lb_types
 
 ESTIMATION_MONTH_KEY_TYPE = tuple[lb_types.ESTIMATION_TYPE, int]
 TEXTType = list[str]
+
+L = logging.getLogger(__name__)
 
 
 class GenerationsStruct(t.TypedDict):
@@ -25,7 +28,10 @@ class GenerationCheckpoint:
 
     temperature: float
     gen_items: dict[ESTIMATION_MONTH_KEY_TYPE, GenerationsStruct] = field(default_factory=dict)
-    count_error_margin: int = 20
+    checkpoint_interval: int = 20
+    checkpoint_counter: int = -1
+    auto_checkpoint: bool = True
+    save_dir: Path | None = None
 
     @classmethod
     def load_intermediate(cls, location: Path, temperature: float) -> "GenerationCheckpoint | None":
@@ -33,7 +39,9 @@ class GenerationCheckpoint:
         file_path = location / f"generation_{temperature}.intermediate.obj"
         if file_path.is_file():
             with file_path.open("rb") as fh:
-                return pickle.load(fh)
+                self: GenerationCheckpoint = pickle.load(fh)
+                self.save_dir = location
+                return self
         return None
 
     @classmethod
@@ -42,28 +50,40 @@ class GenerationCheckpoint:
         file_path = location / f"generation_{temperature}.obj"
         if file_path.is_file():
             with file_path.open("rb") as fh:
-                return pickle.load(fh)
+                self: GenerationCheckpoint = pickle.load(fh)
+                self.save_dir = location
+                return self
         return None
 
     @classmethod
     def init_from_args(
-        cls, temperature: float, word_counts: dict[ESTIMATION_MONTH_KEY_TYPE, int]
+        cls, temperature: float, word_counts: dict[ESTIMATION_MONTH_KEY_TYPE, int], location: Path | None = None
     ) -> "GenerationCheckpoint":
         """Initialise generation checkpoint."""
-        obj = cls(temperature=temperature)
+        obj = cls(temperature=temperature, save_dir=location)
         for (est, month), count in word_counts.items():
             obj.gen_items[(est, month)] = {"current_count": 0, "target_count": count, "text": []}
         return obj
 
-    def save_intermediate(self, location: Path) -> None:
+    def __post_init__(self) -> None:
+        # Set counter to interval
+        self.checkpoint_counter = self.checkpoint_interval
+
+    def save_intermediate(self, location: Path | None) -> None:
         """Save progress to intermediate file."""
+        if location is None:
+            location = self.save_dir
+
         file_path = location / f"generation_{self.temperature}.intermediate.obj"
         file_path.parent.mkdir(exist_ok=True, parents=True)
         with file_path.open("wb") as fh:
             pickle.dump(self, fh)
 
-    def save_final(self, location: Path) -> None:
+    def save_final(self, location: Path | None = None) -> None:
         """Save final file to disk."""
+        if location is None:
+            location = self.save_dir
+
         file_path = location / f"generation_{self.temperature}.obj"
         file_path.parent.mkdir(exist_ok=True, parents=True)
         with file_path.open("wb") as fh:
@@ -79,7 +99,7 @@ class GenerationCheckpoint:
     def iter_items(self) -> t.Iterable[tuple[lb_types.ESTIMATION_TYPE, int, GenerationsStruct]]:
         """Iter over non completed items."""
         for (est, month), obj in self.gen_items.items():
-            if obj["current_count"] < (obj["target_count"] - self.count_error_margin):
+            if obj["current_count"] <= obj["target_count"]:
                 yield est, month, obj
 
     def get_next_gen(self) -> tuple[tuple[lb_types.ESTIMATION_TYPE, int], int]:
@@ -105,10 +125,28 @@ class GenerationCheckpoint:
         self.gen_items[gen_id]["text"].append(text)
         self.gen_items[gen_id]["current_count"] += token_count
 
+        if self.checkpoint_counter <= 0 and self.auto_checkpoint:
+            L.info(
+                f"Auto-Checkpoint: saving intermediate {self.save_dir}/generation_{self.temperature}.intermediate.obj"
+            )
+            self.save_intermediate()
+            self.checkpoint_counter = self.checkpoint_interval
+
+        self.checkpoint_counter -= 1
+
     def append_text_list(self, gen_id: tuple[lb_types.ESTIMATION_TYPE, int], text: list[str], token_count: int) -> None:
         """Append generated text to a given set."""
         self.gen_items[gen_id]["text"].extend(text)
         self.gen_items[gen_id]["current_count"] += token_count
+
+        if self.checkpoint_counter <= 0 and self.auto_checkpoint:
+            L.info(
+                f"Auto-Checkpoint: saving intermediate {self.save_dir}/generation_{self.temperature}.intermediate.obj"
+            )
+            self.save_intermediate()
+            self.checkpoint_counter = self.checkpoint_interval
+
+        self.checkpoint_counter -= len(text)
 
     def remaining_count(self) -> int:
         """Get count of non-completed items."""
