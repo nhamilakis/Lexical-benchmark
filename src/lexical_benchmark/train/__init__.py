@@ -1,5 +1,4 @@
 from clypi import Command, Positional
-from transformers import AutoTokenizer
 
 
 class _DownloadHFCMD(Command):
@@ -12,6 +11,8 @@ class _DownloadHFCMD(Command):
 
 
 def hf_dl_cmd() -> None:
-    """Command-Line Entrypoint for downloader."""
+    """Command-Line Entrypoint for HF pre-downloader."""
+    from transformers import AutoTokenizer
+
     # Download Auto-Encoder
     AutoTokenizer.from_pretrained("phonemetransformers/GPT2-85M-CHAR-TXT")

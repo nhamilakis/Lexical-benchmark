@@ -7,24 +7,29 @@ For training the models you need to make sure first the dataset configuration is
 
 Train a single model
 
+
+> !!!! Before training you need to download the tokenizer on jean-zay compute nodes do not have internet access.
+> ```uv run hf-download```
+
+
 ```bash
-export JZ=1 # configure jz data dir 
+export CLUSTER_NAME="jean-zay" # configure jz data dir 
 # See available arguments using 
 uv run scripts/train/train.py single --help
 # Run job using sbatch
-$ sbatch slurm_scripts/training/train-jz.sh stela EN 1 0 lstm
+$ sbatch slurm_scripts/training/train-jz.sh stela EN 1 0 lstm --resume
 ```
 
 Train in multiple using sbatch array
 
 ```bash
-export JZ=1 # configure jz data dir
+export CLUSTER_NAME="jean-zay" # configure jz data dir
 # See available options
 uv run scripts/train/training-array-args.py --help
 # generate array file
 uv run scripts/train/training-array-args.py --dataset-name stela --train-chunks 0,1 --split-include 1,2,3,4,5,6 --model-types gpt2 --to-args -s
 # Run the sbatch array
-sbatch --array=1-12 slurm_scripts/training/train-jz.sh to_train.toml 
+sbatch --array=0-12 slurm_scripts/training/train-jz.sh /path/to/to_train.toml 
 ```
 
 
