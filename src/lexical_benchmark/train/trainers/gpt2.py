@@ -11,6 +11,7 @@ from transformers import (
     Trainer,
 )
 
+from lexical_benchmark import lb_types
 from lexical_benchmark.dataloaders import by_size
 from lexical_benchmark.train import tokenizers, train_params
 
@@ -22,6 +23,8 @@ def transformer_training(
     args: by_size.BySizeTrainItem,
     params_file: Path | None = None,
     tokenizer_name: str = "phonemetransformers/GPT2-85M-CHAR-TXT",
+    batch_size: int = 128,
+    device: lb_types.DEVICE_TYPE = "cuda",
 ) -> Trainer:
     """Run transformer training using standard HuggingFace components with joined utterances."""
     # Ensure tokenizers parallelism is disabled
@@ -29,6 +32,7 @@ def transformer_training(
 
     # Load model parameters
     model_params = train_params.load_model_params(params_file=params_file)
+    model_params.per_device_train_batch_size = batch_size
 
     # Load tokenizer - standard Hugging Face tokenizer
     L.info("Loading char tokenizer")
@@ -61,7 +65,7 @@ def transformer_training(
     )
 
     # intialize GPT model with FlashAttention
-    model = GPTLMHeadModel(config)
+    model = GPTLMHeadModel(config, device=device)
     # Create Trainer
     L.info("Creating standard Trainer")
     return Trainer(

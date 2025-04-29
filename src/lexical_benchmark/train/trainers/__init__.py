@@ -1,7 +1,7 @@
 import typing as t
 from pathlib import Path
 
-from lexical_benchmark import exc
+from lexical_benchmark import exc, lb_types
 from lexical_benchmark.dataloaders import by_size
 
 # Forward reference for optuna.Trial since we don't import optuna
@@ -32,16 +32,29 @@ class TrainerP(t.Protocol):
         ...
 
 
-def load_trainer(item: by_size.BySizeTrainItem, *, model_params_file: Path | None = None) -> TrainerP:
+def load_trainer(
+    item: by_size.BySizeTrainItem,
+    *,
+    device: lb_types.DEVICE_TYPE,
+    batch_size: int | None = None,
+    model_params_file: Path | None = None,
+) -> TrainerP:
     """Load model trainer."""
+    extra_args = {"params_file": model_params_file}
+    if batch_size:
+        extra_args["batch_size"] = batch_size
+
+    if device:
+        extra_args["device"] = device
+
     match item.model_type:
         case "lstm":
             from .lstm import lstm_training
 
-            return lstm_training(args=item, params_file=model_params_file)
+            return lstm_training(args=item, **extra_args)
         case "gpt2":
             from .gpt2 import transformer_training
 
-            return transformer_training(args=item, params_file=model_params_file)
+            return transformer_training(args=item, **extra_args)
         case _:
             raise exc.BadModelTypeError(f"Model {item.model_type} not in given model list !")

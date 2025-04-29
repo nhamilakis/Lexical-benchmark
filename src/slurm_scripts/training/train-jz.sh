@@ -19,10 +19,9 @@
 ##SBATCH --array=0-2
 #SBATCH --output=logs/%x-%A-%a.log
 #SBATCH --hint=nomultithread        # hyperthreading is deactivated
+echo "---START OF TRAIN SCRIPT--- $(date)"
 
-export JZ=1
-
-
+export CLUSTER_NAME="jean-zay"
 # Initialize a variable to track if --test was passed
 TEST_MODE=false
 
@@ -35,7 +34,7 @@ done
 
 if [[ "$TEST_MODE" == true ]]; then
     echo "Running in test mode..."
-    uv run code/src/scripts/train/train.py single stela EN 01 00 lstm --resume \
+    uv run code/src/scripts/train/train.py single stela EN 01 00 lstm --batch-size 256 \
         && echo "training completed succesfully."
     exit 0
 fi
@@ -49,9 +48,12 @@ if [[ -n "${SLURM_ARRAY_TASK_ID}" ]]; then
         exit 1
     fi
     shift
-    uv run code/src/scripts/train/train.py array-index $1 "${SLURM_ARRAY_TASK_ID}" $*
+    uv run code/src/scripts/train/train.py array-index $1 "${SLURM_ARRAY_TASK_ID}" --batch-size 256 $* \
+        && echo "training completed succesfully."
 else
     echo "Not running as a job array"
-    uv run code/src/scripts/train/train.py single $*
+    echo ">train.py single --batch-size 256 $*"
+    uv run code/src/scripts/train/train.py single --batch-size 256 $* \
+        && echo "training completed succesfully."
 fi
-echo "training completed succesfully."
+echo "---END OF TRAIN SCRIPT--- $(date)"

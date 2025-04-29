@@ -41,13 +41,12 @@ def train_model(
     item: by_size.BySizeTrainItem,
     *,
     model_params_file: Path | None = None,
+    device: lb_types.DEVICE_TYPE = None,
+    batch_size: int | None = None,
 ) -> None:
     """Train a model on the given dataset item."""
     L.info(f"Loading {item.model_type} trainer class.")
-    trainer = load_trainer(
-        item=item,
-        model_params_file=model_params_file,
-    )
+    trainer = load_trainer(item=item, model_params_file=model_params_file, device=device, batch_size=batch_size)
 
     resume_file = item.get_resume_train()
     if resume_file:
@@ -77,8 +76,8 @@ class Single(Command):
 
     added_tokens: list[str] = arg(inherited=True, group="global-params")
 
-    # TODO: make device something that is set from here
     device: lb_types.DEVICE_TYPE = arg(inherited=True, group="global-params")
+    batch_size: int = arg(inherited=True, group="global-params")
     debug: bool = arg(inherited=True, group="global-params")
     model_config_file: Path | None = arg(inherited=True, group="global-params")
 
@@ -112,6 +111,8 @@ class Single(Command):
         train_args = self.prep_args()
         train_model(
             item=train_args,
+            device=self.device,
+            batch_size=self.batch_size,
         )
 
 
@@ -124,6 +125,7 @@ class ArrayIndex(Command):
     added_tokens: list[str] = arg(inherited=True, group="global-params")
 
     device: lb_types.DEVICE_TYPE = arg(inherited=True, group="global-params")
+    batch_size: int = arg(inherited=True, group="global-params")
     debug: bool = arg(inherited=True, group="global-params")
     model_config_file: Path | None = arg(inherited=True, group="global-params")
 
@@ -154,6 +156,8 @@ class ArrayIndex(Command):
         train_args = self.prep_args()
         train_model(
             item=train_args,
+            device=self.device,
+            batch_size=self.batch_size,
         )
 
 
@@ -166,6 +170,7 @@ class Train(Command):
     n_procs: int = 8  # TODO: any parallel operation should use this
     device: lb_types.DEVICE_TYPE = "cuda"  # TODO: pass this to the training
     added_tokens: list[str] = arg(default_factory=lambda: ["'", "|"], parser=cp.List(cp.Str()))
+    batch_size: int = arg(default=128, help="Size of batch, 128 for A40 GPU | 256 for A100/H100 (default: 128)")
 
     model_config_file: Path | None = arg(None, parser=cp.Path(exists=True))
     log_to_std: bool = False

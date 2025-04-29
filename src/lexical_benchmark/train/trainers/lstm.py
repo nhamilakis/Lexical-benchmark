@@ -13,6 +13,7 @@ from transformers import (
     Trainer,
 )
 
+from lexical_benchmark import lb_types
 from lexical_benchmark.dataloaders import by_size
 from lexical_benchmark.train import tokenizers, train_params
 
@@ -67,17 +68,18 @@ class LSTMForLanguageModeling(PreTrainedModel):
 
     config_class = LSTMConfig
 
-    def __init__(self, config: LSTMConfig) -> None:
+    def __init__(self, config: LSTMConfig, device: lb_types.DEVICE_TYPE = "cuda") -> None:
         super().__init__(config)
 
-        self.embedding = nn.Embedding(config.vocab_size, config.embedding_dim)
+        self.device = device
+        self.embedding = nn.Embedding(config.vocab_size, config.embedding_dim).to(device=device)
         self.lstm = nn.LSTM(
             input_size=config.embedding_dim,
             hidden_size=config.hidden_size,
             num_layers=config.num_layers,
             dropout=config.dropout if config.num_layers > 1 else 0,
             batch_first=True,
-        )
+        ).to(device=device)
         self.output = nn.Linear(config.hidden_size, config.vocab_size)
 
     def forward(
@@ -167,6 +169,8 @@ def lstm_training(
     args: by_size.BySizeTrainItem,
     params_file: Path | None = None,
     tokenizer_name: str = "phonemetransformers/GPT2-85M-CHAR-TXT",
+    batch_size: int = 128,
+    device: lb_types.DEVICE_TYPE = "cuda",
 ) -> Trainer:
     """Run transformer training using standard HuggingFace components with joined utterances."""
     # Ensure tokenizers parallelism is disabled
@@ -174,6 +178,7 @@ def lstm_training(
 
     # Load model parameters
     model_params = train_params.load_model_params(params_file=params_file)
+    model_params.per_device_train_batch_size = batch_size
 
     # Load tokenizer - standard Hugging Face tokenizer
     L.info("Loading char-tokenizer")
@@ -197,7 +202,7 @@ def lstm_training(
     # Create standard GPT2 configuration
     L.info("Loading configurations & initialising LSTM model trainer")
     model = LSTMForLanguageModeling(
-        config=LSTMConfig(lstm_params=model_params.lstm, vocab_size=len(tokenizer.get_vocab()))
+        config=LSTMConfig(lstm_params=model_params.lstm, vocab_size=len(tokenizer.get_vocab())), device=device
     )
     return Trainer(
         model=model,
