@@ -28,7 +28,7 @@ class GenerationCheckpoint:
 
     temperature: float
     gen_items: dict[ESTIMATION_MONTH_KEY_TYPE, GenerationsStruct] = field(default_factory=dict)
-    checkpoint_interval: int = 128
+    checkpoint_interval: int = 500
     checkpoint_counter: int = -1
     auto_checkpoint: bool = True
     save_dir: Path | None = None
