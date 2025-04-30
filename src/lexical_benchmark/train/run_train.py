@@ -125,7 +125,6 @@ class ArrayIndex(Command):
     added_tokens: list[str] = arg(inherited=True, group="global-params")
 
     device: lb_types.DEVICE_TYPE = arg(inherited=True, group="global-params")
-    batch_size: int = arg(inherited=True, group="global-params")
     debug: bool = arg(inherited=True, group="global-params")
     model_config_file: Path | None = arg(inherited=True, group="global-params")
 
@@ -157,7 +156,7 @@ class ArrayIndex(Command):
         train_model(
             item=train_args,
             device=self.device,
-            batch_size=self.batch_size,
+            batch_size=train_args.batch_size,
         )
 
 

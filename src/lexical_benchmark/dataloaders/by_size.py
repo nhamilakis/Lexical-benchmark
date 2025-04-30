@@ -214,6 +214,7 @@ class BySizeTrainItem:
     resume: bool = True
     override: bool = False
     resume_id: str | None = None
+    batch_size: int = 128
 
     @property
     def item_id(self) -> str:
@@ -317,6 +318,7 @@ class BySizeTrainItem:
             "resume": self.resume,
             "override": self.override,
             "resume_id": self.resume_id,
+            "batch_size": self.batch_size,
         }
 
     @classmethod
