@@ -115,7 +115,9 @@ class ArrayIndex(Command):
         current_i = self.load_index()
         data_item = self.make_item(current_i)
         init_logging(
-            log_level=self.log_level, log_path=data_item.geneneration_checkpoint_root, log_to_std=self.log_to_std
+            log_level=self.log_level,
+            log_path=data_item.geneneration_checkpoint_root / "gen.log",
+            log_to_std=self.log_to_std,
         )
         L.info("Loading generation parameters...")
         generator = load_generator(
@@ -205,7 +207,9 @@ class Single(Command):
         """Prepare arguments."""
         data_item = self.make_item()
         init_logging(
-            log_level=self.log_level, log_path=data_item.geneneration_checkpoint_root, log_to_std=self.log_to_std
+            log_level=self.log_level,
+            log_path=data_item.geneneration_checkpoint_root / "gen.log",
+            log_to_std=self.log_to_std,
         )
         L.info("Loading generation parameters...")
         generator = load_generator(
@@ -246,8 +250,10 @@ class Generate(Command):
     subcommand: Single | ArrayIndex
 
     checkpoint_id: str | None = None
-    temperature_list: tuple[float, ...] = arg(settings.GENERATION_TEMPERATURES, parser=cp.Tuple(cp.Float(max=1000)))
-    hour_per_year: tuple[str, ...] = arg(settings.GENERATION_HPY_ITEMS, parser=cp.Tuple(cp.Str()))
+    temperature_list: tuple[float, ...] = arg(
+        settings.GENERATION_TEMPERATURES, parser=cp.Tuple(cp.Float(max=1000), num=None)
+    )
+    hour_per_year: tuple[str, ...] = arg(settings.GENERATION_HPY_ITEMS, parser=cp.Tuple(cp.Str(), num=None))
     seed: int = 562
     use_vllm: bool = False
     save_interval: int = 1024

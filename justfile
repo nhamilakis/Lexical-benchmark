@@ -16,7 +16,7 @@ JZ_SRC_PROD := JZ_SCRATCH_WORK + "/prod/code"
 
 hostname := `hostname`
 COML_WORKSPACE := if hostname == "NicolasMBP.local" {
-    "workspace/src/LexicalBenchmark2"
+    "workspace/code/LexicalBenchmark2"
 } else if hostname == "MBP-de-jliu" {
     "/home/jliu/projects/LexicalBenchmark"
 } else {

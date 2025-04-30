@@ -71,7 +71,7 @@ class LSTMForLanguageModeling(PreTrainedModel):
     def __init__(self, config: LSTMConfig, device: lb_types.DEVICE_TYPE = "cuda") -> None:
         super().__init__(config)
 
-        self.device = device
+        self.to(device=device)
         self.embedding = nn.Embedding(config.vocab_size, config.embedding_dim).to(device=device)
         self.lstm = nn.LSTM(
             input_size=config.embedding_dim,

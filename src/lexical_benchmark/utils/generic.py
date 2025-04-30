@@ -178,7 +178,7 @@ def setup_logging(log_level: LOG_LEVELS, *, log_file: Path | None = None, no_std
         handlers.append(logging.StreamHandler(sys.stdout))
 
     if log_file:
-        handlers.append(logging.FileHandler(log_file))
+        handlers.append(logging.FileHandler(filename=log_file, mode="a"))
 
     if len(handlers) <= 0:
         raise ValueError("No log handlers specified !!!")
