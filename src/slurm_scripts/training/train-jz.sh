@@ -45,8 +45,9 @@ if [[ -n "${SLURM_ARRAY_TASK_ID}" ]]; then
         echo "Error: Invalid \$1 needs to be an index file"
         exit 1
     fi
+    INDEX_FILE="$1"
     shift
-    uv run code/src/scripts/train/train.py array-index $1 "${SLURM_ARRAY_TASK_ID}" --batch-size 256 $* \
+    uv run code/src/scripts/train/train.py array-index "${INDEX_FILE}" "${SLURM_ARRAY_TASK_ID}" --batch-size 256 $* \
         && echo "training completed succesfully."
 else
     echo "Not running as a job array"
