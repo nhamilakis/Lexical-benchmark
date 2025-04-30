@@ -142,6 +142,7 @@ exclude = [
     "src/lexical_benchmark/legacy", # Legacy code gets a pass for now (warning is thrown when importing)
     "src/lexical_benchmark/processing/turn_taking.py", # TODO: work-in-progress
     "src/scripts/archived/",  # ignore archived scripts for now
+    "src/scripts/debug/",
     "src/slurm_scripts/",
 ]
 force-exclude = true

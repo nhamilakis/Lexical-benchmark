@@ -148,6 +148,7 @@ class ArrayIndex(Command):
             log_path=train_args.train_logs_file,
             log_to_std=self.log_to_std,
         )
+        return train_args
 
     async def run(self) -> None:
         """Command Entrypoint."""
