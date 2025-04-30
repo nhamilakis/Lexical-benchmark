@@ -36,6 +36,9 @@ class TrainArguments(Command):
         short="s", default=False, group="params", help="Skip all models that are trained (default: False)."
     )
 
+    lstm_batch_size: int = 128
+    gpt2_batch_size: int = 64
+
     preview: bool = arg(default=False, group="output")
     to_csv: bool = arg(default=False, group="output")
     to_args: bool = arg(default=False, group="output")
@@ -64,6 +67,15 @@ class TrainArguments(Command):
         if self.skip_completed:
             train_args = filter(lambda x: not x.completed_training, train_args)
 
+        def set_batch_size(obj: by_size.BySizeTrainItem) -> by_size.BySizeTrainItem:
+            """Set the corresponding batch size."""
+            if obj.model_type == "gpt2":
+                obj.batch_size = self.gpt2_batch_size
+            elif obj.model_type == "lstm":
+                obj.batch_size = self.lstm_batch_size
+            return obj
+
+        train_args = (set_batch_size(obj) for obj in train_args)
         return (item.to_dict() for item in train_args)
 
     def show_preview(self, model_items: list[by_size.BySizeTrainStruct]) -> None:
