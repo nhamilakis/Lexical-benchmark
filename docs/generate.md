@@ -3,7 +3,7 @@
 For generating text using trained the models you need to make sure first the dataset configuration is correctly setup (see settings).
 
 
-# Training on Cluster
+# Generation on Cluster
 
 Generate from single model
 
@@ -20,7 +20,7 @@ uv run scripts/train/generate.py single --help
 $ sbatch slurm_scripts/generation/generate-jz.sh stela EN 1 0 lstm  --temperature-list 0.3,0.6 --hour-per-year "100hpy","500hpy" --resume
 ```
 
-Train in multiple using sbatch array
+Generation in multiple using sbatch array
 
 ```bash
 export CLUSTER_NAME="jean-zay" # configure jz data dir
