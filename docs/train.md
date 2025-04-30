@@ -27,7 +27,7 @@ export CLUSTER_NAME="jean-zay" # configure jz data dir
 # See available options
 uv run scripts/train/training-array-args.py --help
 # generate array file
-uv run scripts/train/training-array-args.py --dataset-name stela --train-chunks 0,1 --split-include 1,2,3,4,5,6 --model-types gpt2 --to-args -s
+uv run scripts/train/training-array-args.py --dataset-name stela --train-chunks 0,1 --split-include 1,2,3,4,5,6 --model-types gpt2 --gpt2-batch-size 128 --to-args -s
 # Run the sbatch array
 sbatch --array=0-12 slurm_scripts/training/train-jz.sh /path/to/to_train.toml 
 ```
@@ -42,7 +42,7 @@ For adapting the amount of ressources used see the `train-jz.sh` header and adap
 
 - Use the `train-oberon.sh` file instead of the `train-jz.sh`
 
-- The data dir discovery happens automaticly (should remove the `JZ=1`)
+- The data dir discovery happens automaticly (should remove the `CLUSTER_NAME="jean-zay"`)
 
 ## Other cluster
 
