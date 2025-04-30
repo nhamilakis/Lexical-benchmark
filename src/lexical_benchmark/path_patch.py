@@ -101,6 +101,9 @@ def write_toml(self: pathlib.Path, data: t.Any) -> None:
 
 def read_toml(self: pathlib.Path) -> t.Any:
     """Read file as toml."""
+    if rtoml:
+        return rtoml.load(self.read_text())
+
     if tomllib:
         return tomllib.loads(self.read_text())  # type: ignore[attribute-access]
     raise OSError("Failed to find tomllib library !!")

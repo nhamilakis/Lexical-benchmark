@@ -47,6 +47,7 @@ if [[ -n "${SLURM_ARRAY_TASK_ID}" ]]; then
     fi
     INDEX_FILE="$1"
     shift
+    echo ">train.py array-index "${INDEX_FILE}" "${SLURM_ARRAY_TASK_ID}" $*"
     uv run code/src/scripts/train/train.py array-index "${INDEX_FILE}" "${SLURM_ARRAY_TASK_ID}" $* \
         && echo "training completed succesfully."
 else
