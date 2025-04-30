@@ -51,8 +51,8 @@ if [[ -n "${SLURM_ARRAY_TASK_ID}" ]]; then
         && echo "training completed succesfully."
 else
     echo "Not running as a job array"
-    echo ">train.py single --batch-size 256 $*"
-    uv run code/src/scripts/train/train.py single --batch-size 256 $* \
+    echo ">train.py single $*"
+    uv run code/src/scripts/train/train.py single $* \
         && echo "training completed succesfully."
 fi
 echo "---END OF TRAIN SCRIPT--- $(date)"
