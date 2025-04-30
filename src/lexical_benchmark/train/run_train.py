@@ -133,9 +133,9 @@ class ArrayIndex(Command):
 
     def load_from_index(self) -> by_size.BySizeTrainItem:
         """Load train item from a file."""
-        index: dict[int, by_size.BySizeTrainStruct] = self.index_file.read_toml()
+        array_index: dict[int, by_size.BySizeTrainStruct] = self.index_file.read_toml()
         # TODO: catch outOfBounds ?
-        return by_size.BySizeTrainItem.from_dict(index[self.current_index])
+        return by_size.BySizeTrainItem.from_dict(array_index["index"][str(self.current_index)])
 
     def prep_args(self) -> by_size.BySizeTrainItem:
         """Prepare training arguments."""

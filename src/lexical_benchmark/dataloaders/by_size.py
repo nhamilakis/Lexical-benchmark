@@ -330,5 +330,6 @@ class BySizeTrainItem:
                 lang=cfg_args["lang"],
                 split=cfg_args["split"],
                 chunk=cfg_args["split"],
+                dt_cfg=datasets.get_config(cfg_args["dataset_name"]),
             ),
         )
