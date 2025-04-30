@@ -51,5 +51,5 @@ while getopts "t:p:g:h" opt; do
 done
 
 
-echo "Runing interactive job: @A100 with CPU:$nproc_value GPU:$ngpu_value for Time:$time_value : "
-srun --pty --job-name="interactive-gpu" --account="hhb@a100" --nodes="1" --ntasks-per-node="1" --gres="gpu:$ngpu_value" --cpus-per-task="$nproc_value" -C "a100"  -t "$time_value" bash -i
+echo "Runing interactive job: @H100 with CPU:$nproc_value GPU:$ngpu_value for Time:$time_value : "
+srun --pty --job-name="interactive-gpu" --account="hhb@h100" --nodes="1" --ntasks-per-node="1" --gres="gpu:$ngpu_value" --cpus-per-task="$nproc_value" -C "h100"  -t "$time_value" bash -i

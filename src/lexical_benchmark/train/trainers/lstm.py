@@ -69,18 +69,27 @@ class LSTMForLanguageModeling(PreTrainedModel):
     config_class = LSTMConfig
 
     def __init__(self, config: LSTMConfig, device: lb_types.DEVICE_TYPE = "cuda") -> None:
+        """Initialize the LSTM model for language modeling."""
         super().__init__(config)
 
+<<<<<<< Updated upstream
         self.to(device=device)
         self.embedding = nn.Embedding(config.vocab_size, config.embedding_dim).to(device=device)
+=======
+        # Instead of setting self.device, use the device parameter directly when creating modules
+        self.embedding = nn.Embedding(config.vocab_size, config.embedding_dim).to(device)
+>>>>>>> Stashed changes
         self.lstm = nn.LSTM(
             input_size=config.embedding_dim,
             hidden_size=config.hidden_size,
             num_layers=config.num_layers,
             dropout=config.dropout if config.num_layers > 1 else 0,
             batch_first=True,
-        ).to(device=device)
-        self.output = nn.Linear(config.hidden_size, config.vocab_size)
+        ).to(device)
+        self.output = nn.Linear(config.hidden_size, config.vocab_size).to(device)
+
+        # Move the entire model to the device after initialization
+        self.to(device)
 
     def forward(
         self,
@@ -90,7 +99,7 @@ class LSTMForLanguageModeling(PreTrainedModel):
         *,
         return_dict: bool = True,
     ) -> dict[str, torch.Tensor]:
-        """Forward."""
+        """Forward pass through the LSTM model."""
         embeddings = self.embedding(input_ids)
         lstm_output, _ = self.lstm(embeddings)
         logits = self.output(lstm_output)
@@ -199,11 +208,12 @@ def lstm_training(
     L.info(f"Training dataset size: {len(train_dataset)}")
     L.info(f"Validation dataset size: {len(val_dataset)}")
 
-    # Create standard GPT2 configuration
+    # Create LSTM model
     L.info("Loading configurations & initialising LSTM model trainer")
     model = LSTMForLanguageModeling(
         config=LSTMConfig(lstm_params=model_params.lstm, vocab_size=len(tokenizer.get_vocab())), device=device
     )
+
     return Trainer(
         model=model,
         args=train_params.setup_training_arguments(args.model_root_dir, params=model_params),

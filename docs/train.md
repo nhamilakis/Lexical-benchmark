@@ -17,7 +17,8 @@ export CLUSTER_NAME="jean-zay" # configure jz data dir
 # See available arguments using 
 uv run scripts/train/train.py single --help
 # Run job using sbatch
-$ sbatch slurm_scripts/training/train-jz.sh stela EN 1 0 lstm --resume
+$ sbatch code/src/slurm_scripts/training/train-jz.sh stela EN 2 0 lstm --resume
+uv run code/src/scripts/train/train.py single stela EN 2 0 lstm --batch-size 256
 ```
 
 Train in multiple using sbatch array
@@ -30,6 +31,9 @@ uv run scripts/train/training-array-args.py --help
 uv run scripts/train/training-array-args.py --dataset-name stela --train-chunks 0,1 --split-include 1,2,3,4,5,6 --model-types gpt2 --gpt2-batch-size 128 --to-args -s
 # Run the sbatch array
 sbatch --array=0-12 slurm_scripts/training/train-jz.sh /path/to/to_train.toml 
+
+sbatch --array=0-1 code/src/slurm_scripts/training/train-jz.sh code/src/slurm_scripts/training/train_index/test.toml
+
 ```
 
 
