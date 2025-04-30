@@ -72,13 +72,8 @@ class LSTMForLanguageModeling(PreTrainedModel):
         """Initialize the LSTM model for language modeling."""
         super().__init__(config)
 
-<<<<<<< Updated upstream
         self.to(device=device)
         self.embedding = nn.Embedding(config.vocab_size, config.embedding_dim).to(device=device)
-=======
-        # Instead of setting self.device, use the device parameter directly when creating modules
-        self.embedding = nn.Embedding(config.vocab_size, config.embedding_dim).to(device)
->>>>>>> Stashed changes
         self.lstm = nn.LSTM(
             input_size=config.embedding_dim,
             hidden_size=config.hidden_size,
