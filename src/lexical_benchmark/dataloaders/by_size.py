@@ -329,7 +329,7 @@ class BySizeTrainItem:
             data_item=BySizeItemsLoader(
                 lang=cfg_args["lang"],
                 split=cfg_args["split"],
-                chunk=cfg_args["split"],
+                chunk=cfg_args["chunk"],
                 dt_cfg=datasets.get_config(cfg_args["dataset_name"]),
             ),
         )
