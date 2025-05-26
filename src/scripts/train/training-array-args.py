@@ -37,7 +37,7 @@ class TrainArguments(Command):
     )
 
     lstm_batch_size: int = 128
-    gpt2_batch_size: int = 64
+    gpt2_batch_size: int = 32
 
     preview: bool = arg(default=False, group="output")
     to_csv: bool = arg(default=False, group="output")

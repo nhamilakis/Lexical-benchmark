@@ -23,7 +23,7 @@ def transformer_training(
     args: by_size.BySizeTrainItem,
     params_file: Path | None = None,
     tokenizer_name: str = "phonemetransformers/GPT2-85M-CHAR-TXT",
-    batch_size: int = 128,
+    batch_size: int = 32,
     device: lb_types.DEVICE_TYPE = "cuda",
 ) -> Trainer:
     """Run transformer training using standard HuggingFace components with joined utterances."""

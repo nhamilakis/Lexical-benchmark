@@ -231,6 +231,7 @@ class Single(Command):
     async def run(self) -> None:
         """Entrypoint."""
         data_item, generator, token_nb_mapping = self.prep_args()
+        L.info("Finish parsing the arguments.")
         for temp in self.temperature_list:
             L.info(f"Generating for temperature={temp}")
             text = generator.save_generation(

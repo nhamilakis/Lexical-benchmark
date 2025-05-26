@@ -32,6 +32,7 @@ class GenerationCheckpoint:
     checkpoint_counter: int = -1
     auto_checkpoint: bool = True
     save_dir: Path | None = None
+    count_error_margin: int = 0  # initilize the attribute
 
     @classmethod
     def load_intermediate(cls, location: Path, temperature: float) -> "GenerationCheckpoint | None":
@@ -69,7 +70,7 @@ class GenerationCheckpoint:
         # Set counter to interval
         self.checkpoint_counter = self.checkpoint_interval
 
-    def save_intermediate(self, location: Path | None) -> None:
+    def save_intermediate(self, location: Path | None = None) -> None:
         """Save progress to intermediate file."""
         if location is None:
             location = self.save_dir

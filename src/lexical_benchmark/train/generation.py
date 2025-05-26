@@ -92,7 +92,9 @@ class BatchGenerator:
 
         if override or not resume_checkpoint:
             L.info("Starting generation...")
-            resume_checkpoint = GenerationCheckpoint.init_from_args(temperature=temperature, word_counts=gen_attrs)
+            resume_checkpoint = GenerationCheckpoint.init_from_args(
+                temperature=temperature, word_counts=gen_attrs, location=target_dir
+            )
             target_dir.mkdir(exist_ok=True, parents=True)
 
         if resume_checkpoint.remaining_count() == 0:
@@ -100,6 +102,7 @@ class BatchGenerator:
             return
 
         # While items still left to generate
+        L.info("Generating rest of the data...")
         while resume_checkpoint.remaining_count() > 0:
             next_id, leftover = resume_checkpoint.get_next_gen()
             resume_checkpoint = self.generate_checkpoint_text(
@@ -122,6 +125,7 @@ class BatchGenerator:
             curr_tokens = self._count_words(generated_text)
             if curr_tokens >= nb_tokens:
                 break
+        print(generated_text)
         return generated_text, curr_tokens
 
     def generate_checkpoint_text(

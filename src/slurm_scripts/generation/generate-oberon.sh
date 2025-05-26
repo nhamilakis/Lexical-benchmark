@@ -23,7 +23,7 @@ done
 
 if [[ "$TEST_MODE" == true ]]; then
     echo "Running in test mode..."
-    uv run code/src/scripts/train/generate.py single stela EN 01 00 lstm --temperature-list 0.3,0.6 --hour-per-year "100hpy","500hpy" \
+    uv run code/src/scripts/train/generate.py single stela EN 06 00 lstm --temperature-list 0.3,0.6 --hour-per-year "100hpy" \
         && echo "generation completed succesfully."
     exit 0
 fi

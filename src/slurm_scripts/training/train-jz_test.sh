@@ -6,11 +6,11 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 # Number of GPUs per task (On a100 8 GPUs per node are available.)
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:2
 # Number of cores per task for gpu_p5 (1/8 of 8-GPUs A100 node)
 # A100 nodes have 64 cores, should use proportional to GPU number (1 gpu 1/8 of the CPUs)
 # For 4 GPUs use 32 cores per task
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=16
 # Only run this when testing
 #SBATCH --time=20:00:00
 # Array Number of Jobs to run in Parallel
@@ -23,6 +23,9 @@ export CLUSTER_NAME="jean-zay"
 # Initialize a variable to track if --test was passed
 TEST_MODE=false
 
+
+
+
 # Parse all arguments
 for arg in "$@"; do
     if [[ "$arg" == "--test" ]]; then
@@ -32,7 +35,7 @@ done
 
 if [[ "$TEST_MODE" == true ]]; then
     echo "Running in test mode..."
-    uv run code/src/scripts/train/train.py single stela EN 03 00 gpt2 --batch-size 32 \
+    uv run code/src/scripts/train/train.py single stela EN 01 00 lstm --batch-size 256 \
         && echo "training completed succesfully."
     exit 0
 fi
@@ -40,6 +43,7 @@ fi
 
 # Check if running as part of a job array
 if [[ -n "${SLURM_ARRAY_TASK_ID}" ]]; then
+    echo ">train.py array-index "${INDEX_FILE}" "${SLURM_ARRAY_TASK_ID}" $*"
     echo "Running as job array task ${SLURM_ARRAY_TASK_ID}/${SLURM_ARRAY_TASK_COUNT}"
     if [[ -z "$1" || ! -f "$1" ]]; then
         echo "Error: Invalid \$1 needs to be an index file"
@@ -57,3 +61,13 @@ else
         && echo "training completed succesfully."
 fi
 echo "---END OF TRAIN SCRIPT--- $(date)"
+
+
+
+cd  /lustre/fswork/projects/rech/hhb/commun/lexical-benchmark
+# For existing directories recursively: rwx for user & group, nothing for others
+find . -type d -exec setfacl --set=u::rwx,g::rwx,g:hhb:rwx,o::---,m::rwx {} \;
+# For existing files recursively: rw for user & group, nothing for others
+find . -type f -exec setfacl --set=u::rw-,g::rw-,g:hhb:rw-,o::---,m::rw- {} \;
+
+
