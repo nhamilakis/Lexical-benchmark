@@ -32,7 +32,7 @@ uv run scripts/train/training-array-args.py --dataset-name stela --train-chunks 
 # Run the sbatch array
 sbatch --array=0-12 slurm_scripts/training/train-jz.sh /path/to/to_train.toml 
 
-sbatch --array=0-1 code/src/slurm_scripts/training/train-jz.sh code/src/slurm_scripts/training/train_index/test.toml
+sbatch --array=0-23 code/src/slurm_scripts/training/train-jz.sh to_train.toml 
 
 ```
 
@@ -53,3 +53,6 @@ For adapting the amount of ressources used see the `train-jz.sh` header and adap
 - You need to define your custom slurm script in the training folder.
 
 - Configure the data directory by exporting the `export DATA_DIR=/path/to/data`
+
+
+

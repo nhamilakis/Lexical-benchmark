@@ -17,6 +17,10 @@ class _IndexBase(pydantic.BaseModel):
     resume: bool
     override: bool
     model_config_file: Path | None = None
+    # optional arguments for generation indices
+    hour_per_year: tuple[str, ...] | None = None
+    temperature_list: tuple[float, ...] | None = None
+    checkpoint_id: int | str | None = None
 
 
 class TrainIndex(_IndexBase):
