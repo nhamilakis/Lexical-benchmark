@@ -32,7 +32,7 @@ done
 
 if [[ "$TEST_MODE" == true ]]; then
     echo "Running in test mode..."
-    uv run code/src/scripts/train/train.py single stela EN 03 00 gpt2 --batch-size 32 \
+    uv run code/src/scripts/train/train.py single stela EN 60 00 gpt2 --batch-size 32 --resume \
         && echo "training completed succesfully."
     exit 0
 fi

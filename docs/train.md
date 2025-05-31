@@ -32,7 +32,7 @@ uv run scripts/train/training-array-args.py --dataset-name stela --train-chunks 
 # Run the sbatch array
 sbatch --array=0-12 slurm_scripts/training/train-jz.sh /path/to/to_train.toml 
 
-sbatch --array=0-23 code/src/slurm_scripts/training/train-jz.sh to_train.toml 
+sbatch --array=0 code/src/slurm_scripts/training/train-jz.sh to_train.toml 
 
 ```
 

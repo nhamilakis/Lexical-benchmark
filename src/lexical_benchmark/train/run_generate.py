@@ -241,14 +241,13 @@ class ArrayIndex(Command):
         """Entrypoint."""
         current_i, data_item, generator, token_nb_mapping = self.prep_args()
         for temp in current_i.temperature_list:
-            text = generator.save_generation(
+            generator.save_generation(
                 target_dir=data_item.geneneration_checkpoint_root / current_i.model_type,
                 temperature=temp,
                 gen_attrs=token_nb_mapping,
                 resume=current_i.resume,
                 override=current_i.override,
             )
-            L.debug(f"Generated text for {temp=}" + text)
 
 
 class Generate(Command):
