@@ -24,20 +24,21 @@ class GenerationsStruct(t.TypedDict):
 
 @dataclass
 class GenerationCheckpoint:
-    """class to handle generation checkpointing."""
+    """Class to handle generation checkpointing."""
 
     temperature: float
-    gen_items: dict[ESTIMATION_MONTH_KEY_TYPE, GenerationsStruct] = field(default_factory=dict)
+    hour_per_year: int
+    gen_items: dict = field(default_factory=dict)
     checkpoint_interval: int = 500
     checkpoint_counter: int = -1
     auto_checkpoint: bool = True
     save_dir: Path | None = None
-    count_error_margin: int = 0  # initilize the attribute
+    count_error_margin: int = 0
 
     @classmethod
-    def load_intermediate(cls, location: Path, temperature: float) -> "GenerationCheckpoint | None":
+    def load_intermediate(cls, location: Path, temperature: float, hour_per_year: int) -> "GenerationCheckpoint | None":
         """Load from intermediate."""
-        file_path = location / f"generation_{temperature}.intermediate.obj"
+        file_path = location / f"generation_{hour_per_year}_{temperature}.intermediate.obj"
         if file_path.is_file():
             with file_path.open("rb") as fh:
                 self: GenerationCheckpoint = pickle.load(fh)
@@ -46,9 +47,9 @@ class GenerationCheckpoint:
         return None
 
     @classmethod
-    def load_final(cls, location: Path, temperature: float) -> "GenerationCheckpoint | None":
+    def load_final(cls, location: Path, temperature: float, hour_per_year: int) -> "GenerationCheckpoint | None":
         """Load finished checkpoint."""
-        file_path = location / f"generation_{temperature}.obj"
+        file_path = location / f"generation_{hour_per_year}_{temperature}.obj"
         if file_path.is_file():
             with file_path.open("rb") as fh:
                 self: GenerationCheckpoint = pickle.load(fh)
@@ -58,10 +59,14 @@ class GenerationCheckpoint:
 
     @classmethod
     def init_from_args(
-        cls, temperature: float, word_counts: dict[ESTIMATION_MONTH_KEY_TYPE, int], location: Path | None = None
+        cls,
+        temperature: float,
+        hour_per_year: list,  # FIX: Add explicit parameter
+        word_counts: dict,
+        location: Path | None = None,
     ) -> "GenerationCheckpoint":
         """Initialise generation checkpoint."""
-        obj = cls(temperature=temperature, save_dir=location)
+        obj = cls(temperature=temperature, hour_per_year=hour_per_year, save_dir=location)
         for (est, month), count in word_counts.items():
             obj.gen_items[(est, month)] = {"current_count": 0, "target_count": count, "text": []}
         return obj
@@ -75,7 +80,7 @@ class GenerationCheckpoint:
         if location is None:
             location = self.save_dir
 
-        file_path = location / f"generation_{self.temperature}.intermediate.obj"
+        file_path = location / f"generation_{self.hour_per_year[0]}_{self.temperature}.intermediate.obj"
         file_path.parent.mkdir(exist_ok=True, parents=True)
         with file_path.open("wb") as fh:
             pickle.dump(self, fh)
@@ -85,7 +90,7 @@ class GenerationCheckpoint:
         if location is None:
             location = self.save_dir
 
-        file_path = location / f"generation_{self.temperature}.obj"
+        file_path = location / f"generation_{self.hour_per_year[0]}_{self.temperature}.obj"
         file_path.parent.mkdir(exist_ok=True, parents=True)
         with file_path.open("wb") as fh:
             pickle.dump(self, fh)
@@ -128,7 +133,7 @@ class GenerationCheckpoint:
 
         if self.checkpoint_counter <= 0 and self.auto_checkpoint:
             L.info(
-                f"Auto-Checkpoint: saving intermediate {self.save_dir}/generation_{self.temperature}.intermediate.obj"
+                f"Auto-Checkpoint: saving intermediate {self.save_dir}/generation_{self.hour_per_year}_{self.temperature}.intermediate.obj"
             )
             self.save_intermediate()
             self.checkpoint_counter = self.checkpoint_interval
@@ -142,7 +147,7 @@ class GenerationCheckpoint:
 
         if self.checkpoint_counter <= 0 and self.auto_checkpoint:
             L.info(
-                f"Auto-Checkpoint: saving intermediate {self.save_dir}/generation_{self.temperature}.intermediate.obj"
+                f"Auto-Checkpoint: saving intermediate {self.save_dir}/generation_{self.hour_per_year}_{self.temperature}.intermediate.obj"
             )
             self.save_intermediate()
             self.checkpoint_counter = self.checkpoint_interval
@@ -165,14 +170,19 @@ class CheckPointExplorerCMD(Command):
 
     checkpoint_dir: Positional[Path]
     temperature: Positional[float]
+    hour_per_year: Positional[int]  # ADD THIS MISSING PARAMETER
 
     def run_cmd(self) -> None:
         """Run CMD."""
         import IPython
 
-        checkpoint: GenerationCheckpoint = GenerationCheckpoint.load_intermediate(
-            self.checkpoint_dir, temperature=self.temperature
+        # Now this call will work with all required parameters
+        checkpoint = GenerationCheckpoint.load_intermediate(
+            location=self.checkpoint_dir,
+            temperature=self.temperature,
+            hour_per_year=self.hour_per_year,  # Now properly passed
         )
+
         if checkpoint:
             IPython.embed()
         else:

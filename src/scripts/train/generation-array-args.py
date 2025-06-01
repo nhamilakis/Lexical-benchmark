@@ -46,7 +46,7 @@ class GenerationArguments(Command):
     temperature_list: tuple[float, ...] = arg(
         default_factory=lambda: [0.3, 0.6, 1.0, 1.5], group="params", parser=cp.Tuple(cp.Float(), num=None)
     )
-    hour_per_year_estimations: tuple[lb_types.ESTIMATION_TYPE, ...] = arg(
+    hour_per_year: tuple[lb_types.ESTIMATION_TYPE, ...] = arg(
         default=settings.GENERATION_HPY_ITEMS, group="params", parser=cp.Tuple(cp.Str(), num=None)
     )
     skip_completed: bool = arg(
@@ -92,7 +92,7 @@ class GenerationArguments(Command):
             df.rename({"temperatures": "temperature_list"})  # 1. Rename temperatures column
             .drop("completed")  # 2. Remove completed column
             .with_columns(
-                pl.lit(self.hour_per_year_estimations).alias("hour_per_year"),  # 3. Add hours_per_year columnr
+                pl.lit(self.hour_per_year).alias("hour_per_year"),  # 3. Add hours_per_year columnr
             )
         )
         return SlurmIndex(index={f"{idx}": GenerationIndex(**obj) for idx, obj in enumerate(df.to_dicts())})

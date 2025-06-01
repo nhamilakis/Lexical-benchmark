@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Initialize variables
-time_value="2:00:00"
+time_value="01:30:00"
 nproc_value="8"
 ngpu_value="1"
 

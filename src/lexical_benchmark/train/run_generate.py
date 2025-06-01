@@ -70,12 +70,10 @@ class Single(Command):
     lang: Positional[str]
     split: Positional[str]
     chunk: Positional[str]
-    model_type: Positional[lb_types.MODEL_TYPE]
+    model_type: Positional[str]
 
-    # Inherited
-    checkpoint_id: str | None = arg(inherited=True, group="generation-params")
-    temperature_list: tuple[float] = arg(inherited=True, group="generation-params")
     hour_per_year: int = arg(inherited=True, group="generation-params")
+    temperature_list: tuple[float, ...] = arg(inherited=True, group="generation-params")
     resume: bool = arg(inherited=True, group="generation-params")
     override: bool = arg(inherited=True, group="generation-params")
 
@@ -145,17 +143,18 @@ class Single(Command):
         """Entrypoint."""
         data_item, generator, token_nb_mapping = self.prep_args()
         L.info("Finish parsing the arguments.")
+
         for temp in self.temperature_list:
             L.info(f"Generating for temperature={temp}")
-            text = generator.save_generation(
+            generator.save_generation(
                 target_dir=data_item.geneneration_checkpoint_root / self.model_type,
                 temperature=temp,
+                hour_per_year=self.hour_per_year,  # Now properly passed
                 gen_attrs=token_nb_mapping,
                 resume=self.resume,
                 override=self.override,
             )
             L.info(f"Finished generating text for {temp=}")
-            L.debug(f"::{text}")
 
 
 class ArrayIndex(Command):
@@ -240,10 +239,13 @@ class ArrayIndex(Command):
     async def run(self) -> None:
         """Entrypoint."""
         current_i, data_item, generator, token_nb_mapping = self.prep_args()
+
         for temp in current_i.temperature_list:
+            # FIX: Pass hour_per_year parameter
             generator.save_generation(
                 target_dir=data_item.geneneration_checkpoint_root / current_i.model_type,
                 temperature=temp,
+                hour_per_year=current_i.hour_per_year,  # Now properly passed
                 gen_attrs=token_nb_mapping,
                 resume=current_i.resume,
                 override=current_i.override,
@@ -259,21 +261,22 @@ class Generate(Command):
     temperature_list: tuple[float, ...] = arg(
         settings.GENERATION_TEMPERATURES, parser=cp.Tuple(cp.Float(max=1000), num=None)
     )
-    hour_per_year: tuple[str, ...] = arg(settings.GENERATION_HPY_ITEMS, parser=cp.Tuple(cp.Str(), num=None))
+    # FIX: Change from tuple[str, ...] to int to match GenerationCheckpoint
+    hour_per_year: int = arg(
+        default=100,  # Provide sensible default
+        parser=cp.Int(min=1),
+    )
     seed: int = 562
     use_vllm: bool = False
     save_interval: int = 1024
     resume: bool = True
     override: bool = False
-    debug: bool = False  # TODO: debug should generate less text ?
-    device: lb_types.DEVICE_TYPE = "cuda"
+    debug: bool = False
+    device: t.Literal["cuda", "cpu"] = "cuda"
     added_tokens: list[str] = arg(default_factory=lambda: ["'", "|"], parser=cp.List(cp.Str()))
 
     model_config_file: Path | None = arg(None, parser=cp.Path(exists=True))
     log_to_std: bool = False
-    log_level: LogLevelType = "INFO"
-
+    log_level: t.Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     tokenizer_name: str = "phonemetransformers/GPT2-85M-CHAR-TXT"
-
-    # Introspection
     interactive: bool = arg(default=False, hidden=True)

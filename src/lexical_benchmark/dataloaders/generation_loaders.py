@@ -49,6 +49,7 @@ class _CheckPointIteratorKwargs(t.TypedDict):
     datasets: tuple[datasets.DATASET_NAMES, ...]
     model_types: tuple[lb_types.MODEL_TYPE, ...]
     temperatures: tuple[float, ...]
+    hour_per_years: tuple[str, ...]
     langs: tuple[str, ...]
     splits: tuple[str, ...]
     chunks: tuple[str, ...]
@@ -66,6 +67,7 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
     split: str
     chunk: str
     temperature: float
+    hour_per_year: int
     model_type: lb_types.MODEL_TYPE
     dt_cfg: _DatasetWithGenerations
 
@@ -77,6 +79,7 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
             "lang": self.lang,
             "split": self.split,
             "chunk": self.chunk,
+            "hour_per_year": self.hour_per_year,
             "resume": True,
             "override": False,
             "temperature": self.temperature,
@@ -91,25 +94,33 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
     @property
     def intermediate_checkpoint_file(self) -> Path:
         """Path to intermediate checkpoint file."""
-        return self.root_dir / f"generation_{self.temperature}.intermediate.obj"
+        return self.root_dir / f"generation_{self.hour_per_year}_{self.temperature}.intermediate.obj"
 
     @property
     def final_checkpoint_file(self) -> Path:
         """Path to final checkpoint."""
-        return self.root_dir / f"generation_{self.temperature}.obj"
+        return self.root_dir / f"generation_{self.hour_per_year}_{self.temperature}.obj"
 
     @property
     def log_file(self) -> Path:
         """Path to the logfile."""
-        return self.root_dir / f"generation_{self.temperature}.log"
+        return self.root_dir / f"generation_{self.hour_per_year}_{self.temperature}.log"
 
-    def load_intermediate(self) -> GenerationCheckpoint | None:
+    def load_intermediate(self) -> "GenerationCheckpoint | None":
         """Load intermediate checkpoint."""
-        return GenerationCheckpoint.load_intermediate(location=self.root_dir, temperature=self.temperature)
+        return GenerationCheckpoint.load_intermediate(
+            location=self.root_dir,
+            temperature=self.temperature,
+            hour_per_year=self.hour_per_year,  # Now properly passed
+        )
 
-    def load_final(self) -> GenerationCheckpoint | None:
+    def load_final(self) -> "GenerationCheckpoint | None":
         """Load final checkpoint."""
-        return GenerationCheckpoint.load_final(location=self.root_dir, temperature=self.temperature)
+        return GenerationCheckpoint.load_final(
+            location=self.root_dir,
+            temperature=self.temperature,
+            hour_per_year=self.hour_per_year,  # Now properly passed
+        )
 
     def exists(self) -> bool:
         """Return if ressources exist."""
@@ -143,6 +154,7 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
         split: str,
         chunk: str,
         temperature: float,
+        hour_per_year: int,
         model_type: lb_types.MODEL_TYPE,
     ) -> "GenerationCheckpointLoader":
         """Load item."""
@@ -154,6 +166,7 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
             chunk=chunk,
             model_type=model_type,
             temperature=temperature,
+            hour_per_year=hour_per_year,
             dt_cfg=datasets.get_config(dataset_name),
         )
 

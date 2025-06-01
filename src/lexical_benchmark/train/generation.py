@@ -5,7 +5,7 @@ import warnings
 from pathlib import Path
 
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, StoppingCriteriaList
+from transformers import AutoModelForCausalLM, StoppingCriteriaList
 
 try:
     import vllm  # type: ignore[missing-dependency]
@@ -15,9 +15,8 @@ except ImportError:
     vllm = None
     LLM, SamplingParams = (None, None)
 
-from lexical_benchmark import lb_types
 
-from .checkpoint_utils import ESTIMATION_MONTH_KEY_TYPE, GenerationCheckpoint, GenerationsStruct
+from .checkpoint_utils import ESTIMATION_MONTH_KEY_TYPE, GenerationCheckpoint
 from .trainers.lstm import LSTMConfig, LSTMForLanguageModeling
 
 Model = t.Any
@@ -33,9 +32,9 @@ class BatchGenerator:
         *,
         model_path: Path,
         tokenizer_name: str,
-        device: lb_types.DEVICE_TYPE,
+        device: str,
         use_vllm: bool,
-        model_type: lb_types.MODEL_TYPE,
+        model_type: str,
         batch_size: int = 1,
         max_word_length: int = 30,
         max_generation_length: int = 1024,
@@ -50,7 +49,7 @@ class BatchGenerator:
         self.max_generation_length = max_generation_length
         self.save_interval = save_interval
 
-        # Set model path
+        # Validate model path
         if model_path.is_dir():
             self.model_path = model_path
         elif model_path.is_file():
@@ -59,7 +58,10 @@ class BatchGenerator:
             raise ValueError(f"Given {model_path} does not exist !!")
 
         if not self.use_vllm:
+            from transformers import AutoTokenizer
+
             self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name)
+
         self.model = self.load_model()
 
     def load_model(self) -> Model:
@@ -259,7 +261,8 @@ class BatchGenerator:
     def save_generation(
         self,
         temperature: float,
-        gen_attrs: dict[ESTIMATION_MONTH_KEY_TYPE, GenerationsStruct],
+        hour_per_year: int,  # FIX: Add explicit hour_per_year parameter
+        gen_attrs: dict,
         target_dir: Path,
         *,
         resume: bool = True,
@@ -269,14 +272,25 @@ class BatchGenerator:
         resume_checkpoint = None
 
         if resume:
-            resume_checkpoint = GenerationCheckpoint.load_intermediate(location=target_dir, temperature=temperature)
+            # FIX: Pass all required parameters including hour_per_year
+            resume_checkpoint = GenerationCheckpoint.load_intermediate(
+                location=target_dir,
+                temperature=temperature,
+                hour_per_year=hour_per_year,  # Now properly passed
+            )
             if resume_checkpoint:
-                L.info(f"Resuming generation from {target_dir / f'generation_{temperature}.intermediate.obj'}")
+                L.info(
+                    f"Resuming generation from {target_dir / f'generation_{hour_per_year}_{temperature}.intermediate.obj'}"
+                )
 
         if override or not resume_checkpoint:
             L.info("Starting generation...")
+            # FIX: Pass hour_per_year when initializing checkpoint
             resume_checkpoint = GenerationCheckpoint.init_from_args(
-                temperature=temperature, word_counts=gen_attrs, location=target_dir
+                temperature=temperature,
+                hour_per_year=hour_per_year,  # Add this parameter
+                word_counts=gen_attrs,
+                location=target_dir,
             )
             target_dir.mkdir(exist_ok=True, parents=True)
 
