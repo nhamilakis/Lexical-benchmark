@@ -49,6 +49,11 @@ class GenerationArguments(Command):
     hour_per_year: tuple[lb_types.ESTIMATION_TYPE, ...] = arg(
         default=settings.GENERATION_HPY_ITEMS, group="params", parser=cp.Tuple(cp.Str(), num=None)
     )
+
+    desired_month: tuple[lb_types.ESTIMATION_TYPE, ...] = arg(
+        default=settings.GENERATION_HPY_ITEMS, group="params", parser=cp.Tuple(cp.Str(), num=None)
+    )
+
     skip_completed: bool = arg(
         short="s", default=False, group="params", help="Skip all models that are trained (default: False)."
     )
@@ -71,6 +76,10 @@ class GenerationArguments(Command):
         )
 
         if self.skip_completed:
+            generated_items = filter(lambda x: not x.is_finished(), generated_items)
+
+        # further filter the arguments based on the given months
+        if self.desired_month:
             generated_items = filter(lambda x: not x.is_finished(), generated_items)
 
         return generated_items

@@ -69,6 +69,7 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
     temperature: float
     hour_per_year: int
     model_type: lb_types.MODEL_TYPE
+    target_month: lb_types.TARGET_MONTH
     dt_cfg: _DatasetWithGenerations
 
     def to_args_dict(self) -> dict[str, t.Any]:
@@ -140,6 +141,12 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
             return chk.remaining_count() == 0
         return False
 
+    def is_target_month(self) -> bool:
+        """Return if generation is the target month."""
+        if not self.target_month:
+            return True
+        return settings.chunk2month(self.split, self.hour_per_year, hour_per_chunk=50) in self.target_month
+
     def __post_init__(self) -> None:
         """post-creation checks."""
         # Check if correct dataset is provided.
@@ -176,6 +183,7 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
         dataset_list = kwargs.get("datasets", ("stela", "child_realistic"))
         temperatures = kwargs.get("temperatures", settings.GENERATION_TEMPERATURES)
         model_type_list = kwargs.get("model_types", settings.MODEL_TYPES)
+        hour_per_year_list = kwargs.get("hour_per_year", settings.GENERATION_HPY_ITEMS)
 
         for dt_name in dataset_list:
             dt_cfg: _DatasetWithGenerations = datasets.get_config(dt_name)
@@ -208,6 +216,7 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
                                 chunk=_chunk,
                                 model_type=_model,
                                 temperature=_temp,
+                                hour_per_year=hour_per_year_list[0],
                             )
 
 

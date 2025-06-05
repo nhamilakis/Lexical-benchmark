@@ -2,7 +2,7 @@
 model_type = 'lstm'
 dataset_name = 'stela'
 lang = 'EN'
-split = '10'
+split = '60'
 chunk = '00'
 resume = true
 override = false
@@ -10,39 +10,19 @@ model_config_file = 'null'
 checkpoint_id = 'null'
 hour_per_year = ['1000hpy']
 temperature_list = [
-    0.3,
     0.6,
     1.0,
     1.5,
 
 ]
 
-
-[index.1]
-model_type = 'lstm'
-dataset_name = 'stela'
-lang = 'EN'
-split = '20'
-chunk = '00'
-resume = true
-override = false
-model_config_file = 'null'
-checkpoint_id = 'null'
-hour_per_year = ['1000hpy']
-temperature_list = [
-    0.3,
-    0.6,
-    1.0,
-    1.5,
-
-]
 
 
 [index.2]
 model_type = 'lstm'
 dataset_name = 'stela'
 lang = 'EN'
-split = '30'
+split = '50'
 chunk = '00'
 resume = true
 override = false
@@ -58,10 +38,10 @@ temperature_list = [
 ]
 
 [index.3]
-model_type = 'lstm'
+model_type = 'gpt2'
 dataset_name = 'stela'
 lang = 'EN'
-split = '40'
+split = '50'
 chunk = '00'
 resume = true
 override = false
@@ -88,54 +68,210 @@ model_config_file = 'null'
 checkpoint_id = 'null'
 hour_per_year = ['1000hpy']
 temperature_list = [
-    0.3,
     0.6,
     1.0,
     1.5,
-
 ]
+
 
 [index.5]
 model_type = 'lstm'
 dataset_name = 'stela'
 lang = 'EN'
-split = '60'
-chunk = '00'
+split = '30'
+chunk = '01'
 resume = true
 override = false
 model_config_file = 'null'
 checkpoint_id = 'null'
 hour_per_year = ['1000hpy']
 temperature_list = [
-    0.3,
-    0.6,
     1.0,
     1.5,
-
 ]
 
 [index.6]
-model_type = 'gpt2'
+model_type = 'lstm'
 dataset_name = 'stela'
 lang = 'EN'
-split = '10'
-chunk = '00'
+split = '03'
+chunk = '01'
 resume = true
 override = false
 model_config_file = 'null'
 checkpoint_id = 'null'
-hour_per_year = ['1000hpy']
+hour_per_year = ['100hpy']
 temperature_list = [
-    0.3,
-    0.6,
     1.0,
     1.5,
-
 ]
 
 
 [index.7]
 model_type = 'gpt2'
+dataset_name = 'stela'
+lang = 'EN'
+split = '04'
+chunk = '01'
+resume = true
+override = false
+model_config_file = 'null'
+checkpoint_id = 'null'
+hour_per_year = ['100hpy']
+temperature_list = [
+    1.0,
+    1.5,
+]
+
+
+[index.8]
+model_type = 'lstm'
+dataset_name = 'stela'
+lang = 'EN'
+split = '04'
+chunk = '01'
+resume = true
+override = false
+model_config_file = 'null'
+checkpoint_id = 'null'
+hour_per_year = ['100hpy']
+temperature_list = [
+    0.3,
+    0.6,
+    1.0,
+    1.5,
+]
+
+
+[index.9]
+model_type = 'lstm'
+dataset_name = 'stela'
+lang = 'EN'
+split = '05'
+chunk = '00'
+resume = true
+override = false
+model_config_file = 'null'
+checkpoint_id = 'null'
+hour_per_year = ['100hpy']
+temperature_list = [
+    0.6,
+    1.0,
+    1.5,
+]
+
+
+[index.10]
+model_type = 'gpt2'
+dataset_name = 'stela'
+lang = 'EN'
+split = '05'
+chunk = '01'
+resume = true
+override = false
+model_config_file = 'null'
+checkpoint_id = 'null'
+hour_per_year = ['100hpy']
+temperature_list = [
+    0.6,
+    1.0,
+    1.5,
+]
+
+
+
+[index.11]
+model_type = 'lstm'
+dataset_name = 'stela'
+lang = 'EN'
+split = '05'
+chunk = '01'
+resume = true
+override = false
+model_config_file = 'null'
+checkpoint_id = 'null'
+hour_per_year = ['100hpy']
+temperature_list = [
+    0.3,
+    0.6,
+    1.0,
+    1.5,
+]
+
+
+
+[index.12]
+model_type = 'lstm'
+dataset_name = 'stela'
+lang = 'EN'
+split = '06'
+chunk = '00'
+resume = true
+override = false
+model_config_file = 'null'
+checkpoint_id = 'null'
+hour_per_year = ['100hpy']
+temperature_list = [
+    1.5,
+]
+
+
+
+[index.13]
+model_type = 'gpt2'
+dataset_name = 'stela'
+lang = 'EN'
+split = '06'
+chunk = '01'
+resume = true
+override = false
+model_config_file = 'null'
+checkpoint_id = 'null'
+hour_per_year = ['100hpy']
+temperature_list = [
+    1.0,
+    1.5
+]
+
+[index.14]
+model_type = 'lstm'
+dataset_name = 'stela'
+lang = 'EN'
+split = '06'
+chunk = '01'
+resume = true
+override = false
+model_config_file = 'null'
+checkpoint_id = 'null'
+hour_per_year = ['100hpy']
+temperature_list = [
+    0.3,
+    0.6,
+    1.0,
+    1.5,
+]
+
+
+[index.15]
+model_type = 'lstm'
+dataset_name = 'stela'
+lang = 'EN'
+split = '15'
+chunk = '01'
+resume = true
+override = false
+model_config_file = 'null'
+checkpoint_id = 'null'
+hour_per_year = ['500hpy']
+temperature_list = [
+    1.0,
+    1.5,
+]
+
+
+
+[index.16]
+model_type = 'lstm'
 dataset_name = 'stela'
 lang = 'EN'
 split = '20'
@@ -144,18 +280,108 @@ resume = true
 override = false
 model_config_file = 'null'
 checkpoint_id = 'null'
-hour_per_year = ['1000hpy']
+hour_per_year = ['500hpy']
+temperature_list = [
+    0.6,
+    1.0,
+    1.5,
+]
+
+
+
+[index.17]
+model_type = 'gpt2'
+dataset_name = 'stela'
+lang = 'EN'
+split = '20'
+chunk = '01'
+resume = true
+override = false
+model_config_file = 'null'
+checkpoint_id = 'null'
+hour_per_year = ['500hpy']
+temperature_list = [
+    1.0,
+    1.5,
+]
+
+
+[index.18]
+model_type = 'lstm'
+dataset_name = 'stela'
+lang = 'EN'
+split = '20'
+chunk = '01'
+resume = true
+override = false
+model_config_file = 'null'
+checkpoint_id = 'null'
+hour_per_year = ['500hpy']
 temperature_list = [
     0.3,
     0.6,
     1.0,
     1.5,
-
 ]
 
 
-[index.8]
+[index.19]
+model_type = 'lstm'
+dataset_name = 'stela'
+lang = 'EN'
+split = '25'
+chunk = '00'
+resume = true
+override = false
+model_config_file = 'null'
+checkpoint_id = 'null'
+hour_per_year = ['500hpy']
+temperature_list = [
+    0.3,
+    0.6,
+    1.0,
+    1.5,
+]
+
+
+[index.20]
+model_type = 'lstm'
+dataset_name = 'stela'
+lang = 'EN'
+split = '25'
+chunk = '01'
+resume = true
+override = false
+model_config_file = 'null'
+checkpoint_id = 'null'
+hour_per_year = ['500hpy']
+temperature_list = [
+    0.3,
+    0.6,
+    1.0,
+    1.5,
+]
+
+[index.21]
 model_type = 'gpt2'
+dataset_name = 'stela'
+lang = 'EN'
+split = '25'
+chunk = '01'
+resume = true
+override = false
+model_config_file = 'null'
+checkpoint_id = 'null'
+hour_per_year = ['500hpy']
+temperature_list = [
+    0.6,
+    1.0,
+    1.5,
+]
+
+
+[index.22]
+model_type = 'lstm'
 dataset_name = 'stela'
 lang = 'EN'
 split = '30'
@@ -164,68 +390,46 @@ resume = true
 override = false
 model_config_file = 'null'
 checkpoint_id = 'null'
-hour_per_year = ['1000hpy']
+hour_per_year = ['500hpy']
 temperature_list = [
     0.3,
     0.6,
     1.0,
     1.5,
-
 ]
 
-[index.9]
+
+[index.23]
 model_type = 'gpt2'
 dataset_name = 'stela'
 lang = 'EN'
-split = '40'
-chunk = '00'
+split = '30'
+chunk = '01'
 resume = true
 override = false
 model_config_file = 'null'
 checkpoint_id = 'null'
-hour_per_year = ['1000hpy']
+hour_per_year = ['500hpy']
 temperature_list = [
-    0.3,
-    0.6,
     1.0,
     1.5,
-
 ]
 
-[index.10]
-model_type = 'gpt2'
+
+[index.24]
+model_type = 'lstm'
 dataset_name = 'stela'
 lang = 'EN'
-split = '50'
-chunk = '00'
+split = '30'
+chunk = '01'
 resume = true
 override = false
 model_config_file = 'null'
 checkpoint_id = 'null'
-hour_per_year = ['1000hpy']
+hour_per_year = ['500hpy']
 temperature_list = [
     0.3,
     0.6,
     1.0,
     1.5,
-
-]
-
-[index.11]
-model_type = 'gpt2'
-dataset_name = 'stela'
-lang = 'EN'
-split = '60'
-chunk = '00'
-resume = true
-override = false
-model_config_file = 'null'
-checkpoint_id = 'null'
-hour_per_year = ['1000hpy']
-temperature_list = [
-    0.3,
-    0.6,
-    1.0,
-    1.5,
-
 ]

@@ -18,7 +18,7 @@ import os
 from pathlib import Path
 
 from lexical_benchmark.datasets import utils as dataset_utils
-from lexical_benchmark.stats import lexical_benchmark
+from lexical_benchmark.metrics import lexical_benchmark
 from lexical_benchmark.utils import slurm_utils
 
 slurm_utils.info_header()
