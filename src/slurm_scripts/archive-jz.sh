@@ -13,7 +13,6 @@ echo "---START OF ARCHIVE SCRIPT--- $(date)"
 
 # archive_folder.sh - Script to archive a folder with date in filename
 # Usage: ./archive_folder.sh [source_folder]
-j
 DEST_DIR="/lustre/fsstor/projects/rech/hhb/commun"
 
 # Check if correct number of arguments are provided

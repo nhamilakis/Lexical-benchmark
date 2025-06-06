@@ -137,6 +137,12 @@ class CHILDESDatasetConfig(DatasetConfig):
 class ChildRealisticDatasetConfig(DatasetConfig):
     """Configurations for the ChildRealistic dataset."""
 
+    sources = (
+        "bnc_spoken.txt",
+        "open_subtitles.txt",
+        "switchboard.txt",
+        "childes_adult.txt",
+    )
     langs: tuple[str, ...] = ("EN",)
     size_splits: tuple[str, ...] = ("01", "02", "03", "04", "05", "06", "10", "15", "20", "25", "30", "40", "50", "60")
     BY_SIZE_CHUNK_NUMBER: t.ClassVar[dict[str, int]] = {
