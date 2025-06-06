@@ -27,10 +27,10 @@ export CLUSTER_NAME="jean-zay" # configure jz data dir
 # See available options
 uv run scripts/train/generation-array-args.py --help
 # generate array file
-uv run scripts/train/generation-array-args.py --dataset-name stela --train-chunks 0,1 --split-include 1,2,3,4,5,6 --model-types gpt2 --temperature-list 0.3,0.4 --hour-per-year-estimations "100hpy","500hpy" --to-args -s
+uv run scripts/train/generation-array-args.py --dataset-names stela --train-chunks 0,1 --split-include 1,2,3,4,5,6 --model-types gpt2 --temperature-list 0.3,0.4 --hour-per-year-estimations "100hpy","500hpy" --to-args -s
 
 
-uv run scripts/train/generation-array-args.py --dataset-names stela --train-chunks 0 --model-types lstm,gpt2 --temperature-list 0.3,0.6,1.0,1.5 --hour-per-year "100hpy","1000hpy" --to-args -s
+uv run scripts/train/generation-array-args.py --dataset-names stela --train-chunks 0 --model-types lstm,gpt2  --temperature-list 0.3,0.6,1.0,1.5 --hour-per-year "1000hpy","500hpy" --to-args -s
 
 # Run the sbatch array
 sbatch --array=0-12 slurm_scripts/generation/generate-jz.sh /path/to/to_generate.toml 

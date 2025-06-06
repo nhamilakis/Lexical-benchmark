@@ -1,6 +1,7 @@
 import dataclasses as _dataclasses
 import os as _os
 import platform as _platform
+import typing as t
 import warnings as _warnings
 from pathlib import Path as _Path
 
@@ -197,7 +198,126 @@ class _MyPathSettings:
             return "/scratch1/projects/InfTrain/dataset"
         raise SystemError("InfTrain project not present on current server.")
 
+    @property
+    def childes(self) -> _Path:
+        return self.dataset_root / "CHILDES"
+
+    @property
+    def word_stats(self) -> _Path:
+        return self.dataset_root / "wordstats"
+
+
+###################
+# CHILDES Metadata
+
+
+@_dataclasses.dataclass
+class _CHILDESMetadata:
+    ACCENTS: tuple[str, ...] = ("Eng-NA", "Eng-UK")
+    LANG_ACCENT: dict[str, tuple[str, ...]] = _dataclasses.field(
+        default_factory=lambda: {
+            "EN": ("Eng-NA", "Eng-UK"),
+        }
+    )
+    MAX_AGE: int = 40  # In months
+    AGE_RANGES: tuple[tuple[int, int], ...] = _dataclasses.field(
+        default_factory=lambda: tuple((x, x + 1) for x in range(39))
+    )
+    SPEECH_TYPES: tuple[str, ...] = ("adult", "child")
+    # Extracted directly from dataset
+    # Using the following command :
+    # `rg --no-filename  -i "(@s:\w+)" -or '$1' | cut -d: -f1,2 > langs.txt`
+    EXTRA_LANGS: tuple = (
+        "@s:afr",
+        "@s:ara",
+        "@s:deu",
+        "@s:ell",
+        "@s:eng",
+        "@s:fra",
+        "@s:haw",
+        "@s:heb",
+        "@s:hin",
+        "@s:hun",
+        "@s:ind",
+        "@s:ita",
+        "@s:jpn",
+        "@s:kik",
+        "@s:lat",
+        "@s:nld",
+        "@s:pan",
+        "@s:rus",
+        "@s:spa",
+        "@s:tgl",
+        "@s:und",
+        "@s:yid",
+        "@s:zho",
+    )
+
+
+@_dataclasses.dataclass
+class _CDIMetadata:
+    langs: tuple[str, ...] = ("ENG-NA", "ENG-BR")
+
+    def forms(self, lang: str) -> tuple[str, ...] | None:
+        return {
+            "ENG-NA": ("WG", "WGShort", "WS", "WSShort"),
+            "ENG-BR": ("WG-OXPHRD", "WS-TD2", "WS-TD3"),
+        }.get(lang)
+
+    def get_files(
+        self,
+        root: _Path,
+        lang: str,
+        form: str,
+        cdi_type: t.Literal["undestand", "produce", "all"] = "produce",
+    ) -> _Path | tuple[_Path, ...] | None:
+        index: dict[str, dict[str, tuple[str, ...]]] = {
+            # English(American) Datasets
+            "ENG-NA": {
+                "WG": ("cdi-produce.csv", "cdi-understand.csv"),
+                "WGShort": ("cdi-produce.csv", "cdi-understand.csv"),
+                "WS": ("cdi-produce.csv",),
+                "WSShort": ("cdi-produce.csv",),
+            },
+            # English(British) Datasets
+            "EN_BR": {
+                "WG-OXPHRD": ("cdi-produce.csv", "cdi-understand.csv"),
+                "WS-TD2": ("cdi-produce.csv",),
+                "WS-TD3": ("cdi-produce.csv",),
+            },
+        }
+        files = index.get(lang, {}).get(form, ())
+        try:
+            if cdi_type == "produce":
+                return root / lang / form / files[0]
+
+            if cdi_type == "undestand":
+                return root / lang / form / files[1]
+
+            return tuple([root / lang / form / f for f in files])
+        except (KeyError, IndexError):
+            return None
+
+    def age_range(self, lang: str, form: str) -> tuple[int, int] | None:
+        index: dict[str, dict[str, tuple[int, int]]] = {
+            # English(American) Datasets
+            "ENG-NA": {
+                "WG": (8, 18),
+                "WGShort": (16, 36),
+                "WS": (16, 30),
+                "WSShort": (16, 36),
+            },
+            # English(British) Datasets
+            "EN_BR": {
+                "WG-OXPHRD": (12, 25),
+                "WS-TD2": (20, 35),
+                "WS-TD3": (34, 47),
+            },
+        }
+        return index.get(lang, {}).get(form)
+
 
 #######################################################
 # Instance of Settings
 PATH = _MyPathSettings()
+CHILDES = _CHILDESMetadata()

@@ -11,8 +11,8 @@ import pandas as pd
 from lexical_benchmark import settings
 from lexical_benchmark.datasets.utils.text_cleaning import char2word, segment_sent
 from lexical_benchmark.datasets.wordstats.data import WordStatsDataset
-from lexical_benchmark.stats.CDI_scores import CDICalculator
-from lexical_benchmark.stats.metric import Metric, WordDictManager, load_dict, remap_bins
+from lexical_benchmark.metrics.CDI_scores import CDICalculator
+from lexical_benchmark.metrics.metric import Metric, WordDictManager, load_dict, remap_bins
 
 
 def parse_args() -> argparse.Namespace:
