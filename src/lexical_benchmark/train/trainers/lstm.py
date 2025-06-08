@@ -115,38 +115,44 @@ class LSTMForLanguageModeling(PreTrainedModel):
             }
         return (loss, logits)
 
-    def generate(
-        self,
-        input_ids: torch.LongTensor,
-        max_length: int,
-        *,
-        do_sample: bool = True,
-        temperature: float = 1.0,
-        top_k: int = 0,
-        top_p: float = 1.0,
-        **kwargs,  # noqa: ARG002
-    ) -> torch.LongTensor:
-        """Generate text tokens using the LSTM model."""
-        if do_sample:
-            return self._generate_with_sampling(
-                input_ids=input_ids,
-                max_length=max_length,
-                temperature=temperature,
-                top_k=top_k,
-                top_p=top_p,
-            )
-        return None
+    def _forward_single_step(
+        self, input_ids: torch.LongTensor, hidden_state: tuple[torch.Tensor, torch.Tensor] | None = None
+    ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
+        """Forward pass for single token with hidden state management."""
+        embeddings = self.embedding(input_ids)
+        if hidden_state is None:
+            lstm_output, new_hidden = self.lstm(embeddings)
+        else:
+            lstm_output, new_hidden = self.lstm(embeddings, hidden_state)
+        logits = self.output(lstm_output)
+        return logits, new_hidden
 
     def _generate_with_sampling(
         self, input_ids: torch.LongTensor, max_length: int, temperature: float = 1.0, top_k: int = 0, top_p: float = 1.0
     ) -> torch.LongTensor:
-        """Generate sequences using sampling with temperature, top-k, and top-p filtering."""
+        """Generate using stateful LSTM as contexts have been inherently incorporated in the states."""
+        batch_size = input_ids.shape[0]
+        device = input_ids.device
+
+        # Initialize hidden state
+        h0 = torch.zeros(self.config.num_layers, batch_size, self.config.hidden_size, device=device)
+        c0 = torch.zeros(self.config.num_layers, batch_size, self.config.hidden_size, device=device)
+        hidden_state = (h0, c0)
+
         generated = input_ids.clone()
 
         with torch.no_grad():
+            # Process initial sequence to build hidden state
+            if input_ids.shape[1] > 0:
+                _, hidden_state = self._forward_single_step(input_ids, hidden_state)
+
+            # Generate new tokens one by one (statefully)
             for _ in range(max_length - input_ids.shape[1]):
-                outputs = self(input_ids=generated)
-                next_token_logits = outputs["logits"][:, -1, :] / temperature
+                # Only process the last token with maintained hidden state
+                last_token = generated[:, -1:] if generated.shape[1] > 0 else generated
+                logits, hidden_state = self._forward_single_step(last_token, hidden_state)
+
+                next_token_logits = logits[:, -1, :] / temperature
 
                 if top_k > 0:
                     indices_to_remove = next_token_logits < torch.topk(next_token_logits, top_k)[0][..., -1, None]
@@ -166,7 +172,30 @@ class LSTMForLanguageModeling(PreTrainedModel):
                 probs = torch.softmax(next_token_logits, dim=-1)
                 next_token = torch.multinomial(probs, num_samples=1)
                 generated = torch.cat([generated, next_token], dim=1)
+
         return generated
+
+    def generate(
+        self,
+        input_ids: torch.LongTensor,
+        max_length: int,
+        *,
+        do_sample: bool = True,
+        temperature: float = 1.0,
+        top_k: int = 0,
+        top_p: float = 1.0,
+        **kwargs,
+    ) -> torch.LongTensor:
+        """Generate text tokens using the LSTM model."""
+        if do_sample:
+            return self._generate_with_sampling(
+                input_ids=input_ids,
+                max_length=max_length,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+            )
+        return None
 
 
 def lstm_training(

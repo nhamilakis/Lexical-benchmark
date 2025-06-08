@@ -3,8 +3,6 @@ import typing as t
 from dataclasses import dataclass
 from pathlib import Path
 
-import pandas as pd
-
 from lexical_benchmark import settings
 from lexical_benchmark.datasets import utils as dataset_utils
 from lexical_benchmark.datasets.utils import text_cleaning
@@ -37,7 +35,7 @@ class CHILDESMetaItem:
     def rejected(self) -> Path:
         """Return path to rejected speech."""
         try:
-            return self._childes.root_dir / "metadata" / "rejected_txt" /  f"{self.item_id}.txt"
+            return self._childes.root_dir / "metadata" / "rejected_txt" / f"{self.item_id}.txt"
         except:
             raise ValueError(f"Expected {SPEECH_TYPES} got '{speech_type}' !")
 
@@ -53,10 +51,8 @@ class CHILDESItem:
     accent: str
     source_id: tuple[str, ...]
     _childes: "CHILDESDataset"
-    
 
     @property
-    
     def preprocess_item(self) -> PreprocessedItem:
         """Text & Metadata from preprocessed CHILDES."""
         try:
@@ -66,15 +62,14 @@ class CHILDESItem:
                 meta=self._childes.preprocessed_path / f"{self.item_id}.meta.json",
             )
         except:
-            raise ValueError(f"Expected got results!")
+            raise ValueError("Expected got results!")
 
     def transcription(self) -> Path:
         """Clean text from CHILDES for child speech."""
         try:
             return self._childes.root_dir / "adult" / self.accent / f"{self.item_id}.txt"
         except:
-            raise ValueError(f"Expected got results!")
-
+            raise ValueError("Expected got results!")
 
 
 class MetaLogHandler:
@@ -173,7 +168,7 @@ class ChildRealDataset:
     def preprocessed_path(self) -> Path:
         """Path to preprocessed version of the dataset."""
         return self.root_dir / "src" / "preprocessed" / "txt" / "EN"
-         # TODO: add the language argument
+        # TODO: add the language argument
 
     @property
     def meta(self) -> MetaDir:
@@ -185,24 +180,21 @@ class ChildRealDataset:
         """Extract languages."""
         return settings.STELA.langs
 
-
     @property
     def word_frequencies(self) -> t.Any:
         """Word frequency builder."""
         # TODO
 
-
     def sections(self, lang: str) -> tuple[str, ...]:
         """List of sections per split."""
         # use raw
-        section_dir = self.root_dir / "txt" / lang 
-            # If raw is not present
+        section_dir = self.root_dir / "txt" / lang
+        # If raw is not present
         if not section_dir.is_dir():
-                # Failed
+            # Failed
             raise FileNotFoundError("STELA dataset not found on disk")
 
         return tuple([d.name for d in section_dir.iterdir()])
-
 
     def raw2clean_filesmap(self) -> t.Iterable[tuple[Path, Path, Path]]:
         """Build FilesMapping that allows to create the clean txt version.
@@ -215,19 +207,19 @@ class ChildRealDataset:
             meta: <Path>
                 a target file to write processing logs (json format)
         """
-        source_item = self.root_dir / "src" / "original" / 'txt' / 'EN'
-        preprocessed_item = self.root_dir / "src" / "preprocessed" / 'txt' / 'EN'
+        source_item = self.root_dir / "src" / "original" / "txt" / "EN"
+        preprocessed_item = self.root_dir / "src" / "preprocessed" / "txt" / "EN"
         # iterate all the files
         for file in source_item.iterdir():
             if file.is_file():  # Check if it's a file (not a directory)
                 # file_pre = file.name.split('.')[0]
-                yield(
+                yield (
                     file,
                     preprocessed_item / f"{file.name}.preprocessed",
-                    preprocessed_item / f"{file.name}.meta.json"
+                    preprocessed_item / f"{file.name}.meta.json",
                 )
 
-                print(f'Preprocessing {str(file)}')
+                print(f"Preprocessing {file!s}")
 
     def word_validation_filesmap(self, lang: str) -> t.Iterable[tuple[Path, Path, Path]]:
         """Build word validation step filesmap.

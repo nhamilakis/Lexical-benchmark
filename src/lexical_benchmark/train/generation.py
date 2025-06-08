@@ -110,6 +110,9 @@ class BatchGenerator:
         """Generate sequences with early stopping."""
         if self.use_vllm and vllm:
             return self._generate_vllm(temperature)
+        if self.model_type == "lstm":
+            # Use optimized LSTM generation
+            return self._generate_lstm(temperature)
         return self._generate_batch_vanilla(temperature)
 
     def _generate_batch_vanilla(self, temperature: float) -> str:
@@ -132,12 +135,10 @@ class BatchGenerator:
                     return True
                 return False
 
-        try:
-            # Prepare batch input - use empty strings for generation
-            input_ids = self.tokenizer([""] * self.batch_size, return_tensors="pt", padding=True).input_ids.to(
-                self.device
-            )
+        # Prepare batch input - use empty strings for generation
+        input_ids = self.tokenizer([""] * self.batch_size, return_tensors="pt", padding=True).input_ids.to(self.device)
 
+        try:
             # Create stopping criteria
             stopping_criteria = StoppingCriteriaList(
                 [WordLengthStoppingCriteria(self.tokenizer, self.max_word_length, self._get_current_word_length)]
@@ -170,55 +171,28 @@ class BatchGenerator:
             return generated_text
 
         except (ImportError, AttributeError, TypeError):
-            # Fall back to manual generation if stopping criteria not supported
-            print("##########################: Start token-by-token generations")
-            input_ids = self.tokenizer("", return_tensors="pt").input_ids.to(self.device)
+            # Generate using built-in model.generate
+            outputs = self.model.generate(
+                input_ids,
+                max_length=min(1024, self.max_generation_length),
+                eos_token_id=self.tokenizer.eos_token_id,
+                pad_token_id=self.tokenizer.eos_token_id,
+                do_sample=True,
+                temperature=temperature,
+            )
+
+            # Decode and concatenate batch results
             generated_text = ""
+            for output in outputs:
+                decoded = self.tokenizer.decode(output, skip_special_tokens=True)
 
-            with torch.no_grad():
-                for _ in range(self.max_generation_length):
-                    # Generate next token
-                    outputs = self.model(input_ids)
+                # Check if we need to add boundary marker for early stopping
+                current_word_length = self._get_current_word_length(decoded)
+                if current_word_length > self.max_word_length:
+                    # Add boundary marker at the end
+                    decoded += "|"
 
-                    # Handle both dict and object outputs
-                    if isinstance(outputs, dict):
-                        # Custom LSTM model returns dict
-                        logits = (
-                            outputs["logits"][0, -1, :]
-                            if "logits" in outputs
-                            else outputs["prediction_scores"][0, -1, :]
-                        )
-                    else:
-                        # Standard transformers model returns object
-                        logits = outputs.logits[0, -1, :]
-
-                    # Apply temperature sampling
-                    if temperature > 0:
-                        logits = logits / temperature
-                        probabilities = torch.softmax(logits, dim=-1)
-                        next_token_id = torch.multinomial(probabilities, 1)
-                    else:
-                        next_token_id = torch.argmax(logits, dim=-1, keepdim=True)
-
-                    # Decode the new token
-                    next_token = self.tokenizer.decode(next_token_id, skip_special_tokens=True)
-
-                    # Check current word length after adding this token
-                    potential_text = generated_text + next_token
-                    current_word_length = self._get_current_word_length(potential_text)
-
-                    if current_word_length > self.max_word_length:
-                        # Force add boundary marker and stop
-                        generated_text += "|"
-                        break
-
-                    # Add the token and continue
-                    generated_text += next_token
-                    input_ids = torch.cat([input_ids, next_token_id.unsqueeze(0)], dim=-1)
-
-                    # Check for natural stopping (EOS token)
-                    if next_token_id.item() == self.tokenizer.eos_token_id:
-                        break
+                generated_text += decoded
 
             return generated_text
 
@@ -257,6 +231,34 @@ class BatchGenerator:
 
         # Return original text without modification
         return result
+
+    def _generate_lstm(self, temperature: float) -> str:
+        """Generate with LSTM using stateful approach."""
+        # Use empty input for generation from scratch
+        input_ids = self.tokenizer("", return_tensors="pt", padding=True).input_ids.to(self.device)
+
+        # Ensure we have at least one token (could be padding/eos)
+        if input_ids.shape[1] == 0:
+            # Add a start token if needed (adjust based on your tokenizer)
+            start_token = self.tokenizer.eos_token_id or 0
+            input_ids = torch.tensor([[start_token]], device=self.device)
+
+        with torch.no_grad():
+            generated_ids = self.model.generate(
+                input_ids=input_ids,
+                max_length=min(512, self.max_generation_length),  # Reasonable limit
+                do_sample=True,
+                temperature=temperature,
+                # Add other sampling parameters as needed
+            )
+
+            # Decode the result
+            generated_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+
+            # Apply word length constraint
+            if self._get_current_word_length(generated_text) > self.max_word_length:
+                generated_text += "|"
+            return generated_text
 
     def save_generation(
         self,
@@ -347,6 +349,7 @@ class BatchGenerator:
             if iter_num % self.save_interval == 0:
                 # save intermdeaite generation
                 checkpoint.save_intermediate(target_dir)
+                L.info("#########################################")
                 L.info(f"Save intermediate checkpoint @ {target_dir}")
         return checkpoint
 

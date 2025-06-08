@@ -146,7 +146,6 @@ class CHILDESDataset:
 
     root_dir: Path = settings.PATH.childes
 
-
     @staticmethod
     def lang2accent(lang: str) -> tuple[str, ...]:
         """Get list of accents in each language."""

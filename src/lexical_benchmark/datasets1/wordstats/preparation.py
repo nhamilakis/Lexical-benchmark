@@ -1,11 +1,10 @@
 import collections
 from pathlib import Path
-import functools
 
 try:
     import polars as pl  # type: ignore[import-not-found, import-untyped]
 except ImportError:
-    pl = None # type: ignore[assignment]
+    pl = None  # type: ignore[assignment]
 
 from lexical_benchmark import settings
 from lexical_benchmark.datasets import childes, stella, wordstats
@@ -42,10 +41,7 @@ def _prepare_stela() -> None:
     target = wordstats.WordStatsDataset(lang="EN")
     transcriptions = stella_dataset.by_month / "EN/60/00/transcription.txt"
     word_counts = collections.Counter(transcriptions.read_tokenized())
-    wf = pl.DataFrame({
-        "word": list(word_counts.keys()),
-        "count": list(word_counts.values())
-    })
+    wf = pl.DataFrame({"word": list(word_counts.keys()), "count": list(word_counts.values())})
 
     # Write to disk
     target.word_frequencies.stela_by_month_60_00.mk_parent()
@@ -58,14 +54,11 @@ def _prepare_childrealistic() -> None:
         raise OSError(f"This function({_prepare_childrealistic}) requires polars to be installed !")
 
     target = wordstats.WordStatsDataset(lang="EN")
-    txt = (settings.PATH.child_realistic / "by_month/EN/60/00" / "transcription.txt")
+    txt = settings.PATH.child_realistic / "by_month/EN/60/00" / "transcription.txt"
     if not txt.is_file():
         raise ValueError("Dataset Childlike is missing by_month information !!")
     word_counts = collections.Counter(txt.read_tokenized())
-    wf = pl.DataFrame({
-        "word": list(word_counts.keys()),
-        "count": list(word_counts.values())
-    })
+    wf = pl.DataFrame({"word": list(word_counts.keys()), "count": list(word_counts.values())})
 
     # Write to disk
     target.word_frequencies.child_realistic_by_month_60_00.mk_parent()
@@ -85,11 +78,9 @@ def _prepare_cdi_childes() -> None:
         raise ValueError("Requires CHILDES/EN/Adult data to be computed !!")
 
     childes_wf = target.word_frequencies.childes_adult.read_csv(has_header=True)
-    cdi_childes_wf = df.join(
-        childes_wf.select(["word", "count"]),
-        on="word",
-        how="left"
-    ).with_columns(pl.col("count").fill_null(0))
+    cdi_childes_wf = df.join(childes_wf.select(["word", "count"]), on="word", how="left").with_columns(
+        pl.col("count").fill_null(0)
+    )
 
     # Write to disk
     target.word_frequencies.cdi_childes.mk_parent()
@@ -109,11 +100,9 @@ def _prepare_cdi_childrealistic() -> None:
         raise ValueError("Requires CHILDRealistic/by_month/EN data to be computed !!")
 
     childrealistc_wf = target.word_frequencies.child_realistic_by_month_60_00.read_csv(has_header=True)
-    cdi_childes_wf = df.join(
-        childrealistc_wf.select(["word", "count"]),
-        on="word",
-        how="left"
-    ).with_columns(pl.col("count").fill_null(0))
+    cdi_childes_wf = df.join(childrealistc_wf.select(["word", "count"]), on="word", how="left").with_columns(
+        pl.col("count").fill_null(0)
+    )
 
     # write to disk
     target.word_frequencies.cdi_childrealistic.mk_parent()
@@ -130,13 +119,15 @@ def build_word_pos_maps(pos_model: str, *, require_gpu: bool, batch_size: int) -
     cdi_childes_wf = dataset.word_frequencies.cdi_childes.read_csv(use_pandas=False)
 
     # List of unique words
-    words = list({
-        *list(stela_wf["word"]),
-        *list(childes_wf["word"]),
-        *list(child_realistic_wf["word"]),
-        *list(cdi_child_realistic_wf["word"]),
-        *list(cdi_childes_wf["word"]),
-    })
+    words = list(
+        {
+            *list(stela_wf["word"]),
+            *list(childes_wf["word"]),
+            *list(child_realistic_wf["word"]),
+            *list(cdi_child_realistic_wf["word"]),
+            *list(cdi_childes_wf["word"]),
+        }
+    )
     pos_model = dataset_utils.various.spacy_model(pos_model, require_gpu=require_gpu)
     pos_lst = dataset_utils.batch_word_to_pos(words, pos_model, batch_size=batch_size)
     return {f"{w}": p for w, p in zip(words, pos_lst, strict=True)}
@@ -145,11 +136,8 @@ def build_word_pos_maps(pos_model: str, *, require_gpu: bool, batch_size: int) -
 def attach_pos(csv_file: Path, word_pos_mapping: dict[str, str]) -> None:
     """Attach to a word-count csv file the POS tags."""
     wf = csv_file.read_csv(use_pandas=False)
-    pos_wf = wf.with_columns(
-        pl.col("word").map_elements(lambda x: word_pos_mapping.get(x)).alias("POS")
-    )
+    pos_wf = wf.with_columns(pl.col("word").map_elements(lambda x: word_pos_mapping.get(x)).alias("POS"))
     pos_wf.write_csv(csv_file, include_header=True)
-
 
 
 def prepare_word_stats_word_counts() -> None:
