@@ -32,35 +32,6 @@ notebook-tunnel node=compute_node port=jupyter_port:
     ssh -L "{{port}}:{{node}}:{{port}}" "{{node}}" -N
 
 
-[doc("Deploy source code to remote")]
-deploy-oberon: exec-permissions
-    echo "Syncing source-code directory..."
-    rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="*.egg-info" "{{current_dir}}/" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/code/"
-
-
-[doc("Deploy source code to jean-folder test folder !!")]
-deploy-jz-dev: exec-permissions
-    #!/bin/bash
-    # SSHPASS not set
-    echo "Syncing source-code directory..."
-    if [ -z "${SSHPASS}" ]; then
-        rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_DEV}}"
-    else
-        sshpass -e rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_DEV}}"
-    fi
-
-[doc("Deploy source code to jean-folder in test env 1")]
-deploy-jz: exec-permissions
-    #!/bin/bash
-    # SSHPASS not set
-    echo "Syncing source-code directory..."
-    if [ -z "${SSHPASS}" ]; then
-        rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_PROD}}"
-    else
-        sshpass -e rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_PROD}}"
-    fi
-
-
 [doc("Make executables")]
 exec-permissions:
     find src/scripts -name "*.py" -exec chmod +x {} \;
@@ -93,3 +64,84 @@ check-todo:
     --ignore-case \
     'fixme|todo|feat' \
     .
+
+
+_rsync-to source_path target_path:
+    #!/usr/bin/env bash
+    # SSHPASS not set
+    echo "Syncing source-code directory..."
+    if [ -z "${SSHPASS}" ]; then
+        rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{source_path}}/" "{{target_path}}/"
+    else
+        sshpass -e rsync -azP --delete --exclude=".venv" --exclude="data" --exclude=".mypy_cache" --exclude="notebooks" --exclude=".ruff_cache" --exclude="src/*.egg-info" "{{source_path}}/" "{{target_path}}/"
+    fi
+
+
+_sync-watcher source_path target_path:
+    #!/usr/bin/env bash
+
+    sync_files() {
+        echo "Changes noticed @ {{source_path}} | syncing"
+        rsync -azh "{{source_path}}" "{{target_path}}" \
+            --progress \
+            --delete --force \
+            --exclude=".venv" \
+            --exclude="data" \
+            --exclude=".mypy_cache" \
+            --exclude="notebooks" \
+            --exclude=".ruff_cache" \
+            --exclude="*.egg-info"
+        return 0
+    }
+    
+    if [ "{{os()}}" = "macos" ]; then
+        echo "running using fswatch@macos"
+        fswatch -l 10 -e ".git/**" "{{source_path}}" | while read -r changed_path; do sync_files; done
+    elif [ "{{os()}}" = "linux" ]; then
+        echo "running using inotify-tools@linux"
+        while inotifywait -r -e modify,create,delete $source_path
+        do
+            sync_files 
+        done
+    fi
+    echo "Sync interrupted !!"
+
+
+
+[doc("Deploy code to jean-zay : [prod|dev] [single|loop].")]
+sync-jz target="dev" mode="sigle":
+    #!/bin/bash
+    if [ "{{mode}}" = "sigle" ]; then
+        if [ "{{target}}" = "prod" ]; then
+            echo "RSYNC -> jz@prod"
+            just _rsync-to "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_PROD}}"
+        elif [ "{{target}}" = "dev" ]; then
+            echo "RSYNC -> jz@dev"
+            just _rsync-to "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_DEV}}"
+        else
+            echo "Expected target = dev | prod, got {{target}} !!"
+        fi
+    elif [ "{{mode}}" = "loop" ]; then
+        if [ "{{target}}" = "prod" ]; then
+            echo "WATCH-RSYNC -> jz@prod"
+            just _sync-watcher "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_PROD}}"
+        elif [ "{{target}}" = "dev" ]; then
+            echo "WATCH-RSYNC -> jz@dev"
+            just _sync-watcher "{{current_dir}}/" "{{JZ_CLUSTER}}:{{JZ_SRC_DEV}}"
+        else
+            echo "Expected target = dev | prod, got {{target}} !!"
+        fi
+    else
+        echo "Expected mode = single | loop, , got "{{mode}}" !!"
+    fi
+
+[doc("Deploy code to oberon (mode=[single|loop]).")]
+sync-oberon mode="single":
+    #!/bin/bash
+    if [ "{{mode}}" = "single" ]; then
+        just _rsync-to "{{current_dir}}/" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/code/"
+    elif [ "{{mode}}" = "loop" ]; then
+        just _sync-watcher "{{current_dir}}/" "{{COML_CLUSTER}}:{{COML_WORKSPACE}}/code/"
+    else
+        echo "Expected mode = single | loop, got "{{mode}}" !! "
+    fi

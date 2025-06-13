@@ -3,6 +3,7 @@ from pathlib import Path
 
 from lexical_benchmark import exc, lb_types
 from lexical_benchmark.dataloaders import by_size
+from lexical_benchmark.dataloaders import childes as childes_loaders
 
 # Forward reference for optuna.Trial since we don't import optuna
 OptunaTrial = t.TypeVar("OptunaTrial", bound="optuna.Trial")  # type: ignore[undefined-variable]# noqa: F821
@@ -33,7 +34,7 @@ class TrainerP(t.Protocol):
 
 
 def load_trainer(
-    item: by_size.BySizeTrainItem,
+    item: by_size.BySizeTrainItem | childes_loaders.CHILDESTrainItem,
     *,
     device: lb_types.DEVICE_TYPE,
     batch_size: int | None = None,

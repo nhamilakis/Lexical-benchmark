@@ -15,6 +15,7 @@ from transformers import (
 
 from lexical_benchmark import lb_types
 from lexical_benchmark.dataloaders import by_size
+from lexical_benchmark.dataloaders import childes as childes_loaders
 from lexical_benchmark.train import tokenizers, train_params
 
 if t.TYPE_CHECKING:
@@ -184,7 +185,7 @@ class LSTMForLanguageModeling(PreTrainedModel):
         temperature: float = 1.0,
         top_k: int = 0,
         top_p: float = 1.0,
-        **kwargs,
+        **kwargs,  # noqa: ARG002
     ) -> torch.LongTensor:
         """Generate text tokens using the LSTM model."""
         if do_sample:
@@ -199,7 +200,7 @@ class LSTMForLanguageModeling(PreTrainedModel):
 
 
 def lstm_training(
-    args: by_size.BySizeTrainItem,
+    args: by_size.BySizeTrainItem | childes_loaders.CHILDESTrainItem,
     params_file: Path | None = None,
     tokenizer_name: str = "phonemetransformers/GPT2-85M-CHAR-TXT",
     batch_size: int = 128,

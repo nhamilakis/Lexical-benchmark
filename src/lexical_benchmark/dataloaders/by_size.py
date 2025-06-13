@@ -2,10 +2,12 @@ import dataclasses
 import typing as t
 from pathlib import Path
 
-from lexical_benchmark import datasets, exc, lb_types, settings
+import typing_extensions as t_extra
+
+from lexical_benchmark import datasets, exc, lb_types, settings, utils
 from lexical_benchmark.text_lib import tokenization
 
-from .definitions import DatasetItemsLoader
+from .definitions import DatasetItemsLoader, DatasetTrainArgLoader
 
 
 @t.runtime_checkable
@@ -206,102 +208,57 @@ class BySizeItemsLoader(DatasetItemsLoader):
 
 
 @dataclasses.dataclass
-class BySizeTrainItem:
+class BySizeTrainItem(DatasetTrainArgLoader):
     """Structure allowing inferring training arguments."""
 
-    model_type: lb_types.MODEL_TYPE
     data_item: BySizeItemsLoader
+    model_type: lb_types.MODEL_TYPE
     resume: bool = True
     override: bool = False
     resume_id: str | None = None
     batch_size: int = 32
 
     @property
+    @t_extra.override
     def item_id(self) -> str:
         """Unique identifier for item."""
         return f"{self.data_item.lang}_{self.data_item.split}_{self.data_item.chunk}"
 
     @property
+    @t_extra.override
     def job_name(self) -> str:
         """Unique train item identifier."""
         return f"{self.dataset_name}_{self.model_type}_{self.item_id}"
 
     @property
+    @t_extra.override
     def dataset_name(self) -> str:
         """Name of the dataset."""
         return self.data_item.dt_cfg.dataset_name
 
     @property
+    @t_extra.override
     def model_root_dir(self) -> Path:
         """Root directory."""
         return self.data_item.model_root / self.model_type
 
     @property
-    def train_logs_file(self) -> Path:
-        """Path to file containing training logs."""
-        return self.model_root_dir / "training.logs"
-
-    @property
+    @t_extra.override
     def generation_root_dir(self) -> Path:
         """Root directory."""
         return self.data_item.geneneration_checkpoint_root / self.model_type
 
-    @property
-    def completed_training(self) -> bool:
-        """Check if completed."""
-        return (self.model_root_dir / "training_args.bin").is_file()
-
-    def get_resume_train(self) -> Path | None:
-        """Conditional function that checks if it is required to resume training."""
-        match (self.override, self.resume, self.resume_id):
-            case (True, _, _):  # When overriding always restart
-                return None
-            case (False, True, None):  # Resume from last
-                return self.last_checkpoint()
-            case (False, True, _):  # Resume from specific
-                return self.get_checkpoint(self.resume_id)
-            case _:  # Start from scratch
-                if len(self.checkpoint_list()) > 0:
-                    raise ValueError("Trying to override model-root when 'override=False' !!")
-                return None
-
-    def checkpoint_list(self, *, sort: bool = True) -> list[Path]:
-        """List of checkpoints."""
-        if not self.model_root_dir.is_dir():
-            return []
-        # checkpoint folders are named 'checkpoint-XXXX' where XXXX is a number
-        list_of_checkpoint_files = [
-            d for d in self.model_root_dir.iterdir() if d.is_dir() and d.name.startswith("checkpoint-")
-        ]
-        if sort:
-            # reverse=true grabs the largest number (assumption: biggest=latest)
-            return sorted(
-                list_of_checkpoint_files, key=lambda path: int(path.name.replace("checkpoint-", "")), reverse=True
-            )
-        return list_of_checkpoint_files
-
-    def get_checkpoint(self, check_id: str) -> Path | None:
-        """Get a specific checkpoint if it exists.."""
-        for chk in self.checkpoint_list():
-            if chk.name == f"checkpoint-{check_id}":
-                return chk
-        return None
-
-    def last_checkpoint(self) -> Path | None:
-        """Get location of latest checkpoint."""
-        return next(
-            iter(self.checkpoint_list(sort=True)),
-            None,
-        )
-
+    @t_extra.override
     def train_txt(self) -> Path:
         """Load train data."""
         return self.data_item.tokenized_train(as_path=True)
 
+    @t_extra.override
     def dev_txt(self) -> Path:
         """Load dev data."""
         return self.data_item.tokenized_dev(as_path=True)
 
+    @t_extra.override
     def to_dict(self) -> BySizeTrainStruct:
         """Convert item into a dictionairy."""
         last_checkpoint = self.last_checkpoint()
@@ -322,6 +279,7 @@ class BySizeTrainItem:
         }
 
     @classmethod
+    @t_extra.override
     def from_dict(cls, cfg_args: BySizeTrainStruct) -> "BySizeTrainItem":
         """Load train args from a dictionairy."""
         return cls(
@@ -332,4 +290,8 @@ class BySizeTrainItem:
                 chunk=cfg_args["chunk"],
                 dt_cfg=datasets.get_config(cfg_args["dataset_name"]),
             ),
+            resume=utils.str_to_bool(cfg_args["resume"]),
+            override=utils.str_to_bool(cfg_args["override"]),
+            resume_id=cfg_args["resume_id"],
+            batch_size=cfg_args["batch_size"],
         )

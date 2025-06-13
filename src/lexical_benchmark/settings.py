@@ -5,6 +5,9 @@ import typing as t
 import warnings as _warnings
 from pathlib import Path as _Path
 
+RANDOM_SEED: int = _os.environ.get("RANDOM_SEED", 562)
+DEV_RATIO: float = 8.5 / 100  # percent
+TRAIN_RATIO: float = 1 - DEV_RATIO
 # URL to the KAIKI extended english word dictionairy
 KAIKI_ENGLISH_WORD_DICT_URL = "https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz"
 LEXICON_ITEMS = ("kaikki", "SCOWLv2", "yawl")

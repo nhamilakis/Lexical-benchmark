@@ -8,6 +8,7 @@ from clypi import Command, Positional, arg
 
 from lexical_benchmark import lb_types
 from lexical_benchmark.dataloaders import by_size
+from lexical_benchmark.dataloaders import childes as childes_loaders
 from lexical_benchmark.utils import generic as generic_utils
 
 from .trainers import load_trainer
@@ -38,7 +39,7 @@ def init_logging(log_level: LogLevelType, log_path: Path, job_name: str, *, log_
 
 
 def train_model(
-    item: by_size.BySizeTrainItem,
+    item: by_size.BySizeTrainItem | childes_loaders.CHILDESTrainItem,
     *,
     model_params_file: Path | None = None,
     device: lb_types.DEVICE_TYPE = None,
@@ -64,7 +65,7 @@ def train_model(
 class Single(Command):
     """Command line arguments for the train script."""
 
-    dataset_name: Positional[t.Literal["stela", "child_realistic"]]
+    dataset_name: Positional[t.Literal["stela", "child_realistic", "childes_adult"]]
     lang: Positional[str]
     split: Positional[int]
     chunk: Positional[int]
@@ -84,17 +85,27 @@ class Single(Command):
     log_to_std: bool = arg(inherited=True, group="logs")
     log_level: LogLevelType = arg(inherited=True, group="logs")
 
-    def prep_args(self) -> by_size.BySizeTrainItem:
+    def prep_args(self) -> by_size.BySizeTrainItem | childes_loaders.CHILDESTrainItem:
         """Prepare training arguments."""
-        dt_item: by_size.BySizeItemsLoader = by_size.BySizeItemsLoader.load(
-            dataset_name=self.dataset_name, lang=self.lang, split=self.split, chunk=self.chunk
-        )
-        train_args = dt_item.train_args(
-            model_type=self.model_type,
-            resume=self.resume,
-            override=self.override,
-            resume_id=self.resume_id,
-        )
+        if self.dataset_name == "childes_adult":
+            dt_item: childes_loaders.CHILDESTXTAccessor = childes_loaders.CHILDESTXTAccessor(self.lang)
+            train_args = dt_item.train_args(
+                model_type=self.model_type,
+                speech_type="adult",
+                resume=self.resume,
+                override=self.override,
+                resume_id=self.resume_id,
+            )
+        else:
+            dt_item: by_size.BySizeItemsLoader = by_size.BySizeItemsLoader.load(
+                dataset_name=self.dataset_name, lang=self.lang, split=self.split, chunk=self.chunk
+            )
+            train_args = dt_item.train_args(
+                model_type=self.model_type,
+                resume=self.resume,
+                override=self.override,
+                resume_id=self.resume_id,
+            )
         train_args.model_root_dir.mkdir(exist_ok=True, parents=True)
 
         init_logging(

@@ -92,6 +92,50 @@ def sentence_formatting(
         src.safe_write_text(raw_text)
 
 
+def split_lines_by_tokens(
+    lines: list[str], train_ratio: float = 0.8, *, shuffle: bool = False, random_seed: int | None = None
+) -> tuple[str, str]:
+    """Split given lines into dev, train subsets.
+
+    Splits lines to approximate the desired token ratio without splitting
+    individual lines. Always ensures train ratio doesn't exceed the target.
+
+    Raises:
+        ValueError: If train_ratio is not between 0 and 1
+        ValueError: If lines list is empty
+
+    """
+    if not 0 < train_ratio < 1:
+        raise ValueError("train_ratio must be between 0 and 1")
+    if not lines:
+        raise ValueError("lines list cannot be empty")
+
+    lines_copy = lines.copy()
+    if shuffle:
+        import random
+
+        if random_seed is not None:
+            random.seed(random_seed)
+        random.shuffle(lines_copy)
+    total_tokens = word_count(lines_copy)
+    target_train_tokens = int(total_tokens * train_ratio)
+
+    # Greedily select lines for training set
+    train_lines: list[str] = []
+    train_tokens = 0
+    for line in lines_copy:
+        line_tokens = word_count([line])
+        if train_tokens + line_tokens <= target_train_tokens:
+            train_lines.append(line)
+            train_tokens += line_tokens
+        else:
+            break
+
+    # Remaining lines go to dev set
+    dev_lines = lines_copy[len(train_lines) :]
+    return dev_lines, train_lines
+
+
 def _group_is_in_(*words: str, target: str) -> bool:
     """Check if any of the given words is in the target string."""
     return any(w in target for w in words)

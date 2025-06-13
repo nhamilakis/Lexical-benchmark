@@ -5,10 +5,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import polars as pl
+import typing_extensions as t_extra
 
-from lexical_benchmark import datasets
+from lexical_benchmark import datasets, lb_types, settings, text_lib, utils
+from lexical_benchmark.text_lib import tokenization
 
-from .definitions import DatasetItemsLoader
+from .definitions import DatasetItemsLoader, DatasetTrainArgLoader
 
 DialogFormatType = list[tuple[str, str]]
 
@@ -43,21 +45,172 @@ def check_speech(speaker: str, speech_type: datasets.CHILDES_SPEECH_TYPES) -> bo
 
 
 @dataclass
+class CHILDESTrainItem(DatasetTrainArgLoader):
+    """Train arguments for CHILDES."""
+
+    speech_type: datasets.CHILDES_SPEECH_TYPES
+    data_item: "CHILDESTXTAccessor"
+    model_type: lb_types.MODEL_TYPE
+    resume: bool = True
+    override: bool = False
+    resume_id: str | None = None
+    batch_size: int = 32
+
+    @property
+    @t_extra.override
+    def item_id(self) -> str:
+        """Unique identifier for item."""
+        return f"childes_{self.data_item.lang}_{self.speech_type}"
+
+    @property
+    @t_extra.override
+    def job_name(self) -> str:
+        """Unique train item identifier."""
+        return f"{self.dataset_name}_{self.model_type}_{self.item_id}"
+
+    @property
+    @t_extra.override
+    def dataset_name(self) -> str:
+        """Name of the dataset."""
+        return self.data_item.dt_cfg.dataset_name
+
+    @property
+    @t_extra.override
+    def model_root_dir(self) -> Path:
+        """Root directory."""
+        return settings.PATH.model_root / self.dataset_name / self.speech_type / self.model_type
+
+    @property
+    @t_extra.override
+    def generation_root_dir(self) -> Path:
+        """Root directory."""
+        return settings.PATH.generate_root / self.dataset_name / self.speech_type / self.model_type
+
+    def __load__format_text(self) -> None:
+        """Load & format childes text."""
+        text = self.data_item.load_text(self.speech_type)
+        dev_txt, train_txt = text_lib.split_lines_by_tokens(
+            text,
+            train_ratio=(100 - 8.5) / 100,
+            random_seed=settings.RANDOM_SEED,
+        )
+        # Write as split
+        self.data_item.text_dev_file(self.speech_type).safe_write_text("\n".join(dev_txt))
+        self.data_item.text_train_file(self.speech_type).safe_write_text("\n".join(train_txt))
+
+        # Write tokenized versions
+        self.data_item.text_dev_tokenized_file(self.speech_type).safe_write_text(
+            "\n".join([tokenization.hf_line_format(line) for line in dev_txt])
+        )
+        self.data_item.text_train_tokenized_file(self.speech_type).safe_write_text(
+            "\n".join([tokenization.hf_line_format(line) for line in train_txt])
+        )
+
+    @t_extra.override
+    def train_txt(self) -> Path:
+        """Load train data."""
+        text_file = self.data_item.text_train_tokenized_file(self.speech_type)
+        if not text_file.is_file():
+            self.__load__format_text()
+        return text_file
+
+    @t_extra.override
+    def dev_txt(self) -> Path:
+        """Load dev data."""
+        text_file = self.data_item.text_dev_tokenized_file(self.speech_type)
+        if not text_file.is_file():
+            self.__load__format_text()
+        return text_file
+
+    def to_dict(self) -> dict:
+        """Convert item into a dictionairy."""
+        last_checkpoint = self.last_checkpoint()
+        return {
+            "model_type": self.model_type,
+            "lang": self.data_item.lang,
+            "dataset_name": self.dataset_name,
+            "speech_type": self.speech_type,
+            "completed_training": self.completed_training,
+            "generation_root": str(self.generation_root_dir) if self.generation_root_dir else self.generation_root_dir,
+            "model_root": str(self.model_root_dir) if self.model_root_dir else self.model_root_dir,
+            "last_checkpoint": str(last_checkpoint) if last_checkpoint else last_checkpoint,
+            "resume": self.resume,
+            "override": self.override,
+            "resume_id": self.resume_id,
+            "batch_size": self.batch_size,
+        }
+
+    @classmethod
+    @t_extra.override
+    def from_dict(cls, cfg_args: dict) -> t_extra.Self:
+        """Load train args from a dictionairy."""
+        return cls(
+            data_item=CHILDESTXTAccessor(
+                lang=cfg_args["lang"],
+            ),
+            model_type=cfg_args["model_type"],
+            speech_type=cfg_args["speech_type"],
+            resume=utils.str_to_bool(cfg_args["resume"]),
+            override=utils.str_to_bool(cfg_args["override"]),
+            resume_id=cfg_args["resume_id"],
+            batch_size=cfg_args["batch_size"],
+        )
+
+
+@dataclass
 class CHILDESTXTAccessor:
     """Accessor for txt aggregates."""
 
     lang: str
     dt_cfg: datasets.CHILDESDatasetConfig = field(default_factory=lambda: datasets.get_config("childes"))
 
+    def text_file(self, speech_type: datasets.CHILDES_SPEECH_TYPES) -> Path:
+        """Location to text file."""
+        return self.dt_cfg.text_dir / speech_type / f"{self.lang}.txt"
+
+    def text_dev_file(self, speech_type: datasets.CHILDES_SPEECH_TYPES) -> Path:
+        """Location to text file."""
+        return self.text_file(speech_type).with_suffix(".dev.txt")
+
+    def text_train_file(self, speech_type: datasets.CHILDES_SPEECH_TYPES) -> Path:
+        """Location to text file."""
+        return self.text_file(speech_type).with_suffix(".train.txt")
+
+    def text_dev_tokenized_file(self, speech_type: datasets.CHILDES_SPEECH_TYPES) -> Path:
+        """Location to text file."""
+        return self.text_file(speech_type).with_suffix(".tokenized.dev.txt")
+
+    def text_train_tokenized_file(self, speech_type: datasets.CHILDES_SPEECH_TYPES) -> Path:
+        """Location to text file."""
+        return self.text_file(speech_type).with_suffix(".tokenized.train.txt")
+
     def load_text(self, speech_type: datasets.CHILDES_SPEECH_TYPES) -> list[str]:
         """Load text file."""
-        txt_file = self.dt_cfg.text_dir / speech_type / f"{self.lang}.txt"
-        return txt_file.safe_readlines()
+        return self.text_file(speech_type).safe_readlines()
 
     def child_by_age(self) -> list[tuple[int, list[str]]]:
         """Load child-speech by age."""
         # TODO: add this if necessairy for child-model comparison
         raise NotImplementedError("Requires implementation")
+
+    def train_args(
+        self,
+        *,
+        model_type: lb_types.MODEL_TYPE,
+        speech_type: datasets.CHILDES_SPEECH_TYPES,
+        resume: bool = True,
+        override: bool = False,
+        resume_id: str | None = None,
+    ) -> "CHILDESTrainItem":
+        """Load train arguments."""
+        return CHILDESTrainItem(
+            data_item=self,
+            model_type=model_type,
+            speech_type=speech_type,
+            resume=resume,
+            override=override,
+            resume_id=resume_id,
+        )
 
 
 @dataclass
