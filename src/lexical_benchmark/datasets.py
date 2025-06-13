@@ -29,6 +29,11 @@ class DatasetConfig(abc.ABC):
         return self.root_dir / "metadata"
 
     @property
+    def text_dir(self) -> Path:
+        """Text Location."""
+        return self.root_dir / "txt"
+
+    @property
     @abc.abstractmethod
     def langs(self) -> tuple[str, ...]:
         """List available languages."""

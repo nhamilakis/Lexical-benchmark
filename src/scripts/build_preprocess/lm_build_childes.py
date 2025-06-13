@@ -14,7 +14,6 @@ prog_file = Path.cwd() / "childes.progress"
 dataset_cfg: datasets.CHILDESDatasetConfig = datasets.get_config("childes")
 childes_prep = childes.CHILDESPreparation()
 
-
 # Build ID Mapping
 logger.info("Building IDs index ...")
 progress = slurm_utils.ProgressTask(task_name="childes_id", update_interval=10, target_file=prog_file)
@@ -33,7 +32,6 @@ for lang_accent in progress.sequence_progress(dataset_cfg.all_accents):
 
 with progress.parallel_progress("Extracting from CHILDES"):
     childes_prep.build_preprocess()
-
 progress.complete()
 
 print(f"Finished building {dataset_cfg.preprocessed_root} !")

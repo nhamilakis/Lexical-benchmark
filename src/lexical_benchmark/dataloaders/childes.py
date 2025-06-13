@@ -20,6 +20,18 @@ class DatasetWithDialogs(t.Protocol):
     def by_dialogs(self) -> Path:
         """Dialog path."""
 
+    @property
+    def all_accents(self) -> tuple[str, ...]:
+        """List of accents."""
+
+    @property
+    def langs(self) -> tuple[str, ...]:
+        """List of languages."""
+
+    @property
+    def preprocessed_root(self) -> Path:
+        """Location to preprocessed files."""
+
 
 def check_speech(speaker: str, speech_type: datasets.CHILDES_SPEECH_TYPES) -> bool:
     """Check if speaker is in speech_type."""
@@ -31,8 +43,26 @@ def check_speech(speaker: str, speech_type: datasets.CHILDES_SPEECH_TYPES) -> bo
 
 
 @dataclass
+class CHILDESTXTAccessor:
+    """Accessor for txt aggregates."""
+
+    lang: str
+    dt_cfg: datasets.CHILDESDatasetConfig = field(default_factory=lambda: datasets.get_config("childes"))
+
+    def load_text(self, speech_type: datasets.CHILDES_SPEECH_TYPES) -> list[str]:
+        """Load text file."""
+        txt_file = self.dt_cfg.text_dir / speech_type / f"{self.lang}.txt"
+        return txt_file.safe_readlines()
+
+    def child_by_age(self) -> list[tuple[int, list[str]]]:
+        """Load child-speech by age."""
+        # TODO: add this if necessairy for child-model comparison
+        raise NotImplementedError("Requires implementation")
+
+
+@dataclass
 class CHILDESTextLoader(DatasetItemsLoader):
-    """Loader for clean txt items in the CHILDES dataset."""
+    """Loader for clean txt items in the CHILDES dataset, from dialogs."""
 
     lang_accent: str
     item_id: str
@@ -88,11 +118,12 @@ class CHILDESTextLoader(DatasetItemsLoader):
 
 
 @dataclass
-class CHILDESDialogLoader:
+class CHILDESDialogLoader(DatasetItemsLoader):
     """Loader for Dialog formatted data."""
 
     lang_accent: str
     item_id: str
+    dt_cfg: DatasetWithDialogs = field(default_factory=lambda: datasets.get_config("childes"))
 
     @property
     def root_dir(self) -> Path:
@@ -103,9 +134,6 @@ class CHILDESDialogLoader:
     def dialog_file(self) -> Path:
         """Path to dialog file (JSON format)."""
         return self.root_dir / f"{self.item_id}.json"
-
-    def __post_init__(self) -> None:
-        self.dt_cfg: datasets.CHILDESDatasetConfig = datasets.get_config("childes")
 
     @classmethod
     def iter_items(cls, **kwargs) -> t.Iterable["CHILDESDialogLoader"]:
