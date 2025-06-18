@@ -64,6 +64,19 @@ class CHILDESDatasetConfig(DatasetConfig):
         "Eng-UK": ("EN", "UK"),
     }
     SPEECH_TYPES: tuple[str, ...] = ("adult", "child")
+    size_splits: tuple[str, ...] = ("01", "02", "03", "04", "05", "06", "10", "15", "20", "25")
+    BY_SIZE_CHUNK_NUMBER: t.ClassVar[dict[str, int]] = {
+        "01": 30,
+        "02": 15,
+        "03": 10,
+        "04": 7,
+        "05": 6,
+        "06": 4,
+        "10": 3,
+        "15": 2,
+        "20": 1,
+        "25": 1,
+    }
 
     @property
     def original_root(self) -> Path:
@@ -96,12 +109,34 @@ class CHILDESDatasetConfig(DatasetConfig):
         return tuple(itertools.chain(*self.LANG_ACCENT.values()))
 
     @property
+    def generation_checkpoint_root(self) -> Path:
+        """Root location for checkpoint of generations."""
+        return settings.PATH.generate_root / "checkpoints" / self.dataset_name
+
+    @property
+    def generation_text_root(self) -> Path:
+        """Root location for generated text."""
+        return settings.PATH.generate_root / "text" / self.dataset_name
+
+    @property
     def meta_dir(self) -> Path:
         """Path to the metadata directory."""
         return self.root_dir / "metadata"
 
     def __init__(self) -> None:
         super().__init__(dataset_name="childes")
+
+    def chunks_by_size(self, lang: str, split: str | int, *, hardcoded: bool = True) -> tuple[str, ...]:
+        """Available chunks in a split in the by_size architecture."""
+        split = f"{split:02}"  # Make sure padding is properly applied
+        if hardcoded:
+            return tuple(f"{n:0>2}" for n in range(self.BY_SIZE_CHUNK_NUMBER.get(split, 0)))
+
+        section_dir = self.by_size_dir / lang / "adult" / split
+        if section_dir.is_dir():
+            return tuple([d.name for d in section_dir.iterdir()])
+
+        raise FileNotFoundError("Cannot infer chunk size from disk")
 
     def id2cha(self, lang_accent: str, item_id: str) -> Path:
         """Get original CHA file from a given ID."""
@@ -133,7 +168,9 @@ class CHILDESDatasetConfig(DatasetConfig):
         # All path should be relative to root dir of the dataset
         return [
             self.preprocessed_root.relative_to(self.root_dir),  # src/preprocess
-            self.by_speech_type.relative_to(self.root_dir),  # by_type/
+            self.by_size_dir.relative_to(self.root_dir),  # by_size/
+            self.by_dialogs.relative_to(self.root_dir),  # dialogs
+            self.by_turn.relative_to(self.root_dir),  # by_turn
             self.meta_dir.relative_to(self.root_dir),  # metadata/
         ]
 

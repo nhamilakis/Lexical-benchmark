@@ -62,6 +62,7 @@ class BySizeTrainStruct(t.TypedDict):
     resume: bool = True
     override: bool = False
     resume_id: str | None = None
+    speech_type: datasets.CHILDES_SPEECH_TYPES | None = None
 
 
 @dataclasses.dataclass
@@ -72,6 +73,7 @@ class BySizeItemsLoader(DatasetItemsLoader):
     split: str
     chunk: str
     dt_cfg: DatasetWithBySize
+    speech_type: datasets.CHILDES_SPEECH_TYPES | None = None
 
     def __post_init__(self) -> None:
         # Check if correct dataset is provided.
@@ -79,31 +81,54 @@ class BySizeItemsLoader(DatasetItemsLoader):
             raise exc.DatasetTypeError(dataset=type(self.dt_cfg), protocol=DatasetWithBySize)
 
     @classmethod
-    def load(cls, dataset_name: datasets.DATASET_NAMES, lang: str, split: str, chunk: str) -> "DatasetItemsLoader":
+    def load(
+        cls,
+        dataset_name: datasets.DATASET_NAMES,
+        lang: str,
+        split: str,
+        chunk: str,
+    ) -> "DatasetItemsLoader":
         """Load item directly."""
         split = f"{split:02}"  # Make sure padding is properly applied
         chunk = f"{chunk:02}"  # Make sure padding is properly applied
 
+        if "childes" in dataset_name.lower():
+            return cls(lang=lang, split=split, chunk=chunk, speech_type="adult", dt_cfg=datasets.get_config("childes"))
         return cls(lang=lang, split=split, chunk=chunk, dt_cfg=datasets.get_config(dataset_name))
 
     @property
     def chunk_id(self) -> str:
         """Build the id of the current chunk."""
+        if self.speech_type:
+            return f"{self.lang}_{self.split}_{self.chunk}"
         return f"{self.lang}_{self.split}_{self.chunk}"
 
     @property
     def data_dir(self) -> str:
         """Current chunk path."""
+        if self.speech_type:
+            return self.dt_cfg.by_size_dir / self.lang / self.speech_type / self.split / self.chunk
         return self.dt_cfg.by_size_dir / self.lang / self.split / self.chunk
 
     @property
     def model_root(self) -> Path:
         """Root directory to the corresponding model folder."""
+        if self.speech_type:
+            return (
+                settings.PATH.model_root
+                / self.dt_cfg.dataset_name
+                / self.lang
+                / self.speech_type
+                / self.split
+                / self.chunk
+            )
         return settings.PATH.model_root / self.dt_cfg.dataset_name / self.lang / self.split / self.chunk
 
     @property
     def geneneration_checkpoint_root(self) -> Path:
         """Root directory to the generated data is raw (checkpoint form)."""
+        if self.speech_type:
+            return self.dt_cfg.generation_checkpoint_root / self.lang / self.speech_type / self.split / self.chunk
         return self.dt_cfg.generation_checkpoint_root / self.lang / self.split / self.chunk
 
     @property
@@ -114,6 +139,8 @@ class BySizeItemsLoader(DatasetItemsLoader):
     @property
     def dev_file(self) -> Path:
         """Path to dev set."""
+        if self.speech_type:
+            return self.dt_cfg.by_size_dir / self.lang / self.speech_type / "dev" / "dev.txt"
         return self.dt_cfg.by_size_dir / self.lang / "dev" / "dev.txt"
 
     def tokenized_train(self, *, as_path: bool = False) -> list[str] | Path:
@@ -268,6 +295,7 @@ class BySizeTrainItem(DatasetTrainArgLoader):
             "split": self.data_item.split,
             "chunk": self.data_item.chunk,
             "dataset_name": self.dataset_name,
+            "speech_type": self.data_item.speech_type,
             "completed_training": self.completed_training,
             "generation_root": str(self.generation_root_dir) if self.generation_root_dir else self.generation_root_dir,
             "model_root": str(self.model_root_dir) if self.model_root_dir else self.model_root_dir,
@@ -284,11 +312,11 @@ class BySizeTrainItem(DatasetTrainArgLoader):
         """Load train args from a dictionairy."""
         return cls(
             model_type=cfg_args["model_type"],
-            data_item=BySizeItemsLoader(
+            data_item=BySizeItemsLoader.load(
+                dataset_name=cfg_args["dataset_name"],
                 lang=cfg_args["lang"],
                 split=cfg_args["split"],
                 chunk=cfg_args["chunk"],
-                dt_cfg=datasets.get_config(cfg_args["dataset_name"]),
             ),
             resume=utils.str_to_bool(cfg_args["resume"]),
             override=utils.str_to_bool(cfg_args["override"]),

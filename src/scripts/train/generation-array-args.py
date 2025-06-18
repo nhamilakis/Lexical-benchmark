@@ -26,8 +26,8 @@ class GenerationArguments(Command):
     interactive: bool = arg(short="i", default=False, group="debug", hidden=True)
     verbose: bool = arg(default=False, group="debug")
 
-    dataset_names: tuple[t.Literal["stela", "child_realistic"], ...] = arg(
-        ("stela",),
+    dataset_names: tuple[t.Literal["stela", "child_realistic", "childes_adult"], ...] = arg(
+        ("stela", "childes_adult"),
         parser=cp.Tuple(cp.Str(), num=None),
         group="params",
         help="List of datasets to use (default: 'stela', 'child_realistic').",

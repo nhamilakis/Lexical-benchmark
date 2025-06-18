@@ -9,9 +9,11 @@ if [ "$(hostname -d)" = "oberon2" ]; then
 elif [[ "$(hostname)" == *"jean-zay"* ]]; then
     echo "is on jean-zay"
     echo "applying permissions..."
-    chown -R :hhb $ALL_CCFRWORK/lexical-benchmark
+
     chmod -R g+rw $ALL_CCFRWORK/lexical-benchmark
-    echo "permissions set on $ALL_CCFRWORK/lexical-benchmark"
+    chmod -R g+rw $ALL_CCFRSCRATCH/lexical-benchmark
+
+    echo "permissions set on $ALL_CCFRWORK/lexical-benchmark & $ALL_CCFRSCRATCH/lexical-benchmark"
 else
     echo "Server not detected"
 fi

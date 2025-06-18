@@ -87,25 +87,15 @@ class Single(Command):
 
     def prep_args(self) -> by_size.BySizeTrainItem | childes_loaders.CHILDESTrainItem:
         """Prepare training arguments."""
-        if self.dataset_name == "childes_adult":
-            dt_item: childes_loaders.CHILDESTXTAccessor = childes_loaders.CHILDESTXTAccessor(self.lang)
-            train_args = dt_item.train_args(
-                model_type=self.model_type,
-                speech_type="adult",
-                resume=self.resume,
-                override=self.override,
-                resume_id=self.resume_id,
-            )
-        else:
-            dt_item: by_size.BySizeItemsLoader = by_size.BySizeItemsLoader.load(
-                dataset_name=self.dataset_name, lang=self.lang, split=self.split, chunk=self.chunk
-            )
-            train_args = dt_item.train_args(
-                model_type=self.model_type,
-                resume=self.resume,
-                override=self.override,
-                resume_id=self.resume_id,
-            )
+        dt_item: by_size.BySizeItemsLoader = by_size.BySizeItemsLoader.load(
+            dataset_name=self.dataset_name, lang=self.lang, split=self.split, chunk=self.chunk
+        )
+        train_args = dt_item.train_args(
+            model_type=self.model_type,
+            resume=self.resume,
+            override=self.override,
+            resume_id=self.resume_id,
+        )
         train_args.model_root_dir.mkdir(exist_ok=True, parents=True)
 
         init_logging(
