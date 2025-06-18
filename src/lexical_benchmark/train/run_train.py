@@ -171,7 +171,7 @@ class Train(Command):
     n_procs: int = 8  # TODO: any parallel operation should use this
     device: lb_types.DEVICE_TYPE = "cuda"  # TODO: pass this to the training
     added_tokens: list[str] = arg(default_factory=lambda: ["'", "|"], parser=cp.List(cp.Str()))
-    batch_size: int = arg(default=64, help="Size of batch, 32 for A40 GPU | 64 for A100/H100 (default: 128)")
+    batch_size: int = arg(default=64, help="Size of batch, 32 for A40 GPU | 64 for A100/H100 (default: 64)")
 
     model_config_file: Path | None = arg(None, parser=cp.Path(exists=True))
     log_to_std: bool = False
