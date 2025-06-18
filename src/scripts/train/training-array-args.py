@@ -16,7 +16,7 @@ class TrainArguments(Command):
     """Generate train-arguments."""
 
     dataset_name: tuple[t.Literal["stela", "child_realistic", "childes"], ...] = arg(
-        ("stela", "childes"),
+        ("stela", "childes", "child_realistic"),
         parser=cp.Tuple(cp.Str(), num=None),
         group="params",
         help="List of datasets to use (default: 'stela', 'child_realistic').",

@@ -10,6 +10,8 @@ from pathlib import Path
 
 from num2words import num2words
 
+BASIC_PUNCTUATION = ".!?,:;"
+
 
 def to_roman(value: int) -> str:
     """Convert an int into a roman numeral."""
@@ -349,7 +351,7 @@ class AZFilter(TextNormalization):
         allowed_chars = string.ascii_lowercase + "-' "
 
         if allow_basic_punctuation:
-            allowed_chars += ".!?,:;"
+            allowed_chars += BASIC_PUNCTUATION
 
         if extra_chars is not None:
             allowed_chars += extra_chars
@@ -357,6 +359,10 @@ class AZFilter(TextNormalization):
         super().__init__(allowed_chars=allowed_chars)
         self.label = "AlphabeticFilter"
         self.clean_diacritics = clean_diacritics
+
+        self.discretize_puctuation = True
+        if allow_basic_punctuation:
+            self.discretize_puctuation = True
 
     def __call__(self, line: str) -> str:
         """Clean current line to keep only pure text."""
@@ -366,8 +372,11 @@ class AZFilter(TextNormalization):
         unclean_chars = "".join({c.lower() for c in line if c.lower() not in self.allowed_chars})
         self.add_word(self.label, unclean_chars)
         clean_line = "".join(c.lower() for c in line if c.lower() in self.allowed_chars)
-        # Replace hyphen with space
-        return clean_line.replace("-", " ")
+        clean_line = clean_line.replace("-", " ")
+        if self.discretize_puctuation:
+            for punc in BASIC_PUNCTUATION:
+                clean_line = clean_line.replace(f"{punc}", f" {punc} ")
+        return clean_line
 
 
 class WordCleaner(TextActionFN):

@@ -188,7 +188,12 @@ class ChildRealisticDatasetConfig(DatasetConfig):
         "bnc_spoken.txt",
         "open_subtitles.txt",
         "switchboard.txt",
-        "childes_adult.txt",
+    )
+    processed_sources = (
+        "bnc_spoken.processed",
+        "childes.processed",
+        "open_subtitles.processed",
+        "switchboard.processed",
     )
     langs: tuple[str, ...] = ("EN",)
     size_splits: tuple[str, ...] = ("01", "02", "03", "04", "05", "06", "10", "15", "20", "25", "30", "40", "50", "60")
