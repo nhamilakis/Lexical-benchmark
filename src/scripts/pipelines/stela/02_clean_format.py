@@ -38,6 +38,5 @@ for item in hour_txt.StelaHourTxtItemsLoader.iter_items(langs=("EN",)):
             keep_punctuation=True,
         )
 
-
 progress.complete()
 print("Finished cleaning STELA/by_hour | EN !")

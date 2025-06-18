@@ -86,6 +86,11 @@ class CHILDESDatasetConfig(DatasetConfig):
         return self.root_dir / "dialogs"
 
     @property
+    def by_size_dir(self) -> Path:
+        """Path to by_size split of data."""
+        return self.root_dir / "by_size"
+
+    @property
     def all_accents(self) -> tuple[str, ...]:
         """A tuple containing all lang_accents."""
         return tuple(itertools.chain(*self.LANG_ACCENT.values()))

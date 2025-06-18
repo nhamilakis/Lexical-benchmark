@@ -121,3 +121,8 @@ class CHILDESMetaDir(MetadataDir):
     def speech_quantities(self) -> Path:
         """CSV containing speech quantities per age."""
         return self.root_dir / "speech_quantity.csv"
+
+    @property
+    def stratification_sanity_check(self) -> Path:
+        """CSV containing post stratification sanity-check."""
+        return self.root_dir / "stratification_sanity_check.csv"

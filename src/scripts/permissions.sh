@@ -1,13 +1,18 @@
 #!/bin/bash
 
-# 1. Set ACLs for the directory itself
-setfacl --set=u::rwx,g::rwx,g:hhb:rwx,o::---,m::rwx $1
+if [ "$(hostname -d)" = "oberon2" ]; then
+    echo "is on oberon2"
+    echo "applying permissions..."
+    chown -R :bootphon $PROJECT/lexical-benchmark/v2
+    chmod -R g+rw $PROJECT/lexical-benchmark/v2
+    echo "permissions set on $PROJECT/lexical-benchmark/v2"
+elif [[ "$(hostname)" == *"jean-zay"* ]]; then
+    echo "is on jean-zay"
+    echo "applying permissions..."
+    chown -R :hhb $ALL_CCFRWORK/lexical-benchmark
+    chmod -R g+rw $ALL_CCFRWORK/lexical-benchmark
+    echo "permissions set on $ALL_CCFRWORK/lexical-benchmark"
+else
+    echo "Server not detected"
+fi
 
-# 2. Set default ACLs for future directories and files
-setfacl -m d:u::rwx,d:g::rwx,d:g:hhb:rwx,d:o::---,d:m::rwx $1
-
-# 3. For existing directories recursively: rwx for user & group, nothing for others
-find $1 -type d -exec setfacl --set=u::rwx,g::rwx,g:hhb:rwx,o::---,m::rwx {} \;
-
-# 4. For existing files recursively: rw for user & group, nothing for others
-find $1 -type f -exec setfacl --set=u::rw-,g::rw-,g:hhb:rw-,o::---,m::rw- {} \;
