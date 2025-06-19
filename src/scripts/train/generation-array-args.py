@@ -26,8 +26,8 @@ class GenerationArguments(Command):
     interactive: bool = arg(short="i", default=False, group="debug", hidden=True)
     verbose: bool = arg(default=False, group="debug")
 
-    dataset_names: tuple[t.Literal["stela", "child_realistic", "childes_adult"], ...] = arg(
-        ("stela", "childes_adult"),
+    dataset_names: tuple[lb_types.TRAINABLE_DATASETS, ...] = arg(
+        ("stela", "childes"),
         parser=cp.Tuple(cp.Str(), num=None),
         group="params",
         help="List of datasets to use (default: 'stela', 'child_realistic').",
@@ -76,10 +76,6 @@ class GenerationArguments(Command):
         )
 
         if self.skip_completed:
-            generated_items = filter(lambda x: not x.is_finished(), generated_items)
-
-        # further filter the arguments based on the given months
-        if self.desired_month:
             generated_items = filter(lambda x: not x.is_finished(), generated_items)
 
         return generated_items

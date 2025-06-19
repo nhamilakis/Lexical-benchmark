@@ -66,7 +66,7 @@ def convert_bool(arg_string: str) -> bool:
 class Single(Command):
     """Run generation in single mode."""
 
-    dataset_name: Positional[t.Literal["stela", "child_realistic"]]
+    dataset_name: Positional[lb_types.TRAINABLE_DATASETS]
     lang: Positional[str]
     split: Positional[str]
     chunk: Positional[str]

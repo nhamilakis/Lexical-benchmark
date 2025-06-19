@@ -15,11 +15,11 @@ from lexical_benchmark.utils import ipython_utils
 class TrainArguments(Command):
     """Generate train-arguments."""
 
-    dataset_name: tuple[t.Literal["stela", "child_realistic", "childes"], ...] = arg(
-        ("stela", "childes", "child_realistic"),
+    dataset_name: tuple[lb_types.TRAINABLE_DATASETS, ...] = arg(
+        ("stela", "childes"),
         parser=cp.Tuple(cp.Str(), num=None),
         group="params",
-        help="List of datasets to use (default: 'stela', 'child_realistic').",
+        help="List of datasets to use (default: 'stela', 'childes').",
     )
     lang: str = arg("EN", group="params", help="Language to use (default: EN)")
     train_chunks: tuple[int, ...] = arg(

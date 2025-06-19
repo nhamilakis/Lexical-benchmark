@@ -15,8 +15,9 @@ LEXICON_ITEMS = ("kaikki", "SCOWLv2", "yawl")
 PLACEHOLDER_MONTH = "placeholder"
 
 CLUSTER_DATADIRS = {
-    "coml-cluster": _Path("/scratch1/projects/lexical-benchmark/v2"),
-    "jean-zay": _Path("/lustre/fswork/projects/rech/hhb/commun/lexical-benchmark"),
+    "coml-cluster": _Path(_os.environ.get("$PROJECT", "/scratch1/projects")) / "lexical-benchmark/v2",
+    "jean-zay": _Path(_os.environ.get("ALL_CCFRWORK", "/lustre/fswork/projects/rech/hhb/commun/"))
+    / "lexical-benchmark",
 }
 COML_HOSTNAMES: tuple = tuple({"oberon", "oberon2", "habilis", *[f"puck{i}" for i in range(1, 7)]})
 

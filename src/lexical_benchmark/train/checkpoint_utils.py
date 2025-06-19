@@ -27,7 +27,6 @@ class GenerationCheckpoint:
     """Class to handle generation checkpointing."""
 
     temperature: float
-    hour_per_year: int
     gen_items: dict = field(default_factory=dict)
     checkpoint_interval: int = 500
     checkpoint_counter: int = -1
@@ -61,12 +60,11 @@ class GenerationCheckpoint:
     def init_from_args(
         cls,
         temperature: float,
-        hour_per_year: list,  # FIX: Add explicit parameter
         word_counts: dict,
         location: Path | None = None,
     ) -> "GenerationCheckpoint":
         """Initialise generation checkpoint."""
-        obj = cls(temperature=temperature, hour_per_year=hour_per_year, save_dir=location)
+        obj = cls(temperature=temperature, save_dir=location)
         for (est, month), count in word_counts.items():
             obj.gen_items[(est, month)] = {"current_count": 0, "target_count": count, "text": []}
         return obj
@@ -80,7 +78,7 @@ class GenerationCheckpoint:
         if location is None:
             location = self.save_dir
 
-        file_path = location / f"generation_{self.hour_per_year[0]}_{self.temperature}.intermediate.obj"
+        file_path = location / f"generation_{self.temperature}.intermediate.obj"
         file_path.parent.mkdir(exist_ok=True, parents=True)
         with file_path.open("wb") as fh:
             pickle.dump(self, fh)
@@ -90,7 +88,7 @@ class GenerationCheckpoint:
         if location is None:
             location = self.save_dir
 
-        file_path = location / f"generation_{self.hour_per_year[0]}_{self.temperature}.obj"
+        file_path = location / f"generation_{self.temperature}.obj"
         file_path.parent.mkdir(exist_ok=True, parents=True)
         with file_path.open("wb") as fh:
             pickle.dump(self, fh)
@@ -133,7 +131,7 @@ class GenerationCheckpoint:
 
         if self.checkpoint_counter <= 0 and self.auto_checkpoint:
             L.info(
-                f"Auto-Checkpoint: saving intermediate {self.save_dir}/generation_{self.hour_per_year}_{self.temperature}.intermediate.obj"
+                f"Auto-Checkpoint: saving intermediate{self.save_dir}/generation_{self.temperature}.intermediate.obj"
             )
             self.save_intermediate()
             self.checkpoint_counter = self.checkpoint_interval
@@ -147,7 +145,7 @@ class GenerationCheckpoint:
 
         if self.checkpoint_counter <= 0 and self.auto_checkpoint:
             L.info(
-                f"Auto-Checkpoint: saving intermediate {self.save_dir}/generation_{self.hour_per_year}_{self.temperature}.intermediate.obj"
+                f"Auto-Checkpoint: saving intermediate {self.save_dir}/generation_{self.temperature}.intermediate.obj"
             )
             self.save_intermediate()
             self.checkpoint_counter = self.checkpoint_interval

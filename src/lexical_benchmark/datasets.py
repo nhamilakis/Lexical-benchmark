@@ -1,13 +1,19 @@
 import abc
 import itertools
+import os
 import typing as t
 from pathlib import Path
+
+import typing_extensions as t_ext
 
 from lexical_benchmark import exc, settings
 from lexical_benchmark.text_lib import text_cleaners
 
 CHILDES_SPEECH_TYPES = t.Literal["adult", "child"]
 DATASET_NAMES = t.Literal["childes", "stela", "child_realistic", "word-cdi", "wordstats"]
+
+# NOTE: Used to change generation_checkpoint root directory (should be temporary)
+DEBUG_MIGRATIONS: bool = bool("DEBUG_MIGRATIONS" in os.environ)
 
 
 class DatasetConfig(abc.ABC):
@@ -32,6 +38,11 @@ class DatasetConfig(abc.ABC):
     def text_dir(self) -> Path:
         """Text Location."""
         return self.root_dir / "txt"
+
+    @property
+    def model_root(self) -> Path:
+        """Root dir to store models."""
+        return settings.PATH.model_root / self.dataset_name
 
     @property
     @abc.abstractmethod
@@ -101,7 +112,15 @@ class CHILDESDatasetConfig(DatasetConfig):
     @property
     def by_size_dir(self) -> Path:
         """Path to by_size split of data."""
-        return self.root_dir / "by_size"
+        # NOTE: we only use adult data in the by_size format (if not an extra param is required)
+        return self.root_dir / "by_size" / "adult"
+
+    @t_ext.override
+    @property
+    def model_root(self) -> Path:
+        """Root dir to store models."""
+        # NOTE: we only train using adult data, so its hardcoded
+        return settings.PATH.model_root / self.dataset_name / "adult"
 
     @property
     def all_accents(self) -> tuple[str, ...]:
@@ -111,12 +130,16 @@ class CHILDESDatasetConfig(DatasetConfig):
     @property
     def generation_checkpoint_root(self) -> Path:
         """Root location for checkpoint of generations."""
-        return settings.PATH.generate_root / "checkpoints" / self.dataset_name
+        # NOTE: we only use adult data in training
+        if DEBUG_MIGRATIONS:
+            return settings.PATH.generate_root / "checkpoints.clean" / self.dataset_name / "adult"
+        return settings.PATH.generate_root / "checkpoints" / self.dataset_name / "adult"
 
     @property
     def generation_text_root(self) -> Path:
         """Root location for generated text."""
-        return settings.PATH.generate_root / "text" / self.dataset_name
+        # NOTE: we only use adult data in training
+        return settings.PATH.generate_root / "text" / self.dataset_name / "adult"
 
     @property
     def meta_dir(self) -> Path:
@@ -132,7 +155,7 @@ class CHILDESDatasetConfig(DatasetConfig):
         if hardcoded:
             return tuple(f"{n:0>2}" for n in range(self.BY_SIZE_CHUNK_NUMBER.get(split, 0)))
 
-        section_dir = self.by_size_dir / lang / "adult" / split
+        section_dir = self.by_size_dir / lang / split
         if section_dir.is_dir():
             return tuple([d.name for d in section_dir.iterdir()])
 
@@ -217,6 +240,9 @@ class ChildRealisticDatasetConfig(DatasetConfig):
     @property
     def generation_checkpoint_root(self) -> Path:
         """Root location for checkpoint of generations."""
+        if DEBUG_MIGRATIONS:
+            return settings.PATH.generate_root / "checkpoints.clean" / self.dataset_name
+
         return settings.PATH.generate_root / "checkpoints" / self.dataset_name
 
     @property
@@ -312,6 +338,8 @@ class STELADatasetConfig(DatasetConfig):
     @property
     def generation_checkpoint_root(self) -> Path:
         """Root location for checkpoint of generations."""
+        if DEBUG_MIGRATIONS:
+            return settings.PATH.generate_root / "checkpoints.clean" / self.dataset_name
         return settings.PATH.generate_root / "checkpoints" / self.dataset_name
 
     @property

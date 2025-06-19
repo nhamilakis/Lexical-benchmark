@@ -8,7 +8,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=8
 # Only run this when testing
-#SBATCH --time=2:00:00
+#SBATCH --time=8:00:00
 echo "---START OF ARCHIVE SCRIPT--- $(date)"
 
 # archive_folder.sh - Script to archive a folder with date in filename

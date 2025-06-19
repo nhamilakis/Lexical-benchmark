@@ -1,9 +1,11 @@
 #!/bin/bash
 
 # Initialize variables
+PROJECT="$IDRPROJ"
 time_value="01:30:00"
 nproc_value="8"
 ngpu_value="1"
+gpu_partition="h100"
 
 # Function to display help
 show_help() {
@@ -12,6 +14,7 @@ show_help() {
     echo "  -t <time>    Specify the time (optional)"
     echo "  -p <nproc>   Specify the number of processors (optional)"
     echo "  -g <ngpu>    Specify the number of GPUs (optional)"
+    echo "  -a <a100 / h100 / v100> Specify gpu partition (default: h100)"
     echo "  -h           Show this help message"
 }
 
@@ -38,6 +41,9 @@ while getopts "t:p:g:h" opt; do
                 exit 1
             fi
             ;;
+        a)
+            gpu_partition="$OPTARG"
+            ;;
         h)
             show_help
             exit 0
@@ -50,6 +56,16 @@ while getopts "t:p:g:h" opt; do
     esac
 done
 
-
-echo "Runing interactive job: @H100 with CPU:$nproc_value GPU:$ngpu_value for Time:$time_value : "
-srun --pty --job-name="interactive-gpu" --account="hhb@h100" --nodes="1" --ntasks-per-node="1" --gres="gpu:$ngpu_value" --cpus-per-task="$nproc_value" -C "h100"  -t "$time_value" bash -i
+if [[ "$gpu_partition" != "h100" ]]; then
+    echo "Runing interactive job: @H100 with CPU:$nproc_value GPU:$ngpu_value for Time:$time_value : "
+    srun --pty --job-name="interactive-gpu" --account="$PROJECT@h100" --nodes="1" --ntasks-per-node="1" --gres="gpu:$ngpu_value" --cpus-per-task="$nproc_value" -C "h100"  -t "$time_value" bash -i
+elif [[ "$gpu_partition" != "a100" ]]; then
+    echo "Runing interactive job: @A100 with CPU:$nproc_value GPU:$ngpu_value for Time:$time_value : "
+    srun --pty --job-name="interactive-gpu" --account="$PROJECT@a100" --nodes="1" --ntasks-per-node="1" --gres="gpu:$ngpu_value" --cpus-per-task="$nproc_value" -C "a100"  -t "$time_value" bash -i
+elif [[ "$gpu_partition" != "v100" ]]; then
+    echo "Runing interactive job: @V100 with CPU:$nproc_value GPU:$ngpu_value for Time:$time_value : "
+    srun --pty --job-name="interactive-gpu" --account="$PROJECT@v100" --nodes="1" --ntasks-per-node="1" --gres="gpu:$ngpu_value" --cpus-per-task="$nproc_value" -C "v100"  -t "$time_value" bash -i
+else
+    echo "Bad GPU partition specified, should be '-a [a100 | h100 | v100]'" >&2
+    exit 1
+fi

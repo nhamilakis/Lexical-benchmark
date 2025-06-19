@@ -1,4 +1,3 @@
-import typing as t
 from pathlib import Path
 
 import pydantic
@@ -10,7 +9,7 @@ class _IndexBase(pydantic.BaseModel):
     """Item to pass into train-cmd."""
 
     model_type: lb_types.MODEL_TYPE
-    dataset_name: t.Literal["stela", "child_realistic"]
+    dataset_name: lb_types.TRAINABLE_DATASETS
     lang: str
     split: str
     chunk: str

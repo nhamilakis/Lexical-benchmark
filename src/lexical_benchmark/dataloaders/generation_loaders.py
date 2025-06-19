@@ -67,9 +67,7 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
     split: str
     chunk: str
     temperature: float
-    hour_per_year: int
     model_type: lb_types.MODEL_TYPE
-    target_month: lb_types.TARGET_MONTH
     dt_cfg: _DatasetWithGenerations
 
     def to_args_dict(self) -> dict[str, t.Any]:
@@ -80,7 +78,6 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
             "lang": self.lang,
             "split": self.split,
             "chunk": self.chunk,
-            "hour_per_year": self.hour_per_year,
             "resume": True,
             "override": False,
             "temperature": self.temperature,
@@ -95,24 +92,23 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
     @property
     def intermediate_checkpoint_file(self) -> Path:
         """Path to intermediate checkpoint file."""
-        return self.root_dir / f"generation_{self.hour_per_year}_{self.temperature}.intermediate.obj"
+        return self.root_dir / f"generation_{self.temperature}.intermediate.obj"
 
     @property
     def final_checkpoint_file(self) -> Path:
         """Path to final checkpoint."""
-        return self.root_dir / f"generation_{self.hour_per_year}_{self.temperature}.obj"
+        return self.root_dir / f"generation_{self.temperature}.obj"
 
     @property
     def log_file(self) -> Path:
         """Path to the logfile."""
-        return self.root_dir / f"generation_{self.hour_per_year}_{self.temperature}.log"
+        return self.root_dir / f"generation_{self.temperature}.log"
 
     def load_intermediate(self) -> "GenerationCheckpoint | None":
         """Load intermediate checkpoint."""
         return GenerationCheckpoint.load_intermediate(
             location=self.root_dir,
             temperature=self.temperature,
-            hour_per_year=self.hour_per_year,  # Now properly passed
         )
 
     def load_final(self) -> "GenerationCheckpoint | None":
@@ -120,7 +116,6 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
         return GenerationCheckpoint.load_final(
             location=self.root_dir,
             temperature=self.temperature,
-            hour_per_year=self.hour_per_year,  # Now properly passed
         )
 
     def exists(self) -> bool:
@@ -141,12 +136,6 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
             return chk.remaining_count() == 0
         return False
 
-    def is_target_month(self) -> bool:
-        """Return if generation is the target month."""
-        if not self.target_month:
-            return True
-        return settings.chunk2month(self.split, self.hour_per_year, hour_per_chunk=50) in self.target_month
-
     def __post_init__(self) -> None:
         """post-creation checks."""
         # Check if correct dataset is provided.
@@ -161,7 +150,6 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
         split: str,
         chunk: str,
         temperature: float,
-        hour_per_year: int,
         model_type: lb_types.MODEL_TYPE,
     ) -> "GenerationCheckpointLoader":
         """Load item."""
@@ -173,17 +161,15 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
             chunk=chunk,
             model_type=model_type,
             temperature=temperature,
-            hour_per_year=hour_per_year,
             dt_cfg=datasets.get_config(dataset_name),
         )
 
     @classmethod
     def iter_items(cls, **kwargs: t.Unpack[_CheckPointIteratorKwargs]) -> t.Iterator["GenerationCheckpointLoader"]:
         """Iterate over a set of items."""
-        dataset_list = kwargs.get("datasets", ("stela", "child_realistic"))
+        dataset_list = kwargs.get("datasets", ("stela", "childes"))
         temperatures = kwargs.get("temperatures", settings.GENERATION_TEMPERATURES)
         model_type_list = kwargs.get("model_types", settings.MODEL_TYPES)
-        hour_per_year_list = kwargs.get("hour_per_year", settings.GENERATION_HPY_ITEMS)
 
         for dt_name in dataset_list:
             dt_cfg: _DatasetWithGenerations = datasets.get_config(dt_name)
@@ -216,7 +202,6 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
                                 chunk=_chunk,
                                 model_type=_model,
                                 temperature=_temp,
-                                hour_per_year=hour_per_year_list[0],
                             )
 
 

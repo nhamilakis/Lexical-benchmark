@@ -65,7 +65,7 @@ def train_model(
 class Single(Command):
     """Command line arguments for the train script."""
 
-    dataset_name: Positional[t.Literal["stela", "child_realistic", "childes_adult"]]
+    dataset_name: Positional[lb_types.TRAINABLE_DATASETS]
     lang: Positional[str]
     split: Positional[int]
     chunk: Positional[int]
