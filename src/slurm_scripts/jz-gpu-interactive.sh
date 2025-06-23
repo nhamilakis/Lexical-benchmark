@@ -2,7 +2,7 @@
 
 # Initialize variables
 PROJECT="$IDRPROJ"
-time_value="01:30:00"
+time_value="02:00:00"
 nproc_value="8"
 ngpu_value="1"
 gpu_partition="h100"
@@ -11,16 +11,16 @@ gpu_partition="h100"
 show_help() {
     echo "Usage: $0 [-t time] [-p nproc] [-g ngpu] [-h]"
     echo "Options:"
-    echo "  -t <time>    Specify the time (optional)"
-    echo "  -p <nproc>   Specify the number of processors (optional)"
-    echo "  -g <ngpu>    Specify the number of GPUs (optional)"
+    echo "  -t <time>    Specify the time (default: 2h)"
+    echo "  -p <nproc>   Specify the number of processors (default: 8)"
+    echo "  -g <ngpu>    Specify the number of GPUs (default: 1)"
     echo "  -a <a100 / h100 / v100> Specify gpu partition (default: h100)"
     echo "  -h           Show this help message"
 }
 
 
 # Parse command line options
-while getopts "t:p:g:h" opt; do
+while getopts "t:p:g:a:h" opt; do
     case $opt in
         t)
             time_value="$OPTARG"
@@ -56,13 +56,13 @@ while getopts "t:p:g:h" opt; do
     esac
 done
 
-if [[ "$gpu_partition" != "h100" ]]; then
+if [[ "$gpu_partition" == "h100" ]]; then
     echo "Runing interactive job: @H100 with CPU:$nproc_value GPU:$ngpu_value for Time:$time_value : "
     srun --pty --job-name="interactive-gpu" --account="$PROJECT@h100" --nodes="1" --ntasks-per-node="1" --gres="gpu:$ngpu_value" --cpus-per-task="$nproc_value" -C "h100"  -t "$time_value" bash -i
-elif [[ "$gpu_partition" != "a100" ]]; then
+elif [[ "$gpu_partition" == "a100" ]]; then
     echo "Runing interactive job: @A100 with CPU:$nproc_value GPU:$ngpu_value for Time:$time_value : "
     srun --pty --job-name="interactive-gpu" --account="$PROJECT@a100" --nodes="1" --ntasks-per-node="1" --gres="gpu:$ngpu_value" --cpus-per-task="$nproc_value" -C "a100"  -t "$time_value" bash -i
-elif [[ "$gpu_partition" != "v100" ]]; then
+elif [[ "$gpu_partition" == "v100" ]]; then
     echo "Runing interactive job: @V100 with CPU:$nproc_value GPU:$ngpu_value for Time:$time_value : "
     srun --pty --job-name="interactive-gpu" --account="$PROJECT@v100" --nodes="1" --ntasks-per-node="1" --gres="gpu:$ngpu_value" --cpus-per-task="$nproc_value" -C "v100"  -t "$time_value" bash -i
 else

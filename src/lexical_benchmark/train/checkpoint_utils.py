@@ -35,9 +35,9 @@ class GenerationCheckpoint:
     count_error_margin: int = 0
 
     @classmethod
-    def load_intermediate(cls, location: Path, temperature: float, hour_per_year: int) -> "GenerationCheckpoint | None":
+    def load_intermediate(cls, location: Path, temperature: float) -> "GenerationCheckpoint | None":
         """Load from intermediate."""
-        file_path = location / f"generation_{hour_per_year}_{temperature}.intermediate.obj"
+        file_path = location / f"generation_{temperature}.intermediate.obj"
         if file_path.is_file():
             with file_path.open("rb") as fh:
                 self: GenerationCheckpoint = pickle.load(fh)
@@ -46,9 +46,9 @@ class GenerationCheckpoint:
         return None
 
     @classmethod
-    def load_final(cls, location: Path, temperature: float, hour_per_year: int) -> "GenerationCheckpoint | None":
+    def load_final(cls, location: Path, temperature: float) -> "GenerationCheckpoint | None":
         """Load finished checkpoint."""
-        file_path = location / f"generation_{hour_per_year}_{temperature}.obj"
+        file_path = location / f"generation_{temperature}.obj"
         if file_path.is_file():
             with file_path.open("rb") as fh:
                 self: GenerationCheckpoint = pickle.load(fh)

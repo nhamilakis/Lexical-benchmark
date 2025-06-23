@@ -8,8 +8,8 @@ nproc_value="8"
 show_help() {
     echo "Usage: $0 [-t time] [-p nproc] [-g ngpu] [-h]"
     echo "Options:"
-    echo "  -t <time>    Specify the time (optional)"
-    echo "  -p <nproc>   Specify the number of processors (optional)"
+    echo "  -t <time>    Specify the time (default 2H)"
+    echo "  -p <nproc>   Specify the number of processors (default 8)"
     echo "  -h           Show this help message"
 }
 

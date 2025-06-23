@@ -1,4 +1,5 @@
 import dataclasses
+import logging
 import typing as t
 from pathlib import Path
 
@@ -8,6 +9,8 @@ from lexical_benchmark import datasets, exc, lb_types, utils
 from lexical_benchmark.text_lib import tokenization
 
 from .definitions import DatasetItemsLoader, DatasetTrainArgLoader
+
+L = logging.getLogger(__name__)
 
 
 @t.runtime_checkable
@@ -178,6 +181,7 @@ class BySizeItemsLoader(DatasetItemsLoader):
         resume_id: str | None = None,
     ) -> "BySizeTrainItem":
         """Load train arguments."""
+        L.info(f"Dataloader::{self.dt_cfg.dataset_name}[{self.chunk_id}][{model_type}]")
         return BySizeTrainItem(
             model_type=model_type,
             data_item=self,

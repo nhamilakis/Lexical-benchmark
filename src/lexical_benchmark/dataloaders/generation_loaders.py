@@ -87,7 +87,13 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
     @property
     def root_dir(self) -> Path:
         """Location to write to."""
-        return self.dt_cfg.generation_checkpoint_root / self.lang / self.split / self.chunk / self.model_type
+        return (
+            self.dt_cfg.generation_checkpoint_root
+            / self.lang
+            / f"{self.split:02}"
+            / f"{self.chunk:02}"
+            / self.model_type
+        )
 
     @property
     def intermediate_checkpoint_file(self) -> Path:
@@ -138,6 +144,10 @@ class GenerationCheckpointLoader(DatasetItemsLoader):
 
     def __post_init__(self) -> None:
         """post-creation checks."""
+        # Fix padding for split & chunk
+        self.split = f"{self.split:02}"
+        self.chunk = f"{self.chunk:02}"
+
         # Check if correct dataset is provided.
         if not isinstance(self.dt_cfg, _DatasetWithGenerations):
             raise exc.DatasetTypeError(dataset=type(self.dt_cfg), protocol=_DatasetWithGenerations)
