@@ -1,4 +1,5 @@
 import bisect
+import collections
 
 import numpy as np
 import polars as pl
@@ -61,8 +62,9 @@ MODEL_PROPORTION: dict[lb_types.ESTIMATION_TYPE, dict[int, float]] = {
 def get_token_count_dict(
     model_size: int,
     lang: str,
+    *,
     month_range: tuple[int, int] = settings.MONTH_RANGE,
-    month_estimates: lb_types.ESTIMATION_TYPE = settings.MONTH_ESTIMATES,
+    month_estimates: tuple[lb_types.ESTIMATION_TYPE, ...] = settings.MONTH_ESTIMATES,
 ) -> dict[tuple[str, int], int]:
     """Get token count for a corresponding model size."""
     f_mapping = {}
@@ -78,3 +80,13 @@ def get_token_count_dict(
                 f_mapping[(estimation, month)] = int(tk_count)
 
     return f_mapping
+
+
+def get_month_to_model_size(model_sizes: list[int], lang: str, month_estimate: lb_types.ESTIMATION_TYPE) -> dict:
+    """Build a month to model size mapping."""
+    build_thing = collections.defaultdict(list)
+    for ml_size in model_sizes:
+        source = get_token_count_dict(model_size=ml_size, lang=lang, month_estimates=(month_estimate,))
+        for _, month in source:
+            build_thing[month].append(ml_size)
+    return build_thing
