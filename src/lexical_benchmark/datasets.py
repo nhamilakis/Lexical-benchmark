@@ -12,8 +12,9 @@ from lexical_benchmark.text_lib import text_cleaners
 CHILDES_SPEECH_TYPES = t.Literal["adult", "child"]
 DATASET_NAMES = t.Literal["childes", "stela", "child_realistic", "word-cdi", "wordstats"]
 
-# NOTE: Used to change generation_checkpoint root directory (should be temporary)
-DEBUG_MIGRATIONS: bool = bool("DEBUG_MIGRATIONS" in os.environ)
+# NOTE: Used to revert to old generations/checkpoint folder (new is generations/checkpoint.clean) but its temporary
+# will be removed at some point, when we are sure migration is 100% ok
+LEGACY_GENERATION: bool = bool("LEGACY_GENERATION" in os.environ)
 
 
 class DatasetConfig(abc.ABC):
@@ -130,10 +131,10 @@ class CHILDESDatasetConfig(DatasetConfig):
     @property
     def generation_checkpoint_root(self) -> Path:
         """Root location for checkpoint of generations."""
-        # NOTE: we only use adult data in training
-        if DEBUG_MIGRATIONS:
-            return settings.PATH.generate_root / "checkpoints.clean" / self.dataset_name / "adult"
-        return settings.PATH.generate_root / "checkpoints" / self.dataset_name / "adult"
+        # NOTE: keep clean for now (will be removed in future)
+        if LEGACY_GENERATION:
+            return settings.PATH.generate_root / "checkpoints" / self.dataset_name / "adult"
+        return settings.PATH.generate_root / "checkpoints.clean" / self.dataset_name / "adult"
 
     @property
     def generation_text_root(self) -> Path:
@@ -240,10 +241,9 @@ class ChildRealisticDatasetConfig(DatasetConfig):
     @property
     def generation_checkpoint_root(self) -> Path:
         """Root location for checkpoint of generations."""
-        if DEBUG_MIGRATIONS:
-            return settings.PATH.generate_root / "checkpoints.clean" / self.dataset_name
-
-        return settings.PATH.generate_root / "checkpoints" / self.dataset_name
+        if LEGACY_GENERATION:
+            return settings.PATH.generate_root / "checkpoints" / self.dataset_name
+        return settings.PATH.generate_root / "checkpoints.clean" / self.dataset_name
 
     @property
     def generation_text_root(self) -> Path:
@@ -338,9 +338,9 @@ class STELADatasetConfig(DatasetConfig):
     @property
     def generation_checkpoint_root(self) -> Path:
         """Root location for checkpoint of generations."""
-        if DEBUG_MIGRATIONS:
-            return settings.PATH.generate_root / "checkpoints.clean" / self.dataset_name
-        return settings.PATH.generate_root / "checkpoints" / self.dataset_name
+        if LEGACY_GENERATION:
+            return settings.PATH.generate_root / "checkpoints" / self.dataset_name
+        return settings.PATH.generate_root / "checkpoints.clean" / self.dataset_name
 
     @property
     def generation_text_root(self) -> Path:

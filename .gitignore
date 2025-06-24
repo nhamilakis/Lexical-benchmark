@@ -112,3 +112,6 @@ notebooks/**/*.xlsx
 wandb/
 LD_FLAGS
 *.lock
+
+# 
+test.py

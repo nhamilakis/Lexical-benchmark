@@ -147,7 +147,7 @@ class Generation(Command):
     )
     lang: str = arg("EN", group="params", help="Language to use (default: EN)")
     train_chunks: tuple[int, ...] = arg(
-        default=(0, 1), parser=cp.Tuple(cp.Int(), num=None), group="params", help="Chunks to use (default: 0, 1)"
+        default=(0,), parser=cp.Tuple(cp.Int(), num=None), group="params", help="Chunks to use (default: 0, 1)"
     )
     split_include: tuple[int, ...] | None = arg(default=None, group="params", parser=cp.Tuple(cp.Int(), num=None))
     model_types: tuple[lb_types.MODEL_TYPE, ...] = arg(
@@ -162,11 +162,6 @@ class Generation(Command):
     hour_per_year: tuple[lb_types.ESTIMATION_TYPE, ...] = arg(
         default=settings.GENERATION_HPY_ITEMS, group="params", parser=cp.Tuple(cp.Str(), num=None)
     )
-
-    desired_month: tuple[lb_types.ESTIMATION_TYPE, ...] = arg(
-        default=settings.GENERATION_HPY_ITEMS, group="params", parser=cp.Tuple(cp.Str(), num=None)
-    )
-
     skip_completed: bool = arg(
         short="s", default=False, group="params", help="Skip all models that are trained (default: False)."
     )
@@ -189,6 +184,7 @@ class Generation(Command):
         )
 
         if self.skip_completed:
+            print("skiping completed")
             generated_items = filter(lambda x: not x.is_finished(), generated_items)
 
         return generated_items
@@ -196,18 +192,25 @@ class Generation(Command):
     @staticmethod
     def merge_temps(df: pl.DataFrame) -> pl.DataFrame:
         """Merge items by temperature & completion."""
-        group_cols = [col for col in df.columns if col not in ("temperature", "completed")]
+        group_cols = [col for col in df.columns if col not in ("temperature", "completed", "model_type")]
+
         return df.group_by(group_cols).agg(
-            pl.col("temperature").alias("temperatures"),
+            pl.col("model_type").unique().sort(),
+            pl.col("temperature").unique().sort(),
             # Set completed to True only if ALL rows in group are completed
-            pl.col("completed").all().alias("completed"),
+            pl.col("completed").all(),
         )
 
     def df_to_args(self, df: pl.DataFrame) -> SlurmIndex:
         """Convert from dataframe to arguments."""
-        df = self.merge_temps(df)
+        group_cols = [col for col in df.columns if col not in ("temperature", "completed")]
         df = (
-            df.rename({"temperatures": "temperature_list"})  # 1. Rename temperatures column
+            df.group_by(group_cols)
+            .agg(
+                pl.col("temperature").unique().sort(),
+                pl.col("completed").all(),
+            )
+            .rename({"temperature": "temperature_list"})  # 1. Rename temperatures column
             .drop("completed")  # 2. Remove completed column
             .with_columns(
                 pl.lit(self.hour_per_year).alias("hour_per_year"),  # 3. Add hours_per_year columnr
@@ -224,12 +227,11 @@ class Generation(Command):
             "dataset_name",
             "model_type",
             "completed",
+            "temperature",
         ]
         df = pl.DataFrame([item.to_args_dict() for item in items])
         if self.short:
             df = self.merge_temps(df)
-        else:
-            columns_to_show.append("temperature")
 
         ipython_utils.print_polars_df(
             df=df,
