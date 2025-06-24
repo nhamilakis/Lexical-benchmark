@@ -228,11 +228,13 @@ class _GenTextIteratorKwargs(t.TypedDict):
 
 
 @dataclasses.dataclass
-class GenerationItemsLoader(DatasetItemsLoader):
+class GenerationTextItemLoader(DatasetItemsLoader):
     """Dataset loader for the generated text architecture.
 
     Example File Path:
-    /<root-dir> / generation / text / stela3 / EN /  07 / lstm / 100hpy / 01_00_0.6.txt
+    /<root-dir> / generation / text / stela3 / EN /  DIR / FILE
+    DIR_NAME: MODEL_TYPE '_' ESTIMATION_TYPE '_' TEMPERATURE
+    FILE_NAME: MONTH '_' CHUNK '.txt'
     """
 
     estimation_type: lb_types.ESTIMATION_TYPE
@@ -244,16 +246,24 @@ class GenerationItemsLoader(DatasetItemsLoader):
     dt_cfg: _DatasetWithGenerations
 
     @property
+    def dir_name(self) -> str:
+        """Name of root dir."""
+        return f"{self.model_type}_{self.estimation_type}_{self.temperature}"
+
+    @property
+    def file_name(self) -> str:
+        """Name of text file."""
+        return f"{self.month:02}_{self.model_chunk}.txt"
+
+    @property
     def root_dir(self) -> Path:
         """Path to the root directory."""
-        return (
-            self.dt_cfg.generation_text_root / self.lang / f"{self.month:02}" / self.model_type / self.estimation_type
-        )
+        return self.dt_cfg.generation_text_root / self.lang / self.dir_name
 
     @property
     def text_file(self) -> Path:
         """Path to the text file."""
-        return self.root_dir / f"{self.model_chunk}_{self.temperature}.txt"
+        return self.root_dir / self.file_name
 
     @classmethod
     def load(
@@ -265,7 +275,7 @@ class GenerationItemsLoader(DatasetItemsLoader):
         model_chunk: str,
         month: int,
         temperature: float,
-    ) -> "GenerationItemsLoader":
+    ) -> "GenerationTextItemLoader":
         """Load specific item."""
         return cls(
             dt_cfg=datasets.get_config(dataset_name),
@@ -278,9 +288,9 @@ class GenerationItemsLoader(DatasetItemsLoader):
         )
 
     @classmethod
-    def iter_items(cls, **kwargs: t.Unpack[_GenTextIteratorKwargs]) -> t.Iterable["GenerationItemsLoader"]:
+    def iter_items(cls, **kwargs: t.Unpack[_GenTextIteratorKwargs]) -> t.Iterable["GenerationTextItemLoader"]:
         """Iterate over checkpoint items."""
-        dataset_list = kwargs.get("datasets", ("stela", "child_realistic"))
+        dataset_list = kwargs.get("datasets", ("stela", "childes"))
         temperatures = kwargs.get("temperatures", settings.GENERATION_TEMPERATURES)
         model_type_list = kwargs.get("model_types", settings.MODEL_TYPES)
         estimation_list = kwargs.get("estimation_types", settings.MONTH_ESTIMATES)
