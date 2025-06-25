@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pydantic
 
-from lexical_benchmark import lb_types
+from lexical_benchmark import lb_types, settings
 
 
 class _IndexBase(pydantic.BaseModel):
@@ -16,9 +16,8 @@ class _IndexBase(pydantic.BaseModel):
     resume: bool
     override: bool
     model_config_file: Path | None = None
-    # optional arguments for generation indices
-    hour_per_year: tuple[str, ...] | None = None
-    temperature_list: tuple[float, ...] | None = None
+    hour_per_year: tuple[str, ...] | None = settings.MONTH_ESTIMATES
+    temperature_list: tuple[float, ...] | None = settings.GENERATION_TEMPERATURES
     checkpoint_id: int | str | None = None
 
 

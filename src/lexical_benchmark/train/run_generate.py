@@ -72,10 +72,11 @@ class Single(Command):
     chunk: Positional[str]
     model_type: Positional[str]
 
-    hour_per_year: int = arg(inherited=True, group="generation-params")
+    hour_per_year: tuple[lb_types.ESTIMATION_TYPE, ...] = arg(inherited=True, group="generation-params")
     temperature_list: tuple[float, ...] = arg(inherited=True, group="generation-params")
     resume: bool = arg(inherited=True, group="generation-params")
     override: bool = arg(inherited=True, group="generation-params")
+    resume_id: int | None = arg(inherited=True, group="generation-params")
 
     seed: int = arg(inherited=True, group="global-params")
     device: lb_types.DEVICE_TYPE = arg(inherited=True, group="global-params")
@@ -102,8 +103,8 @@ class Single(Command):
     def model_path(self, item: by_size.BySizeItemsLoader) -> Path:
         """Location of model."""
         model_root = item.model_root / self.model_type
-        if self.checkpoint_id:
-            model_root = model_root / f"checkpoint-{self.checkpoint_id}"
+        if self.resume_id is not None:
+            model_root = model_root / f"checkpoint-{self.resume_id}"
         return model_root
 
     def generation_root(self, item: by_size.BySizeItemsLoader) -> Path:
@@ -146,14 +147,16 @@ class Single(Command):
 
         for temp in self.temperature_list:
             L.info(f"Generating for temperature={temp}")
-            generator.save_generation(
-                target_dir=data_item.geneneration_checkpoint_root / self.model_type,
-                temperature=temp,
-                hour_per_year=self.hour_per_year,  # Now properly passed
-                gen_attrs=token_nb_mapping,
-                resume=self.resume,
-                override=self.override,
-            )
+            for current_hpy in self.hour_per_year:
+                L.info(f"Generating for hpy={current_hpy}")
+                generator.save_generation(
+                    target_dir=data_item.geneneration_checkpoint_root / self.model_type,
+                    temperature=temp,
+                    hour_per_year=current_hpy,
+                    gen_attrs=token_nb_mapping,
+                    resume=self.resume,
+                    override=self.override,
+                )
             L.info(f"Finished generating text for {temp=}")
 
 
@@ -197,9 +200,8 @@ class ArrayIndex(Command):
     def model_path(self, model_root: Path, current_i: GenerationIndex) -> Path:
         """Location of model."""
         model_root = model_root / current_i.model_type
-        checkpoint_id = convert_bool(current_i.checkpoint_id)
-        if checkpoint_id:
-            model_root = model_root / f"checkpoint-{checkpoint_id}"
+        if current_i.checkpoint_id is not None:
+            model_root = model_root / f"checkpoint-{current_i.checkpoint_id}"
         return model_root
 
     def generation_root(self, item: by_size.BySizeItemsLoader, current_i: GenerationIndex) -> Path:
@@ -241,15 +243,17 @@ class ArrayIndex(Command):
         current_i, data_item, generator, token_nb_mapping = self.prep_args()
 
         for temp in current_i.temperature_list:
-            # FIX: Pass hour_per_year parameter
-            generator.save_generation(
-                target_dir=data_item.geneneration_checkpoint_root / current_i.model_type,
-                temperature=temp,
-                hour_per_year=current_i.hour_per_year,  # Now properly passed
-                gen_attrs=token_nb_mapping,
-                resume=current_i.resume,
-                override=current_i.override,
-            )
+            L.info(f"Generating for temperature={temp}")
+            for current_hpy in current_i.hour_per_year:
+                L.info(f"Generating for hpy={current_hpy}")
+                generator.save_generation(
+                    target_dir=data_item.geneneration_checkpoint_root / current_i.model_type,
+                    temperature=temp,
+                    hour_per_year=current_hpy,
+                    gen_attrs=token_nb_mapping,
+                    resume=current_i.resume,
+                    override=current_i.override,
+                )
 
 
 class Generate(Command):
@@ -261,15 +265,15 @@ class Generate(Command):
     temperature_list: tuple[float, ...] = arg(
         settings.GENERATION_TEMPERATURES, parser=cp.Tuple(cp.Float(max=1000), num=None)
     )
-    # FIX: Change from tuple[str, ...] to int to match GenerationCheckpoint
-    hour_per_year: int = arg(
-        default=100,  # Provide sensible default
-        parser=cp.Int(min=1),
+    hour_per_year: tuple[lb_types.ESTIMATION_TYPE, ...] = arg(
+        default=settings.MONTH_ESTIMATES,
+        parser=cp.Tuple(cp.Str(), num=None),
     )
     seed: int = 562
     use_vllm: bool = False
     save_interval: int = 1024
     resume: bool = True
+    resume_id: int | None = None
     override: bool = False
     debug: bool = False
     device: t.Literal["cuda", "cpu"] = "cuda"
