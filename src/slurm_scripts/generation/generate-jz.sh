@@ -25,7 +25,7 @@ done
 
 if [[ "$TEST_MODE" == true ]]; then
     echo "Running in test mode..."
-    uv run code/src/scripts/train/generate.py single stela EN 02 00 lstm --temperature-list 0.3,0.6 --hour-per-year "100hpy"\
+    uv run src/scripts/train/generate.py single stela EN 02 00 lstm --temperature-list 0.3,0.6 --hour-per-year "100hpy"\
         && echo "generation completed succesfully."
     exit 0
 fi
@@ -40,7 +40,7 @@ if [[ -n "${SLURM_ARRAY_TASK_ID}" ]]; then
     fi
     INDEX_FILE="$1"
     shift
-    uv run code/src/scripts/train/generate.py array-index "${INDEX_FILE}" "${SLURM_ARRAY_TASK_ID}" $* \
+    uv run src/scripts/train/generate.py array-index "${INDEX_FILE}" "${SLURM_ARRAY_TASK_ID}" $* \
         && echo "generation completed succesfully."
 else
     echo "Not running as a job array"

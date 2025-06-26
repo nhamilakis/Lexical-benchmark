@@ -278,7 +278,7 @@ class BatchGenerator:
             resume_checkpoint = GenerationCheckpoint.load_intermediate(
                 location=target_dir,
                 temperature=temperature,
-                hour_per_year=hour_per_year,  # Now properly passed
+                # hour_per_year=hour_per_year,  # Now properly passed
             )
             if resume_checkpoint:
                 L.info(
@@ -290,7 +290,7 @@ class BatchGenerator:
             # FIX: Pass hour_per_year when initializing checkpoint
             resume_checkpoint = GenerationCheckpoint.init_from_args(
                 temperature=temperature,
-                hour_per_year=hour_per_year,  # Add this parameter
+                # hour_per_year=hour_per_year,  # Add this parameter
                 word_counts=gen_attrs,
                 location=target_dir,
             )

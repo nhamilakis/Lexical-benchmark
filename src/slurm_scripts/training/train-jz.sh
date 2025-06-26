@@ -32,7 +32,7 @@ done
 
 if [[ "$TEST_MODE" == true ]]; then
     echo "Running in test mode..."
-    uv run code/src/scripts/train/train.py single stela EN 60 00 gpt2 --batch-size 32 --resume \
+    uv run src/scripts/train/train.py single stela EN 60 00 gpt2 --batch-size 32 --resume \
         && echo "training completed succesfully."
     exit 0
 fi
@@ -48,12 +48,12 @@ if [[ -n "${SLURM_ARRAY_TASK_ID}" ]]; then
     INDEX_FILE="$1"
     shift
     echo ">train.py array-index "${INDEX_FILE}" "${SLURM_ARRAY_TASK_ID}" $*"
-    uv run code/src/scripts/train/train.py array-index "${INDEX_FILE}" "${SLURM_ARRAY_TASK_ID}" $* \
+    uv run src/scripts/train/train.py array-index "${INDEX_FILE}" "${SLURM_ARRAY_TASK_ID}" $* \
         && echo "training completed succesfully."
 else
     echo "Not running as a job array"
     echo ">train.py single $*"
-    uv run code/src/scripts/train/train.py single $* \
+    uv run src/scripts/train/train.py single $* \
         && echo "training completed succesfully."
 fi
 echo "---END OF TRAIN SCRIPT--- $(date)"

@@ -1,0 +1,95 @@
+[index.0]
+model_type = 'lstm'
+lang = 'EN'
+split = '05'
+chunk = '00'
+dataset_name = 'childes_adult'
+speech_type = 'null'
+completed_training = false
+generation_root = '/lustre/fswork/projects/rech/hhb/commun/lexical-benchmark/generations/checkpoints/childes_adult/EN/05/00/lstm'
+model_root = '/lustre/fswork/projects/rech/hhb/commun/lexical-benchmark/models/childes_adult/EN/05/00/lstm'
+last_checkpoint = 'null'
+resume = true
+override = false
+resume_id = 'null'
+batch_size = 128
+
+[index.1]
+model_type = 'gpt2'
+lang = 'EN'
+split = '05'
+chunk = '00'
+dataset_name = 'childes_adult'
+speech_type = 'null'
+completed_training = false
+generation_root = '/lustre/fswork/projects/rech/hhb/commun/lexical-benchmark/generations/checkpoints/childes_adult/EN/05/00/gpt2'
+model_root = '/lustre/fswork/projects/rech/hhb/commun/lexical-benchmark/models/childes_adult/EN/05/00/gpt2'
+last_checkpoint = 'null'
+resume = true
+override = false
+resume_id = 'null'
+batch_size = 32
+
+[index.2]
+model_type = 'lstm'
+lang = 'EN'
+split = '15'
+chunk = '00'
+dataset_name = 'childes_adult'
+speech_type = 'null'
+completed_training = false
+generation_root = '/lustre/fswork/projects/rech/hhb/commun/lexical-benchmark/generations/checkpoints/childes_adult/EN/15/00/lstm'
+model_root = '/lustre/fswork/projects/rech/hhb/commun/lexical-benchmark/models/childes_adult/EN/15/00/lstm'
+last_checkpoint = 'null'
+resume = true
+override = false
+resume_id = 'null'
+batch_size = 128
+
+[index.3]
+model_type = 'gpt2'
+lang = 'EN'
+split = '15'
+chunk = '00'
+dataset_name = 'childes_adult'
+speech_type = 'null'
+completed_training = false
+generation_root = '/lustre/fswork/projects/rech/hhb/commun/lexical-benchmark/generations/checkpoints/childes_adult/EN/15/00/gpt2'
+model_root = '/lustre/fswork/projects/rech/hhb/commun/lexical-benchmark/models/childes_adult/EN/15/00/gpt2'
+last_checkpoint = 'null'
+resume = true
+override = false
+resume_id = 'null'
+batch_size = 32
+
+[index.4]
+model_type = 'lstm'
+lang = 'EN'
+split = '20'
+chunk = '00'
+dataset_name = 'childes_adult'
+speech_type = 'null'
+completed_training = false
+generation_root = '/lustre/fswork/projects/rech/hhb/commun/lexical-benchmark/generations/checkpoints/childes_adult/EN/20/00/lstm'
+model_root = '/lustre/fswork/projects/rech/hhb/commun/lexical-benchmark/models/childes_adult/EN/20/00/lstm'
+last_checkpoint = 'null'
+resume = true
+override = false
+resume_id = 'null'
+batch_size = 128
+
+[index.5]
+model_type = 'gpt2'
+lang = 'EN'
+split = '20'
+chunk = '00'
+dataset_name = 'childes_adult'
+speech_type = 'null'
+completed_training = false
+generation_root = '/lustre/fswork/projects/rech/hhb/commun/lexical-benchmark/generations/checkpoints/childes_adult/EN/20/00/gpt2'
+model_root = '/lustre/fswork/projects/rech/hhb/commun/lexical-benchmark/models/childes_adult/EN/20/00/gpt2'
+last_checkpoint = 'null'
+resume = true
+override = false
+resume_id = 'null'
+batch_size = 32

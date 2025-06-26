@@ -200,8 +200,8 @@ class ArrayIndex(Command):
     def model_path(self, model_root: Path, current_i: GenerationIndex) -> Path:
         """Location of model."""
         model_root = model_root / current_i.model_type
-        if current_i.checkpoint_id is not None:
-            model_root = model_root / f"checkpoint-{current_i.checkpoint_id}"
+        # if current_i.checkpoint_id is not None:
+        # model_root = model_root / f"checkpoint-{current_i.checkpoint_id}"
         return model_root
 
     def generation_root(self, item: by_size.BySizeItemsLoader, current_i: GenerationIndex) -> Path:
