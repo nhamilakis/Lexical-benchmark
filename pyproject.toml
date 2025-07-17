@@ -59,6 +59,7 @@ dependencies = [
     "spacy; sys_platform == 'darwin'",
     "wandb",
     "datasets>=3.5.0",
+    "joblib",
 ]
 
 dynamic = ["version"]
@@ -181,6 +182,7 @@ ignore = [
     "COM812",  # Allow trailing comma to be missing
     "G004",    # Allow f-strings in logger (reasonable, but not here)
     "PLR2004", # Allow magic numbers (should be avoided, except some math contexts)
+    "TRY301",  # Allow raise inside a try/except clause.
 ]
 
 

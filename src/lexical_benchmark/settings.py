@@ -5,6 +5,7 @@ import typing as t
 import warnings as _warnings
 from pathlib import Path as _Path
 
+DEBUG: bool = False
 RANDOM_SEED: int = _os.environ.get("RANDOM_SEED", 562)
 DEV_RATIO: float = 8.5 / 100  # percent
 TRAIN_RATIO: float = 1 - DEV_RATIO
@@ -15,7 +16,7 @@ LEXICON_ITEMS = ("kaikki", "SCOWLv2", "yawl")
 PLACEHOLDER_MONTH = "placeholder"
 
 CLUSTER_DATADIRS = {
-    "coml-cluster": _Path(_os.environ.get("$PROJECT", "/scratch1/projects")) / "lexical-benchmark/v2",
+    "coml-cluster": _Path(_os.environ.get("$PROJECT", "/store/projects")) / "lexical-benchmark/v2",
     "jean-zay": _Path(_os.environ.get("ALL_CCFRWORK", "/lustre/fswork/projects/rech/hhb/commun/"))
     / "lexical-benchmark",
 }
@@ -30,6 +31,10 @@ ALL_LANGS = ("EN",)
 STRATIFY_CHUNK_NB = 66
 STRATIFY_DEV_PROPORTION = 6
 
+
+###
+# Lexical-Benchmarks (HF datasets)
+LM_DATASETS = ("childes_adult", "stela")
 #######################################################
 # Dataset abbreviation dict
 dataset_name_dict = {
@@ -129,6 +134,10 @@ def get_cluster_name() -> str:
     if _platform.node() in COML_HOSTNAMES:
         return "coml-cluster"
 
+    # If workdir is defined we are in JZ
+    if "ALL_CCFRWORK" in _os.environ:
+        return "jean-zay"
+
     # Legacy support
     if "JZ" in _os.environ:
         return "jean-zay"
@@ -205,6 +214,11 @@ class _MyPathSettings:
     @property
     def childes(self) -> _Path:
         return self.dataset_root / "CHILDES"
+
+    @property
+    def lm_benchmark_hf(self) -> _Path:
+        """Path to the lexical-benchmark derived dataset (uploaded to HF)."""
+        return self.dataset_root / "lm_benchmark"
 
     @property
     def word_stats(self) -> _Path:

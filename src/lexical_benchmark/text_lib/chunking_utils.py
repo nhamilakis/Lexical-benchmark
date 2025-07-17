@@ -1,4 +1,9 @@
-def chunk_splitter(words: list[str], chunk_size: int = 16_000) -> list[list[str]]:
+from lexical_benchmark import lb_types
+
+from .txt_utils import word_count
+
+
+def chunk_splitter(words: list[lb_types.SentenceStr], chunk_size: int = 16_000) -> list[list[str]]:
     """Break a list of words into evenly sized chunks.
 
     Note:
@@ -11,20 +16,22 @@ def chunk_splitter(words: list[str], chunk_size: int = 16_000) -> list[list[str]
     return [words[i * chunk_size : (i + 1) * chunk_size] for i in range(num_chunks)]
 
 
-def chunk_line_splitter(text_lines: list[str], nb_words: int = 3_500, threshold: float = 0.95) -> list[list[str]]:
+def chunk_line_splitter(
+    text_lines: list[lb_types.SentenceStr], nb_words: int = 3_500, threshold: float = 0.95
+) -> list[list[lb_types.SentenceStr]]:
     """Cut the given list of text into approximatlly equally sized chunks, without breaking lines."""
 
-    def word_count(s: str) -> int:
+    def _word_count(s: str) -> int:
         """Count words in a line of text."""
-        return len(s.split())
+        return word_count([s])
 
-    all_chunks = []
-    current_chunk = []
+    all_chunks: list[list[lb_types.SentenceStr]] = []
+    current_chunk: list[lb_types.SentenceStr] = []
     current_total = 0
     chunk_min_size = int(nb_words * threshold)
 
     for line in text_lines:
-        count = word_count(line)
+        count = _word_count(line)
 
         # If we went over store current, and restart
         if (current_total + count) > nb_words:

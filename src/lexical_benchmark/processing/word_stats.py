@@ -4,7 +4,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from lexical_benchmark.text_lib import chunking_utils, txt_utils
+from lexical_benchmark import lb_types
+from lexical_benchmark.text_lib import chunking_utils
 
 
 @dataclass
@@ -48,17 +49,22 @@ class GroupCleaningStats:
     """Summary statistics of the cleaning operation on a list of chunks."""
 
     chunk_stats: list[ChunkStats]
-    chunk_id: str = ".."
-    dataset_name: str = ".."
+    chunk_id: str = "..."
+    chunk_equality_threshold: float = 0.05
 
     def __post_init__(self) -> None:
-        my_id = f"{self.dataset_name}/{self.chunk_id}"
         block_len = [len(ck.total_tokens) for ck in self.chunk_stats]
-        if not all(x == block_len[0] for x in block_len[1:]):
-            raise ValueError(f"Chunk {my_id} has been cut into unequal chunks")
+        mean_size = np.mean(block_len)
+        if mean_size == 0:
+            assert all(size == 0 for size in block_len), f"Chunk {self.chunk_id} has been cut into unequal chunks"  # noqa: S101
+        else:
+            threshold = mean_size * self.chunk_equality_threshold
+            assert all(abs(size - mean_size) <= threshold for size in block_len), (  # noqa: S101
+                f"Chunk {self.chunk_id} has been cut into unequal chunks"
+            )
 
         for ck in self.chunk_stats:
-            ck.check_validity(my_id)
+            ck.check_validity(self.chunk_id)
 
     def mean_type_token_ratio(self) -> float:
         """Calculate mean type/token ratio across chunk list."""
@@ -119,19 +125,22 @@ class WordRejectionRates:
     """Word Rejection Rate Compute."""
 
     filter_fn: t.Callable[[str], bool]
-    tokenizer: t.Callable[[list[str]], list[str]]
+    tokenizer: t.Callable[[list[str]], list[list[str]]]
 
-    def clean_chunk(self, chunk: list[str], *, skip_tokenization: bool = False) -> ChunkStats:
+    def clean_chunk(self, chunk: list[lb_types.SentenceStr], *, skip_tokenization: bool = False) -> ChunkStats:
         """Clean a chunk."""
-        all_tokens = self.tokenizer(chunk) if skip_tokenization else chunk
+        tokenized_sentences: list[list[lb_types.WordStr]] = self.tokenizer(chunk) if not skip_tokenization else chunk
+        all_tokens = []
         accepted_tokens = []
         rejected_tokens = []
 
-        for token in all_tokens:
-            if self.filter_fn(token):
-                accepted_tokens.append(token)
-            else:
-                rejected_tokens.append(token)
+        for sentence in tokenized_sentences:
+            for word in sentence:
+                all_tokens.append(word)
+                if self.filter_fn(word):
+                    accepted_tokens.append(word)
+                else:
+                    rejected_tokens.append(word)
 
         return ChunkStats(
             total_tokens=all_tokens,
@@ -139,11 +148,19 @@ class WordRejectionRates:
             accepted_tokens=accepted_tokens,
         )
 
-    def normalise_clean_chunk(self, chunk: list[str], normalise_size: int = 2_000) -> GroupCleaningStats:
+    def normalise_clean_chunk(
+        self,
+        chunk: list[str],
+        normalise_size: int = 2_000,
+        item_id: str = "...",
+        threshold: float = 0.95,
+    ) -> GroupCleaningStats:
         """Compute normalised token stats."""
-        chunk_tokens = txt_utils.line_tokenizer(chunk)
-        split_chunk_list = chunking_utils.chunk_splitter(chunk_tokens, chunk_size=normalise_size)
-
+        chunk_list: list[list[lb_types.SentenceStr]] = chunking_utils.chunk_line_splitter(
+            chunk, nb_words=normalise_size, threshold=threshold
+        )
         return GroupCleaningStats(
-            chunk_stats=[self.clean_chunk(chk, skip_tokenization=True) for chk in split_chunk_list]
+            chunk_stats=[self.clean_chunk(chk) for chk in chunk_list],
+            chunk_id=item_id,
+            chunk_equality_threshold=1 - threshold,
         )

@@ -337,7 +337,7 @@ class STELAMetaBuilder(MetaBuilder):
 
         word_stats_factory = word_stats.WordRejectionRates(
             filter_fn=lexicon.DictionairyWordCleaner(lang=self.meta_dir.lang).check,
-            tokenizer=txt_utils.line_tokenizer,
+            tokenizer=txt_utils.tokenize_words,
         )
         results = []
 

@@ -121,19 +121,17 @@ class BatchGenerator:
         class WordLengthStoppingCriteria:
             """Custom stopping criteria for word length constraint."""
 
-            def __init__(self, tokenizer, max_word_length: int, get_current_word_length_func):
+            def __init__(self, tokenizer, max_word_length: int, get_current_word_length_func) -> None:
                 self.tokenizer = tokenizer
                 self.max_word_length = max_word_length
                 self.get_current_word_length = get_current_word_length_func
 
-            def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
+            def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:  # noqa: ARG002
                 # Decode the current sequence to check word length
                 decoded_text = self.tokenizer.decode(input_ids[0], skip_special_tokens=True)
                 current_word_length = self.get_current_word_length(decoded_text)
 
-                if current_word_length > self.max_word_length:
-                    return True
-                return False
+                return current_word_length > self.max_word_length
 
         # Prepare batch input - use empty strings for generation
         input_ids = self.tokenizer([""] * self.batch_size, return_tensors="pt", padding=True).input_ids.to(self.device)
@@ -168,8 +166,6 @@ class BatchGenerator:
 
                 generated_text += decoded
 
-            return generated_text
-
         except (ImportError, AttributeError, TypeError):
             # Generate using built-in model.generate
             outputs = self.model.generate(
@@ -194,6 +190,8 @@ class BatchGenerator:
 
                 generated_text += decoded
 
+            return generated_text
+        else:
             return generated_text
 
     def _generate_vllm(self, temperature: float) -> str:
@@ -263,7 +261,6 @@ class BatchGenerator:
     def save_generation(
         self,
         temperature: float,
-        hour_per_year: int,  # FIX: Add explicit hour_per_year parameter
         gen_attrs: dict,
         target_dir: Path,
         *,
@@ -274,23 +271,14 @@ class BatchGenerator:
         resume_checkpoint = None
 
         if resume:
-            # FIX: Pass all required parameters including hour_per_year
-            resume_checkpoint = GenerationCheckpoint.load_intermediate(
-                location=target_dir,
-                temperature=temperature,
-                # hour_per_year=hour_per_year,  # Now properly passed
-            )
+            resume_checkpoint = GenerationCheckpoint.load_intermediate(location=target_dir, temperature=temperature)
             if resume_checkpoint:
-                L.info(
-                    f"Resuming generation from {target_dir / f'generation_{hour_per_year}_{temperature}.intermediate.obj'}"
-                )
+                L.info(f"Resuming generation from {target_dir / f'generation_{temperature}.intermediate.obj'}")
 
         if override or not resume_checkpoint:
             L.info("Starting generation...")
-            # FIX: Pass hour_per_year when initializing checkpoint
             resume_checkpoint = GenerationCheckpoint.init_from_args(
                 temperature=temperature,
-                # hour_per_year=hour_per_year,  # Add this parameter
                 word_counts=gen_attrs,
                 location=target_dir,
             )

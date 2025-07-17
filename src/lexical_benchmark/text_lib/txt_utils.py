@@ -1,5 +1,7 @@
 from pathlib import Path
 
+BASIC_PUNCTUATION = ".!?,:;"
+
 
 def trim_sentence_list(text: list[str], max_token_count: int) -> list[str]:
     """Trim text to keep sentences within a target word count.
@@ -28,37 +30,62 @@ def trim_sentence_list(text: list[str], max_token_count: int) -> list[str]:
     return trimmed_text
 
 
-def word_count(lines: list[str], *, skip_stupid: bool = True) -> int:
+def tokenize_words(
+    lines: list[str],
+    *,
+    skip_stupid: bool = True,
+    remove_punctiation: bool = True,
+    basic_punctiation: str = BASIC_PUNCTUATION,
+) -> list[list[str]]:
+    """Split a text into TOKENS."""
+    tokenized_lines = []
+    for ln in lines:
+        if len(ln) <= 3 and skip_stupid:
+            continue
+
+        clean_line = ln
+        if remove_punctiation:
+            for pc in basic_punctiation:
+                clean_line.replace(pc, "")
+
+        tokenized_lines.append(clean_line.split())
+    return tokenized_lines
+
+
+def word_count(
+    lines: list[str],
+    *,
+    skip_stupid: bool = True,
+    skip_tokenization=False,
+    remove_punctiation: bool = True,
+    basic_punctiation: str = BASIC_PUNCTUATION,
+) -> int:
     """Count number of words."""
-    total = 0
-    for ln in lines:
-        if len(ln) <= 3 and skip_stupid:
-            continue
-        total += len(ln.split())
-    return total
+    if skip_tokenization:
+        tokenized_lines = lines
+    else:
+        tokenized_lines = tokenize_words(
+            lines, skip_stupid=skip_stupid, remove_punctiation=remove_punctiation, basic_punctiation=basic_punctiation
+        )
+    return sum([len(ln) for ln in tokenized_lines])
 
 
-def type_count(lines: list[str], *, skip_stupid: bool = True) -> int:
+def type_count(
+    lines: list[str],
+    *,
+    skip_stupid: bool = True,
+    remove_punctiation: bool = True,
+    basic_punctiation: str = BASIC_PUNCTUATION,
+) -> int:
     """Count token-types in a set."""
+    tokenized_lines = tokenize_words(
+        lines, skip_stupid=skip_stupid, remove_punctiation=remove_punctiation, basic_punctiation=basic_punctiation
+    )
+    # Flatten lines into a list of words
     words = []
-    for ln in lines:
-        if len(ln) <= 3 and skip_stupid:
-            continue
-        words.extend(ln.split())
+    for line in tokenized_lines:
+        words.extend(line)
     return len(set(words))
-
-
-def tokenizer(line: str) -> list[str]:
-    """Tokenizing function."""
-    return line.split()
-
-
-def line_tokenizer(lines: list[str]) -> list[str]:
-    """Line tokenizing function."""
-    words = []
-    for ln in lines:
-        words.extend(ln.split())
-    return words
 
 
 def sentence_formatting(

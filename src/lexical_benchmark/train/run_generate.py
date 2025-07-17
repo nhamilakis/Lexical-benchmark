@@ -199,10 +199,7 @@ class ArrayIndex(Command):
 
     def model_path(self, model_root: Path, current_i: GenerationIndex) -> Path:
         """Location of model."""
-        model_root = model_root / current_i.model_type
-        # if current_i.checkpoint_id is not None:
-        # model_root = model_root / f"checkpoint-{current_i.checkpoint_id}"
-        return model_root
+        return model_root / current_i.model_type
 
     def generation_root(self, item: by_size.BySizeItemsLoader, current_i: GenerationIndex) -> Path:
         """Root directory for generation."""
@@ -244,16 +241,13 @@ class ArrayIndex(Command):
 
         for temp in current_i.temperature_list:
             L.info(f"Generating for temperature={temp}")
-            for current_hpy in current_i.hour_per_year:
-                L.info(f"Generating for hpy={current_hpy}")
-                generator.save_generation(
-                    target_dir=data_item.geneneration_checkpoint_root / current_i.model_type,
-                    temperature=temp,
-                    hour_per_year=current_hpy,
-                    gen_attrs=token_nb_mapping,
-                    resume=current_i.resume,
-                    override=current_i.override,
-                )
+            generator.save_generation(
+                target_dir=data_item.geneneration_checkpoint_root / current_i.model_type,
+                temperature=temp,
+                gen_attrs=token_nb_mapping,
+                resume=current_i.resume,
+                override=current_i.override,
+            )
 
 
 class Generate(Command):
