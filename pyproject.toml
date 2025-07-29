@@ -74,6 +74,7 @@ Changelog = "https://github.com/nhamilakis/Lexical-benchmark/blob/dev/CHANGELOG.
 download-stela = "lexical_benchmark.downloader:entrypoint"
 gen-checkpoint = "lexical_benchmark.train.checkpoint_utils:check_point_explorer"
 hf-download = "lexical_benchmark.train:hf_dl_cmd"
+hf-dataset-builder = "lexical_benchmark.hf.build.__main__:entrypoint"
 
 [project.optional-dependencies]
 dev = [

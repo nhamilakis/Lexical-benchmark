@@ -12,7 +12,7 @@ from lexical_benchmark.train import checkpoint_utils, generation_constants
 L = logging.getLogger(__name__)
 
 
-class CheckPointView(Command):
+class CheckpointExport(Command):
     """Preview & check a generation checkpoint."""
 
     dataset_name: Positional[lb_types.TRAINABLE_DATASETS]
@@ -75,6 +75,6 @@ class CheckPointView(Command):
 
 
 if __name__ == "__main__":
-    cmd = CheckPointView.parse()
+    cmd = CheckpointExport.parse()
     cmd.export_text()
     L.info(f"Succesfully exported to {cmd.generation_root()}")

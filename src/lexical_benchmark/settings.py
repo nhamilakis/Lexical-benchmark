@@ -20,6 +20,10 @@ CLUSTER_DATADIRS = {
     "jean-zay": _Path(_os.environ.get("ALL_CCFRWORK", "/lustre/fswork/projects/rech/hhb/commun/"))
     / "lexical-benchmark",
 }
+CLUSTER_HF_DATADIRS = {
+    "coml-cluster": _Path(_os.environ.get("$PROJECT", "/store/projects")) / "lexical-benchmark/hf",
+    "jean-zay": _Path(_os.environ.get("ALL_CCFRWORK", "/lustre/fswork/projects/rech/hhb/commun/")) / "hf",
+}
 COML_HOSTNAMES: tuple = tuple({"oberon", "oberon2", "habilis", *[f"puck{i}" for i in range(1, 7)]})
 
 GENERATION_TEMPERATURES = (0.3, 0.6, 1.0, 1.5)
@@ -34,7 +38,7 @@ STRATIFY_DEV_PROPORTION = 6
 
 ###
 # Lexical-Benchmarks (HF datasets)
-LM_DATASETS = ("childes_adult", "stela")
+LM_DATASETS = ("childes", "stela")
 #######################################################
 # Dataset abbreviation dict
 dataset_name_dict = {
@@ -149,6 +153,7 @@ def get_cluster_name() -> str:
 class _MyPathSettings:
     DATA_DIR: _Path = _Path(_os.environ.get("DATA_DIR", "data/"))
     CURRENT_MODEL_VERSION: int = _dataclasses.field(default_factory=lambda: int(_os.environ.get("MODEL_VERSION", 0)))
+    HF_DIR: _Path = _Path(_os.environ.get("HF_DIR", "hf/"))
 
     def __post_init__(self) -> None:
         if "DATA_DIR" not in _os.environ:
@@ -157,6 +162,12 @@ class _MyPathSettings:
             if cluster in CLUSTER_DATADIRS:
                 self.DATA_DIR = CLUSTER_DATADIRS[cluster]
 
+        if "HF_DIR" not in _os.environ:
+            cluster = get_cluster_name()
+            if cluster in CLUSTER_HF_DATADIRS:
+                self.HF_DIR = CLUSTER_HF_DATADIRS[cluster]
+
+        # DATA_DIR must exist
         if not self.DATA_DIR.is_dir():
             _warnings.warn(
                 f"Provided DATA_DIR: {self.DATA_DIR} does not exist.\n"

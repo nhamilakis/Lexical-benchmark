@@ -288,7 +288,7 @@ class GenerationTextItemLoader(DatasetItemsLoader):
         )
 
     @classmethod
-    def iter_items(cls, **kwargs: t.Unpack[_GenTextIteratorKwargs]) -> t.Iterable["GenerationTextItemLoader"]:
+    def iter_items(cls, **kwargs: t.Unpack[_GenTextIteratorKwargs]) -> t.Iterator["GenerationTextItemLoader"]:
         """Iterate over checkpoint items."""
         dataset_list = kwargs.get("datasets", ("stela", "childes"))
         temperatures = kwargs.get("temperatures", settings.GENERATION_TEMPERATURES)
