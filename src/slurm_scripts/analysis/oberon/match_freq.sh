@@ -6,5 +6,8 @@
 #SBATCH --time=1-00:00:00               # Time limit hrs:min:sec
 #SBATCH --output=%x-%j.log             # Standard output and error log
 
+# All files created belong to the project
+umask 007
+
 python src/scripts/analysis/match_freq.py -s 4 --nbins 48
 python src/scripts/analysis/compute_metric.py -g gen/v2 -s 4

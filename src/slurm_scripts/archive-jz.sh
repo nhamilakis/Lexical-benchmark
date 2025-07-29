@@ -11,6 +11,9 @@
 #SBATCH --time=18:00:00
 echo "---START OF ARCHIVE SCRIPT--- $(date)"
 
+# All files created belong to the project
+umask 007
+
 # archive_folder.sh - Script to archive a folder with date in filename
 # Usage: ./archive_folder.sh [source_folder]
 DEST_DIR="/lustre/fsstor/projects/rech/hhb/commun"

@@ -1,5 +1,9 @@
 #!/bin/bash
 
+
+# All files created belong to the project
+umask 007
+
 # Initialize variables
 time_value="2:00:00"
 nproc_value="8"

@@ -22,6 +22,8 @@ echo "---START OF TRAIN SCRIPT--- $(date)"
 export CLUSTER_NAME="jean-zay"
 # Initialize a variable to track if --test was passed
 TEST_MODE=false
+# All files created belong to the project
+umask 007
 
 # Parse all arguments
 for arg in "$@"; do

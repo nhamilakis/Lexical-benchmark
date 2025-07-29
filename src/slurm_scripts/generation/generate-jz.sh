@@ -11,6 +11,8 @@
 #SBATCH --output=logs/%x-%A-%a.log
 #SBATCH --hint=nomultithread        # hyperthreading is deactivated
 echo "---START OF GENERATION SCRIPT--- $(date)"
+# All files created belong to the project
+umask 007
 
 export CLUSTER_NAME="jean-zay"
 # Initialize a variable to track if --test was passed

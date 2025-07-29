@@ -13,6 +13,8 @@
 
 echo "---START OF TRAIN SCRIPT--- $(date)"
 export CLUSTER_NAME="jean-zay"
+# All files created belong to the project
+umask 007
 
 # Define an array of commands
 commands=(

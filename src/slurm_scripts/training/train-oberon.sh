@@ -11,6 +11,9 @@
 ##SBATCH --array=0-2
 #SBATCH --output=logs/%x-%j-%a.log
 
+# All files created belong to the project
+umask 007
+
 # Initialize a variable to track if --test was passed
 TEST_MODE=false
 

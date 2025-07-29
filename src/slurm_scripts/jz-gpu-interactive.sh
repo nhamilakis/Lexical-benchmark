@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# All files created belong to the project
+umask 007
+
 # Initialize variables
 PROJECT="$IDRPROJ"
 time_value="02:00:00"

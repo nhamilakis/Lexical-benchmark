@@ -19,6 +19,9 @@
 #SBATCH --output=/lustre/fswork/projects/rech/hhb/ucx81cx/logs/%x-%j.log
 #SBATCH --hint=nomultithread            # hyperthreading is deactivated
 
+# All files created belong to the project
+umask 007
+
 # ENV setup, if not set
 if [[ -z "${_LM_ENV}" ]]; then
     source $WORK/load.sh
